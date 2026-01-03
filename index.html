@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Summary Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        .upload-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .upload-zone.has-file {
+            border-color: #22c55e;
+            background-color: #f0fdf4;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tab-active {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-break { page-break-before: always; }
+        }
+        .status-select {
+            min-width: 90px;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .status-present { background-color: #dcfce7; color: #166534; }
+        .status-absent { background-color: #fee2e2; color: #991b1b; }
+        .status-sick { background-color: #fef3c7; color: #92400e; }
+        .status-excused { background-color: #e0e7ff; color: #3730a3; }
+        .status-normal { background-color: #f3f4f6; color: #374151; }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        .compact-table td, .compact-table th {
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+        }
+        .compact-table .status-badge {
+            padding: 1px 6px !important;
+            font-size: 10px !important;
+        }
+        .login-modal {
+            backdrop-filter: blur(4px);
+        }
+        .admin-only {
+            display: none !important;
+        }
+        .admin-mode .admin-only {
+            display: block !important;
+        }
+        .admin-mode .admin-only.hidden {
+            display: none !important;
+        }
+        .admin-mode .public-only {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Access Control Modal -->
+    <div id="accessModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 fade-in">
+            <div class="text-center mb-6">
+                <div class="text-6xl mb-4">🔐</div>
+                <h2 class="text-2xl font-bold text-gray-800">Access Portal</h2>
+                <p class="text-gray-600 mt-2">Choose your access level</p>
+            </div>
+            
+            <div class="space-y-4">
+                <button onclick="enterPublicMode()" class="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg transition-all flex items-center justify-center gap-3">
+                    <span class="text-2xl">👁️</span>
+                    <div class="text-left">
+                        <div class="font-bold">Public View</div>
+                        <div class="text-sm opacity-90">View Dashboard Only</div>
+                    </div>
+                </button>
+                
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">or</span>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-2xl">🔑</span>
+                        <div>
+                            <div class="font-bold text-gray-800">Admin Access</div>
+                            <div class="text-sm text-gray-600">Full Control</div>
+                        </div>
+                    </div>
+                    <input type="password" id="adminPassword" placeholder="Enter Admin Password" 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 mb-3"
+                        onkeypress="if(event.key === 'Enter') enterAdminMode()">
+                    <button onclick="enterAdminMode()" class="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all">
+                        Login as Admin
+                    </button>
+                </div>
+            </div>
+            
+            <p class="text-center text-xs text-gray-400 mt-6">Admin password required for data upload and mapping</p>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 max-w-7xl" id="mainContent" style="display: none;">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="flex justify-center items-center gap-4 mb-2">
+                <h1 class="text-3xl font-bold text-gray-800">📊 Report Summary Generator</h1>
+                <span id="accessBadge" class="px-3 py-1 rounded-full text-sm font-medium"></span>
+            </div>
+            <p class="text-gray-600">Upload Excel files, filter by date, and generate summary reports by enumerator groups</p>
+            <button onclick="switchAccessMode()" class="mt-2 text-sm text-purple-600 hover:text-purple-800 underline no-print">
+                Switch Access Mode
+            </button>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-t-xl shadow-md mb-0 no-print" id="tabNavigation">
+            <div class="flex border-b">
+                <button onclick="switchTab('data')" id="tab-data" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors tab-active admin-only">
+                    📁 Data Upload
+                </button>
+                <button onclick="switchTab('mapping')" id="tab-mapping" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors admin-only">
+                    👥 Enumerator Mapping
+                </button>
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors">
+                    📊 Dashboard
+                </button>
+            </div>
+        </div>
+
+        <!-- Data Upload Tab -->
+        <div id="content-data" class="tab-content admin-only">
+            <div class="grid lg:grid-cols-3 gap-6">
+                <!-- Left Column: File Uploads -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Date Selection -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                            <span>📅</span> Date Selection
+                        </h2>
+                        <div class="flex flex-wrap gap-4 items-end">
+                            <div class="flex items-center gap-4 mb-4">
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="dateMode" value="single" checked class="text-blue-600" onchange="toggleDateMode()">
+                                    <span>Single Date</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="dateMode" value="range" class="text-blue-600" onchange="toggleDateMode()">
+                                    <span>Date Range</span>
+                                </label>
+                            </div>
+                            <div class="flex flex-wrap gap-4 w-full">
+                                <div class="flex-1 min-w-[200px]">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                    <input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div class="flex-1 min-w-[200px]" id="endDateContainer">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                    <input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Uploads Grid -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                            <span>📁</span> Upload Data Files
+                        </h2>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-dss" onclick="document.getElementById('file-dss').click()">
+                                <input type="file" id="file-dss" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'dss')">
+                                <div class="text-3xl mb-2">🏭</div>
+                                <div class="font-medium text-gray-700">DT / Substation</div>
+                                <div class="text-sm text-gray-500" id="status-dss">Click or drag to upload</div>
+                            </div>
+
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-ht" onclick="document.getElementById('file-ht').click()">
+                                <input type="file" id="file-ht" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'ht')">
+                                <div class="text-3xl mb-2">🔌</div>
+                                <div class="font-medium text-gray-700">HT Pole</div>
+                                <div class="text-sm text-gray-500" id="status-ht">Click or drag to upload</div>
+                            </div>
+
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-lt" onclick="document.getElementById('file-lt').click()">
+                                <input type="file" id="file-lt" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'lt')">
+                                <div class="text-3xl mb-2">💡</div>
+                                <div class="font-medium text-gray-700">LT Pole</div>
+                                <div class="text-sm text-gray-500" id="status-lt">Click or drag to upload</div>
+                            </div>
+
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-cust" onclick="document.getElementById('file-cust').click()">
+                                <input type="file" id="file-cust" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'cust')">
+                                <div class="text-3xl mb-2">👥</div>
+                                <div class="font-medium text-gray-700">Customer Enumeration</div>
+                                <div class="text-sm text-gray-500" id="status-cust">Click or drag to upload</div>
+                            </div>
+
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-issues" onclick="document.getElementById('file-issues').click()">
+                                <input type="file" id="file-issues" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'issues')">
+                                <div class="text-3xl mb-2">⚠️</div>
+                                <div class="font-medium text-gray-700">Issue Log</div>
+                                <div class="text-sm text-gray-500" id="status-issues">Click or drag to upload</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <div class="flex gap-4 flex-wrap">
+                        <button onclick="generateReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
+                            <span>📊</span> Generate Report
+                        </button>
+                        <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
+                            <span>📥</span> Export Excel
+                        </button>
+                        <button onclick="clearAll()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Quick Stats -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span>📈</span> Upload Status
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <div class="text-sm text-gray-600">Files Uploaded</div>
+                            <div class="text-2xl font-bold text-gray-800" id="filesCount">0 / 5</div>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <div class="text-sm text-gray-600">Total Records</div>
+                            <div class="text-2xl font-bold text-gray-800" id="totalRecords">0</div>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <div class="text-sm text-gray-600">Enumerators Mapped</div>
+                            <div class="text-2xl font-bold text-gray-800" id="mappedCount">0</div>
+                        </div>
+                    </div>
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-semibold text-blue-800 mb-2">Status Legend</h3>
+                        <ul class="text-sm text-blue-700 space-y-1">
+                            <li><span class="inline-block w-3 h-3 rounded bg-green-400 mr-2"></span>Present - Working</li>
+                            <li><span class="inline-block w-3 h-3 rounded bg-red-400 mr-2"></span>Absent - No show</li>
+                            <li><span class="inline-block w-3 h-3 rounded bg-yellow-400 mr-2"></span>Sick - Health issues</li>
+                            <li><span class="inline-block w-3 h-3 rounded bg-indigo-400 mr-2"></span>Excused - Permitted leave</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="mt-8 space-y-6" id="resultsSection" style="display: none;">
+                <!-- AEDC Results -->
+                <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm">A</span>
+                        AEDC Enumerators Report
+                        <span id="dateRangeAedc" class="text-sm font-normal text-gray-500 ml-2"></span>
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm compact-table" id="resultsTableAedc">
+                            <thead>
+                                <tr class="bg-blue-50">
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">S/N</th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">Full Name</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">Customer</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">Issues</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b bg-blue-100">Total/Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBodyAedc"></tbody>
+                            <tfoot id="resultsTfootAedc" class="bg-blue-100 font-semibold"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BSS Results -->
+                <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm">B</span>
+                        BSS Enumerators Report
+                        <span id="dateRangeBss" class="text-sm font-normal text-gray-500 ml-2"></span>
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm compact-table" id="resultsTableBss">
+                            <thead>
+                                <tr class="bg-green-50">
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">S/N</th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">Full Name</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">Customer</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">Issues</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b bg-green-100">Total/Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBodyBss"></tbody>
+                            <tfoot id="resultsTfootBss" class="bg-green-100 font-semibold"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- NYSC Results -->
+                <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm">N</span>
+                        NYSC Enumerators Report
+                        <span id="dateRangeNysc" class="text-sm font-normal text-gray-500 ml-2"></span>
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm compact-table" id="resultsTableNysc">
+                            <thead>
+                                <tr class="bg-orange-50">
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">S/N</th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">Full Name</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">Customer</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b">Issues</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700 border-b bg-orange-100">Total/Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBodyNysc"></tbody>
+                            <tfoot id="resultsTfootNysc" class="bg-orange-100 font-semibold"></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mapping Tab -->
+        <div id="content-mapping" class="tab-content hidden admin-only">
+            <div class="space-y-6">
+                <!-- AEDC Enumerators -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm">A</span>
+                        AEDC Enumerators
+                    </h2>
+                    <div class="space-y-3 mb-4" id="mappingContainer-aedc"></div>
+                    <button onclick="addMappingRow('aedc')" class="w-full py-2 px-4 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                        + Add AEDC Enumerator
+                    </button>
+                    <div class="mt-4 pt-4 border-t">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quick Import (CSV: username,fullname)</label>
+                        <textarea id="bulkMapping-aedc" rows="2" placeholder="username1,Full Name 1&#10;username2,Full Name 2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                        <button onclick="importMappings('aedc')" class="mt-2 w-full py-2 px-4 bg-blue-100 hover:bg-blue-200 rounded-lg text-sm font-medium transition-colors text-blue-700">
+                            Import AEDC Mappings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BSS Enumerators -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm">B</span>
+                        BSS Enumerators
+                    </h2>
+                    <div class="space-y-3 mb-4" id="mappingContainer-bss"></div>
+                    <button onclick="addMappingRow('bss')" class="w-full py-2 px-4 border-2 border-dashed border-green-300 rounded-lg text-green-600 hover:border-green-500 hover:bg-green-50 transition-colors">
+                        + Add BSS Enumerator
+                    </button>
+                    <div class="mt-4 pt-4 border-t">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quick Import (CSV: username,fullname)</label>
+                        <textarea id="bulkMapping-bss" rows="2" placeholder="username1,Full Name 1&#10;username2,Full Name 2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                        <button onclick="importMappings('bss')" class="mt-2 w-full py-2 px-4 bg-green-100 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors text-green-700">
+                            Import BSS Mappings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- NYSC Enumerators -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm">N</span>
+                        NYSC Enumerators
+                    </h2>
+                    <div class="space-y-3 mb-4" id="mappingContainer-nysc"></div>
+                    <button onclick="addMappingRow('nysc')" class="w-full py-2 px-4 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:border-orange-500 hover:bg-orange-50 transition-colors">
+                        + Add NYSC Enumerator
+                    </button>
+                    <div class="mt-4 pt-4 border-t">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quick Import (CSV: username,fullname)</label>
+                        <textarea id="bulkMapping-nysc" rows="2" placeholder="username1,Full Name 1&#10;username2,Full Name 2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                        <button onclick="importMappings('nysc')" class="mt-2 w-full py-2 px-4 bg-orange-100 hover:bg-orange-200 rounded-lg text-sm font-medium transition-colors text-orange-700">
+                            Import NYSC Mappings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="content-dashboard" class="tab-content hidden">
+            <!-- Dashboard Header with Date -->
+            <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-8 mb-6 text-white text-center">
+                <h2 class="text-3xl font-bold mb-2" id="dashboardDateHeader">📊 Enumeration Dashboard</h2>
+                <p class="text-lg opacity-90" id="dashboardSubtitle">Generate a report to view dashboard</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 mb-6 no-print">
+                <button onclick="exportToPNG()" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <span>📸</span> Export PNG
+                </button>
+                <button onclick="printDashboard()" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <span>🖨️</span> Print
+                </button>
+                <button onclick="exportDashboard()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <span>📥</span> Export All
+                </button>
+            </div>
+            
+            <!-- Dashboard Content for PNG Export -->
+            <div id="dashboardCapture">
+
+            <!-- Top/Least Performers Cards -->
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <!-- AEDC Card -->
+                <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+                    <div class="text-center mb-4">
+                        <span class="text-3xl">🏆</span>
+                        <h3 class="text-lg font-bold text-blue-600">AEDC</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-green-50 p-3 rounded-lg">
+                            <div class="text-xs text-green-600 font-semibold">🏅 Top Performer</div>
+                            <div class="font-bold text-green-800" id="aedcTopName">-</div>
+                            <div class="text-sm text-green-600" id="aedcTopCount">(0)</div>
+                        </div>
+                        <div class="bg-red-50 p-3 rounded-lg">
+                            <div class="text-xs text-red-600 font-semibold">📉 Least Performer</div>
+                            <div class="font-bold text-red-800" id="aedcLeastName">-</div>
+                            <div class="text-sm text-red-600" id="aedcLeastCount">(0)</div>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-blue-800" id="aedcTotalDash">0</div>
+                            <div class="text-xs text-blue-600">Total Entries</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BSS Card -->
+                <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+                    <div class="text-center mb-4">
+                        <span class="text-3xl">🏆</span>
+                        <h3 class="text-lg font-bold text-green-600">BSS</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-green-50 p-3 rounded-lg">
+                            <div class="text-xs text-green-600 font-semibold">🏅 Top Performer</div>
+                            <div class="font-bold text-green-800" id="bssTopName">-</div>
+                            <div class="text-sm text-green-600" id="bssTopCount">(0)</div>
+                        </div>
+                        <div class="bg-red-50 p-3 rounded-lg">
+                            <div class="text-xs text-red-600 font-semibold">📉 Least Performer</div>
+                            <div class="font-bold text-red-800" id="bssLeastName">-</div>
+                            <div class="text-sm text-red-600" id="bssLeastCount">(0)</div>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-green-800" id="bssTotalDash">0</div>
+                            <div class="text-xs text-green-600">Total Entries</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NYSC Card -->
+                <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+                    <div class="text-center mb-4">
+                        <span class="text-3xl">🏆</span>
+                        <h3 class="text-lg font-bold text-orange-600">NYSC</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-green-50 p-3 rounded-lg">
+                            <div class="text-xs text-green-600 font-semibold">🏅 Top Performer</div>
+                            <div class="font-bold text-green-800" id="nyscTopName">-</div>
+                            <div class="text-sm text-green-600" id="nyscTopCount">(0)</div>
+                        </div>
+                        <div class="bg-red-50 p-3 rounded-lg">
+                            <div class="text-xs text-red-600 font-semibold">📉 Least Performer</div>
+                            <div class="font-bold text-red-800" id="nyscLeastName">-</div>
+                            <div class="text-sm text-red-600" id="nyscLeastCount">(0)</div>
+                        </div>
+                        <div class="bg-orange-100 p-3 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-orange-800" id="nyscTotalDash">0</div>
+                            <div class="text-xs text-orange-600">Total Entries</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attendance Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-gradient-to-br from-green-400 to-green-600 rounded-xl shadow-md p-6 text-white text-center">
+                    <div class="text-3xl mb-2">👥</div>
+                    <div class="text-sm opacity-90">Present</div>
+                    <div class="text-4xl font-bold" id="presentCount">0</div>
+                </div>
+                <div class="bg-gradient-to-br from-red-400 to-red-600 rounded-xl shadow-md p-6 text-white text-center">
+                    <div class="text-3xl mb-2">🚫</div>
+                    <div class="text-sm opacity-90">Absent</div>
+                    <div class="text-4xl font-bold" id="absentCount">0</div>
+                </div>
+                <div class="bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl shadow-md p-6 text-white text-center">
+                    <div class="text-3xl mb-2">📝</div>
+                    <div class="text-sm opacity-90">Excused</div>
+                    <div class="text-4xl font-bold" id="excusedCount">0</div>
+                </div>
+                <div class="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-md p-6 text-white text-center">
+                    <div class="text-3xl mb-2">🤒</div>
+                    <div class="text-sm opacity-90">Sick</div>
+                    <div class="text-4xl font-bold" id="sickCount">0</div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <!-- Pie Chart -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">📊 Group Comparison</h3>
+                    <div class="chart-container">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bar Chart -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">📈 Asset Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AEDC Dashboard Table -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">A</span>
+                    AEDC Enumerators
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs compact-table">
+                        <thead>
+                            <tr class="bg-blue-50">
+                                <th class="text-left font-semibold text-gray-700 border-b">S/N</th>
+                                <th class="text-left font-semibold text-gray-700 border-b">Full Name</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
+                                <th class="text-center font-semibold text-gray-700 border-b bg-blue-100">Total</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardBodyAedc"></tbody>
+                        <tfoot id="dashboardTfootAedc" class="bg-blue-100 font-semibold"></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- BSS Dashboard Table -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">B</span>
+                    BSS Enumerators
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs compact-table">
+                        <thead>
+                            <tr class="bg-green-50">
+                                <th class="text-left font-semibold text-gray-700 border-b">S/N</th>
+                                <th class="text-left font-semibold text-gray-700 border-b">Full Name</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
+                                <th class="text-center font-semibold text-gray-700 border-b bg-green-100">Total</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardBodyBss"></tbody>
+                        <tfoot id="dashboardTfootBss" class="bg-green-100 font-semibold"></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- NYSC Dashboard Table -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs">N</span>
+                    NYSC Enumerators
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs compact-table">
+                        <thead>
+                            <tr class="bg-orange-50">
+                                <th class="text-left font-semibold text-gray-700 border-b">S/N</th>
+                                <th class="text-left font-semibold text-gray-700 border-b">Full Name</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
+                                <th class="text-center font-semibold text-gray-700 border-b bg-orange-100">Total</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardBodyNysc"></tbody>
+                        <tfoot id="dashboardTfootNysc" class="bg-orange-100 font-semibold"></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Grand Total Summary -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">Σ</span>
+                    Grand Total Summary
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs compact-table" id="tableGrandTotal">
+                        <thead>
+                            <tr class="bg-purple-50">
+                                <th class="text-left font-semibold text-gray-700 border-b">Group</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
+                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
+                                <th class="text-center font-semibold text-gray-700 border-b bg-purple-100">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bodyGrandTotal"></tbody>
+                        <tfoot id="footGrandTotal" class="bg-purple-200 font-bold"></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Absent/Sick/Excused Lists -->
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-red-500">
+                    <h3 class="text-lg font-semibold text-red-600 mb-4 flex items-center gap-2">
+                        <span>🚫</span> Absent Enumerators
+                    </h3>
+                    <ul class="space-y-2" id="absentList">
+                        <li class="text-gray-500 italic">None</li>
+                    </ul>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-yellow-500">
+                    <h3 class="text-lg font-semibold text-yellow-600 mb-4 flex items-center gap-2">
+                        <span>🤒</span> Sick Enumerators
+                    </h3>
+                    <ul class="space-y-2" id="sickList">
+                        <li class="text-gray-500 italic">None</li>
+                    </ul>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-indigo-500">
+                    <h3 class="text-lg font-semibold text-indigo-600 mb-4 flex items-center gap-2">
+                        <span>📝</span> Excused Enumerators
+                    </h3>
+                    <ul class="space-y-2" id="excusedList">
+                        <li class="text-gray-500 italic">None</li>
+                    </ul>
+                </div>
+            </div>
+            </div><!-- End dashboardCapture -->
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg transition-all transform translate-y-20 opacity-0 no-print" style="z-index: 1000;"></div>
+    </div>
+
+    <script>
+        // Access Control
+        const ADMIN_PASSWORD = 'admin123'; // Change this password
+        let isAdminMode = false;
+
+        // Data storage
+        const uploadedData = { dss: null, ht: null, lt: null, cust: null, issues: null };
+        const usernameMappings = { aedc: new Map(), bss: new Map(), nysc: new Map() };
+        
+        // Report results storage with status
+        let reportResults = {
+            aedc: { results: [], totals: {} },
+            bss: { results: [], totals: {} },
+            nysc: { results: [], totals: {} },
+            dateRange: '',
+            formattedDate: ''
+        };
+
+        // Chart instances
+        let pieChart = null;
+        let barChart = null;
+
+        // Access Control Functions
+        function enterPublicMode() {
+            isAdminMode = false;
+            document.body.classList.remove('admin-mode');
+            document.getElementById('accessModal').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('accessBadge').textContent = '👁️ Public View';
+            document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
+            
+            // Initialize all tabs to hidden first
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // Switch to dashboard tab for public users
+            switchTab('dashboard');
+            showStatus('Welcome! You are viewing in Public Mode', 'info');
+        }
+
+        function enterAdminMode() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdminMode = true;
+                document.body.classList.add('admin-mode');
+                document.getElementById('accessModal').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('accessBadge').textContent = '🔑 Admin Mode';
+                document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700';
+                
+                // Initialize all tabs to hidden first
+                document.querySelectorAll('.tab-content').forEach(el => {
+                    el.style.display = 'none';
+                });
+                
+                // Switch to data tab for admin
+                switchTab('data');
+                showStatus('Welcome Admin! You have full access', 'success');
+            } else {
+                showStatus('Invalid password. Please try again.', 'error');
+                document.getElementById('adminPassword').value = '';
+            }
+        }
+
+        function switchAccessMode() {
+            document.getElementById('accessModal').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('adminPassword').value = '';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+            
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                addMappingRow(group);
+                addMappingRow(group);
+            });
+
+            setupDragAndDrop();
+            updateStats();
+        });
+
+        function switchTab(tabName) {
+            // For public mode, only allow dashboard
+            if (!isAdminMode && tabName !== 'dashboard') {
+                showStatus('Please login as Admin to access this section', 'warning');
+                return;
+            }
+            
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+                el.style.display = 'none';
+            });
+            
+            // Remove active state from all tabs
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.remove('tab-active'));
+            
+            // Show selected tab content
+            const selectedContent = document.getElementById(`content-${tabName}`);
+            selectedContent.classList.remove('hidden');
+            selectedContent.style.display = 'block';
+            
+            // Add active state to selected tab
+            document.getElementById(`tab-${tabName}`).classList.add('tab-active');
+
+            if (tabName === 'dashboard') {
+                updateDashboard();
+            }
+        }
+
+        function toggleDateMode() {
+            const isRange = document.querySelector('input[name="dateMode"]:checked').value === 'range';
+            document.getElementById('endDate').disabled = !isRange;
+            if (!isRange) {
+                document.getElementById('endDate').value = document.getElementById('startDate').value;
+            }
+        }
+
+        function setupDragAndDrop() {
+            const zones = document.querySelectorAll('.upload-zone');
+            zones.forEach(zone => {
+                zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+                zone.addEventListener('dragleave', () => { zone.classList.remove('dragover'); });
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('dragover');
+                    const input = zone.querySelector('input[type="file"]');
+                    const type = input.id.replace('file-', '');
+                    if (e.dataTransfer.files.length) {
+                        input.files = e.dataTransfer.files;
+                        handleFileUpload(input, type);
+                    }
+                });
+            });
+        }
+
+        function handleFileUpload(input, type) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const zone = document.getElementById(`zone-${type}`);
+            const status = document.getElementById(`status-${type}`);
+            status.textContent = 'Processing...';
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+                    
+                    uploadedData[type] = jsonData;
+                    zone.classList.add('has-file');
+                    status.innerHTML = `<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${jsonData.length} rows</span>`;
+                    updateStats();
+                    showStatus(`Loaded ${jsonData.length} rows from ${file.name}`, 'success');
+                } catch (error) {
+                    status.textContent = 'Error loading file';
+                    showStatus('Error loading file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updateStats() {
+            const filesUploaded = Object.values(uploadedData).filter(d => d !== null).length;
+            const totalRecords = Object.values(uploadedData).reduce((sum, d) => sum + (d ? d.length : 0), 0);
+            const mappedCount = usernameMappings.aedc.size + usernameMappings.bss.size + usernameMappings.nysc.size;
+
+            document.getElementById('filesCount').textContent = `${filesUploaded} / 5`;
+            document.getElementById('totalRecords').textContent = totalRecords.toLocaleString();
+            document.getElementById('mappedCount').textContent = mappedCount;
+        }
+
+        function addMappingRow(group, username = '', fullname = '') {
+            const container = document.getElementById(`mappingContainer-${group}`);
+            const colors = { aedc: 'blue', bss: 'green', nysc: 'orange' };
+            const color = colors[group];
+            
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 fade-in';
+            row.innerHTML = `
+                <input type="text" placeholder="Username" value="${username}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-${color}-500" onchange="updateMappings('${group}')">
+                <input type="text" placeholder="Full Name" value="${fullname}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-${color}-500" onchange="updateMappings('${group}')">
+                <button onclick="this.parentElement.remove(); updateMappings('${group}');" class="px-2 text-red-500 hover:text-red-700">✕</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function updateMappings(group) {
+            usernameMappings[group].clear();
+            const rows = document.querySelectorAll(`#mappingContainer-${group} > div`);
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const username = inputs[0].value.trim().toLowerCase();
+                const fullname = inputs[1].value.trim();
+                if (username && fullname) {
+                    usernameMappings[group].set(username, fullname);
+                }
+            });
+            updateStats();
+        }
+
+        function importMappings(group) {
+            const text = document.getElementById(`bulkMapping-${group}`).value;
+            const lines = text.split('\n').filter(l => l.trim());
+            
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    addMappingRow(group, parts[0].trim(), parts.slice(1).join(',').trim());
+                }
+            });
+            
+            updateMappings(group);
+            document.getElementById(`bulkMapping-${group}`).value = '';
+            showStatus(`Imported ${lines.length} ${group.toUpperCase()} mappings`, 'success');
+        }
+
+        function parseDate(value) {
+            if (!value) return null;
+            if (value instanceof Date) return value;
+            const parsed = new Date(value);
+            if (!isNaN(parsed.getTime())) return parsed;
+            if (typeof value === 'number') {
+                const excelEpoch = new Date(1899, 11, 30);
+                return new Date(excelEpoch.getTime() + value * 86400000);
+            }
+            return null;
+        }
+
+        function processDataSheet(data, startDate, endDate) {
+            const counts = new Map();
+            if (!data || !Array.isArray(data)) return counts;
+            
+            const sampleRow = data[0] || {};
+            const columns = Object.keys(sampleRow);
+            let timeCol = columns.find(c => c.toLowerCase().includes('time') || c.toLowerCase().includes('date'));
+            let userCol = columns.find(c => c.toLowerCase().includes('username') || c.toLowerCase() === 'user');
+            
+            if (!timeCol || !userCol) return counts;
+            
+            data.forEach(row => {
+                const timeValue = row[timeCol];
+                const username = (row[userCol] || '').toString().trim().toLowerCase();
+                if (!username) return;
+                
+                const rowDate = parseDate(timeValue);
+                if (!rowDate) return;
+                
+                const rowDateOnly = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
+                const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                
+                if (rowDateOnly >= startOnly && rowDateOnly <= endOnly) {
+                    counts.set(username, (counts.get(username) || 0) + 1);
+                }
+            });
+            return counts;
+        }
+
+        function formatDateHeader(dateStr) {
+            const date = new Date(dateStr);
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const dayName = days[date.getDay()];
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            
+            const suffix = (day === 1 || day === 21 || day === 31) ? 'st' : (day === 2 || day === 22) ? 'nd' : (day === 3 || day === 23) ? 'rd' : 'th';
+            
+            return `${dayName} ${day}${suffix} ${month} ${year}`;
+        }
+
+        function generateReport() {
+            ['aedc', 'bss', 'nysc'].forEach(group => updateMappings(group));
+            
+            const startDateStr = document.getElementById('startDate').value;
+            let endDateStr = document.getElementById('endDate').value;
+            
+            if (!startDateStr) {
+                showStatus('Please select a start date', 'error');
+                return;
+            }
+            
+            const isRange = document.querySelector('input[name="dateMode"]:checked').value === 'range';
+            if (!isRange) endDateStr = startDateStr;
+            
+            if (endDateStr < startDateStr) {
+                showStatus('End date cannot be before start date', 'error');
+                return;
+            }
+            
+            const startDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            
+            const hasData = Object.values(uploadedData).some(d => d !== null);
+            if (!hasData) {
+                showStatus('Please upload at least one data file', 'error');
+                return;
+            }
+            
+            const dssCounts = processDataSheet(uploadedData.dss, startDate, endDate);
+            const htCounts = processDataSheet(uploadedData.ht, startDate, endDate);
+            const ltCounts = processDataSheet(uploadedData.lt, startDate, endDate);
+            const custCounts = processDataSheet(uploadedData.cust, startDate, endDate);
+            const issueCounts = processDataSheet(uploadedData.issues, startDate, endDate);
+
+            reportResults.dateRange = startDateStr === endDateStr ? `(${startDateStr})` : `(${startDateStr} to ${endDateStr})`;
+            reportResults.formattedDate = isRange 
+                ? `${formatDateHeader(startDateStr)} - ${formatDateHeader(endDateStr)}`
+                : formatDateHeader(startDateStr);
+
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const groupResults = [];
+                let groupTotals = { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 };
+                
+                usernameMappings[group].forEach((fullname, username) => {
+                    const dss = dssCounts.get(username) || 0;
+                    const ht = htCounts.get(username) || 0;
+                    const cust = custCounts.get(username) || 0;
+                    const lt = ltCounts.get(username) || 0;
+                    const issues = issueCounts.get(username) || 0;
+                    const total = dss + ht + cust + lt + issues;
+                    
+                    groupResults.push({ 
+                        username, fullname, dss, ht, cust, lt, issues, total,
+                        status: total > 0 ? 'present' : 'present'
+                    });
+                    
+                    groupTotals.dss += dss;
+                    groupTotals.ht += ht;
+                    groupTotals.cust += cust;
+                    groupTotals.lt += lt;
+                    groupTotals.issues += issues;
+                    groupTotals.total += total;
+                });
+                
+                groupResults.sort((a, b) => b.total - a.total);
+                reportResults[group] = { results: groupResults, totals: groupTotals };
+            });
+            
+            renderAllResults(startDateStr, endDateStr);
+            updateDashboard();
+            
+            const totalEntries = reportResults.aedc.totals.total + reportResults.bss.totals.total + reportResults.nysc.totals.total;
+            const totalUsers = reportResults.aedc.results.length + reportResults.bss.results.length + reportResults.nysc.results.length;
+            
+            showStatus(`Report generated: ${totalUsers} users, ${totalEntries} total entries`, 'success');
+        }
+
+        function updateStatus(group, index, status) {
+            if (reportResults[group] && reportResults[group].results[index]) {
+                reportResults[group].results[index].status = status;
+                updateDashboard();
+            }
+        }
+
+        function renderGroupTable(group, bgClass) {
+            const { results, totals } = reportResults[group];
+            const tbody = document.getElementById(`resultsBody${capitalize(group)}`);
+            const tfoot = document.getElementById(`resultsTfoot${capitalize(group)}`);
+            const dateDisplay = document.getElementById(`dateRange${capitalize(group)}`);
+            
+            dateDisplay.textContent = reportResults.dateRange;
+            
+            tbody.innerHTML = results.map((r, i) => `
+                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-${bgClass}-50 transition-colors">
+                    <td class="border-b">${i + 1}</td>
+                    <td class="border-b font-medium">${escapeHtml(r.fullname)}</td>
+                    <td class="border-b text-center">${r.dss || '-'}</td>
+                    <td class="border-b text-center">${r.ht || '-'}</td>
+                    <td class="border-b text-center">${r.cust || '-'}</td>
+                    <td class="border-b text-center">${r.lt || '-'}</td>
+                    <td class="border-b text-center">${r.issues || '-'}</td>
+                    <td class="border-b text-center">
+                        <select onchange="updateStatus('${group}', ${i}, this.value)" class="status-select status-${r.status}">
+                            <option value="present" ${r.status === 'present' ? 'selected' : ''}>${r.total} ✓</option>
+                            <option value="absent" ${r.status === 'absent' ? 'selected' : ''}>Absent</option>
+                            <option value="sick" ${r.status === 'sick' ? 'selected' : ''}>Sick</option>
+                            <option value="excused" ${r.status === 'excused' ? 'selected' : ''}>Excused</option>
+                        </select>
+                    </td>
+                </tr>
+            `).join('');
+            
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="2">TOTAL (${results.length} enumerators)</td>
+                    <td class="text-center">${totals.dss}</td>
+                    <td class="text-center">${totals.ht}</td>
+                    <td class="text-center">${totals.cust}</td>
+                    <td class="text-center">${totals.lt}</td>
+                    <td class="text-center">${totals.issues}</td>
+                    <td class="text-center font-bold">${totals.total}</td>
+                </tr>
+            `;
+        }
+
+        function renderAllResults(startDate, endDate) {
+            renderGroupTable('aedc', 'blue');
+            renderGroupTable('bss', 'green');
+            renderGroupTable('nysc', 'orange');
+            
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function updateDashboard() {
+            document.getElementById('dashboardDateHeader').textContent = reportResults.formattedDate 
+                ? `📊 ${reportResults.formattedDate} Enumeration Dashboard`
+                : '📊 Enumeration Dashboard';
+            document.getElementById('dashboardSubtitle').textContent = reportResults.dateRange || 'Generate a report to view dashboard';
+
+            let presentCount = 0, absentCount = 0, sickCount = 0, excusedCount = 0;
+            const absentList = [], sickList = [], excusedList = [];
+
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const groupLabel = group.toUpperCase();
+                reportResults[group].results.forEach(r => {
+                    switch(r.status) {
+                        case 'present': presentCount++; break;
+                        case 'absent': absentCount++; absentList.push(`${r.fullname} (${groupLabel})`); break;
+                        case 'sick': sickCount++; sickList.push(`${r.fullname} (${groupLabel})`); break;
+                        case 'excused': excusedCount++; excusedList.push(`${r.fullname} (${groupLabel})`); break;
+                    }
+                });
+            });
+
+            document.getElementById('presentCount').textContent = presentCount;
+            document.getElementById('absentCount').textContent = absentCount;
+            document.getElementById('sickCount').textContent = sickCount;
+            document.getElementById('excusedCount').textContent = excusedCount;
+
+            document.getElementById('absentList').innerHTML = absentList.length 
+                ? absentList.map(n => `<li class="p-2 bg-red-50 rounded text-red-700 text-sm">${n}</li>`).join('')
+                : '<li class="text-gray-500 italic">None</li>';
+            document.getElementById('sickList').innerHTML = sickList.length 
+                ? sickList.map(n => `<li class="p-2 bg-yellow-50 rounded text-yellow-700 text-sm">${n}</li>`).join('')
+                : '<li class="text-gray-500 italic">None</li>';
+            document.getElementById('excusedList').innerHTML = excusedList.length 
+                ? excusedList.map(n => `<li class="p-2 bg-indigo-50 rounded text-indigo-700 text-sm">${n}</li>`).join('')
+                : '<li class="text-gray-500 italic">None</li>';
+
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const results = reportResults[group].results.filter(r => r.status === 'present');
+                const sorted = [...results].sort((a, b) => b.total - a.total);
+                const top = sorted[0];
+                const least = sorted[sorted.length - 1];
+                
+                document.getElementById(`${group}TopName`).textContent = top ? top.fullname : '-';
+                document.getElementById(`${group}TopCount`).textContent = top ? `(${top.total})` : '(0)';
+                document.getElementById(`${group}LeastName`).textContent = least ? least.fullname : '-';
+                document.getElementById(`${group}LeastCount`).textContent = least ? `(${least.total})` : '(0)';
+                document.getElementById(`${group}TotalDash`).textContent = reportResults[group].totals.total || 0;
+            });
+
+            updateGrandTotalTable();
+            updateDashboardTables();
+            updateCharts();
+        }
+
+        function updateDashboardTables() {
+            renderDashboardGroupTable('aedc', 'blue');
+            renderDashboardGroupTable('bss', 'green');
+            renderDashboardGroupTable('nysc', 'orange');
+        }
+
+        function renderDashboardGroupTable(group, bgClass) {
+            const { results, totals } = reportResults[group];
+            const tbody = document.getElementById(`dashboardBody${capitalize(group)}`);
+            const tfoot = document.getElementById(`dashboardTfoot${capitalize(group)}`);
+            
+            if (!tbody || !tfoot) return;
+            
+            const statusLabels = {
+                'present': '<span class="status-badge px-1 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Present</span>',
+                'absent': '<span class="status-badge px-1 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Absent</span>',
+                'sick': '<span class="status-badge px-1 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Sick</span>',
+                'excused': '<span class="status-badge px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">Excused</span>'
+            };
+            
+            tbody.innerHTML = results.map((r, i) => `
+                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                    <td class="border-b">${i + 1}</td>
+                    <td class="border-b font-medium">${escapeHtml(r.fullname)}</td>
+                    <td class="border-b text-center">${r.dss || '-'}</td>
+                    <td class="border-b text-center">${r.ht || '-'}</td>
+                    <td class="border-b text-center">${r.cust || '-'}</td>
+                    <td class="border-b text-center">${r.lt || '-'}</td>
+                    <td class="border-b text-center">${r.issues || '-'}</td>
+                    <td class="border-b text-center font-bold">${r.total}</td>
+                    <td class="border-b text-center">${statusLabels[r.status] || statusLabels['present']}</td>
+                </tr>
+            `).join('');
+            
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="2">TOTAL (${results.length})</td>
+                    <td class="text-center">${totals.dss || 0}</td>
+                    <td class="text-center">${totals.ht || 0}</td>
+                    <td class="text-center">${totals.cust || 0}</td>
+                    <td class="text-center">${totals.lt || 0}</td>
+                    <td class="text-center">${totals.issues || 0}</td>
+                    <td class="text-center font-bold">${totals.total || 0}</td>
+                    <td class="text-center"></td>
+                </tr>
+            `;
+        }
+
+        function updateGrandTotalTable() {
+            const grandTotalBody = document.getElementById('bodyGrandTotal');
+            const grandTotalFoot = document.getElementById('footGrandTotal');
+            
+            const groups = [
+                { name: 'AEDC Enumerators', data: reportResults.aedc.totals, color: 'blue' },
+                { name: 'BSS Enumerators', data: reportResults.bss.totals, color: 'green' },
+                { name: 'NYSC Enumerators', data: reportResults.nysc.totals, color: 'orange' }
+            ];
+            
+            grandTotalBody.innerHTML = groups.map((g, i) => `
+                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                    <td class="border-b font-medium">
+                        <span class="inline-flex items-center gap-2">
+                            <span class="w-3 h-3 bg-${g.color}-500 rounded-full"></span>
+                            ${g.name}
+                        </span>
+                    </td>
+                    <td class="border-b text-center">${g.data.dss || 0}</td>
+                    <td class="border-b text-center">${g.data.ht || 0}</td>
+                    <td class="border-b text-center">${g.data.cust || 0}</td>
+                    <td class="border-b text-center">${g.data.lt || 0}</td>
+                    <td class="border-b text-center">${g.data.issues || 0}</td>
+                    <td class="border-b text-center font-bold">${g.data.total || 0}</td>
+                </tr>
+            `).join('');
+            
+            const grandTotals = {
+                dss: (reportResults.aedc.totals.dss || 0) + (reportResults.bss.totals.dss || 0) + (reportResults.nysc.totals.dss || 0),
+                ht: (reportResults.aedc.totals.ht || 0) + (reportResults.bss.totals.ht || 0) + (reportResults.nysc.totals.ht || 0),
+                cust: (reportResults.aedc.totals.cust || 0) + (reportResults.bss.totals.cust || 0) + (reportResults.nysc.totals.cust || 0),
+                lt: (reportResults.aedc.totals.lt || 0) + (reportResults.bss.totals.lt || 0) + (reportResults.nysc.totals.lt || 0),
+                issues: (reportResults.aedc.totals.issues || 0) + (reportResults.bss.totals.issues || 0) + (reportResults.nysc.totals.issues || 0),
+                total: (reportResults.aedc.totals.total || 0) + (reportResults.bss.totals.total || 0) + (reportResults.nysc.totals.total || 0)
+            };
+            
+            grandTotalFoot.innerHTML = `
+                <tr>
+                    <td>GRAND TOTAL</td>
+                    <td class="text-center">${grandTotals.dss}</td>
+                    <td class="text-center">${grandTotals.ht}</td>
+                    <td class="text-center">${grandTotals.cust}</td>
+                    <td class="text-center">${grandTotals.lt}</td>
+                    <td class="text-center">${grandTotals.issues}</td>
+                    <td class="text-center">${grandTotals.total}</td>
+                </tr>
+            `;
+        }
+
+        function updateCharts() {
+            if (pieChart) pieChart.destroy();
+            if (barChart) barChart.destroy();
+
+            const aedcTotal = reportResults.aedc.totals.total || 0;
+            const bssTotal = reportResults.bss.totals.total || 0;
+            const nyscTotal = reportResults.nysc.totals.total || 0;
+
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            pieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['AEDC', 'BSS', 'NYSC'],
+                    datasets: [{
+                        data: [aedcTotal, bssTotal, nyscTotal],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(249, 115, 22, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(249, 115, 22, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 20, font: { size: 12 } }
+                        }
+                    }
+                }
+            });
+
+            const grandTotals = {
+                dss: (reportResults.aedc.totals.dss || 0) + (reportResults.bss.totals.dss || 0) + (reportResults.nysc.totals.dss || 0),
+                ht: (reportResults.aedc.totals.ht || 0) + (reportResults.bss.totals.ht || 0) + (reportResults.nysc.totals.ht || 0),
+                cust: (reportResults.aedc.totals.cust || 0) + (reportResults.bss.totals.cust || 0) + (reportResults.nysc.totals.cust || 0),
+                lt: (reportResults.aedc.totals.lt || 0) + (reportResults.bss.totals.lt || 0) + (reportResults.nysc.totals.lt || 0),
+                issues: (reportResults.aedc.totals.issues || 0) + (reportResults.bss.totals.issues || 0) + (reportResults.nysc.totals.issues || 0)
+            };
+
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues'],
+                    datasets: [{
+                        label: 'Total Count',
+                        data: [grandTotals.dss, grandTotals.ht, grandTotals.cust, grandTotals.lt, grandTotals.issues],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(234, 179, 8, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(249, 115, 22, 1)',
+                            'rgba(234, 179, 8, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(239, 68, 68, 1)'
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function exportToExcel() {
+            const hasData = reportResults.aedc.results.length || reportResults.bss.results.length || reportResults.nysc.results.length;
+            if (!hasData) {
+                showStatus('No data to export. Generate a report first.', 'error');
+                return;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const { results, totals } = reportResults[group];
+                if (results.length > 0) {
+                    const sheetData = [
+                        ['S/N', 'Full Name', 'DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues', 'Total', 'Status'],
+                        ...results.map((r, i) => [i + 1, r.fullname, r.dss, r.ht, r.cust, r.lt, r.issues, r.total, r.status]),
+                        ['', 'TOTAL', totals.dss, totals.ht, totals.cust, totals.lt, totals.issues, totals.total, '']
+                    ];
+                    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+                    XLSX.utils.book_append_sheet(wb, ws, `${group.toUpperCase()} Enumerators`);
+                }
+            });
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            XLSX.writeFile(wb, `Report_Summary_${startDate}_to_${endDate}.xlsx`);
+            showStatus('Report exported successfully', 'success');
+        }
+
+        function exportDashboard() {
+            const hasData = reportResults.aedc.results.length || reportResults.bss.results.length || reportResults.nysc.results.length;
+            if (!hasData) {
+                showStatus('No data to export. Generate a report first.', 'error');
+                return;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            
+            const summaryData = [
+                ['ENUMERATION DASHBOARD SUMMARY'],
+                [reportResults.formattedDate],
+                [''],
+                ['ATTENDANCE SUMMARY'],
+                ['Present', document.getElementById('presentCount').textContent],
+                ['Absent', document.getElementById('absentCount').textContent],
+                ['Sick', document.getElementById('sickCount').textContent],
+                ['Excused', document.getElementById('excusedCount').textContent],
+                [''],
+                ['GROUP TOTALS'],
+                ['Group', 'DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues', 'Total'],
+                ['AEDC', reportResults.aedc.totals.dss || 0, reportResults.aedc.totals.ht || 0, reportResults.aedc.totals.cust || 0, reportResults.aedc.totals.lt || 0, reportResults.aedc.totals.issues || 0, reportResults.aedc.totals.total || 0],
+                ['BSS', reportResults.bss.totals.dss || 0, reportResults.bss.totals.ht || 0, reportResults.bss.totals.cust || 0, reportResults.bss.totals.lt || 0, reportResults.bss.totals.issues || 0, reportResults.bss.totals.total || 0],
+                ['NYSC', reportResults.nysc.totals.dss || 0, reportResults.nysc.totals.ht || 0, reportResults.nysc.totals.cust || 0, reportResults.nysc.totals.lt || 0, reportResults.nysc.totals.issues || 0, reportResults.nysc.totals.total || 0]
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), 'Summary');
+            
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const { results, totals } = reportResults[group];
+                const sheetData = [
+                    [`${group.toUpperCase()} ENUMERATORS ${reportResults.dateRange}`],
+                    [''],
+                    ['S/N', 'Full Name', 'DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues', 'Total', 'Status'],
+                    ...results.map((r, i) => [i + 1, r.fullname, r.dss, r.ht, r.cust, r.lt, r.issues, r.total, r.status]),
+                    ['', 'TOTAL', totals.dss || 0, totals.ht || 0, totals.cust || 0, totals.lt || 0, totals.issues || 0, totals.total || 0, '']
+                ];
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), group.toUpperCase());
+            });
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            XLSX.writeFile(wb, `Dashboard_${startDate}_to_${endDate}.xlsx`);
+            showStatus('Dashboard exported successfully', 'success');
+        }
+
+        function printDashboard() {
+            window.print();
+        }
+
+        function exportToPNG() {
+            const captureElement = document.getElementById('dashboardCapture');
+            if (!captureElement) {
+                showStatus('Dashboard content not found', 'error');
+                return;
+            }
+
+            const hasData = reportResults.aedc.results.length || reportResults.bss.results.length || reportResults.nysc.results.length;
+            if (!hasData) {
+                showStatus('No data to export. Generate a report first.', 'error');
+                return;
+            }
+
+            showStatus('Generating PNG... Please wait', 'info');
+
+            const dashboardTab = document.getElementById('content-dashboard');
+            const wasHidden = dashboardTab.classList.contains('hidden');
+            if (wasHidden) {
+                dashboardTab.classList.remove('hidden');
+            }
+
+            html2canvas(captureElement, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#f3f4f6',
+                logging: false
+            }).then(canvas => {
+                if (wasHidden) {
+                    dashboardTab.classList.add('hidden');
+                }
+
+                const link = document.createElement('a');
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                link.download = `Dashboard_${startDate}_to_${endDate}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                showStatus('Dashboard exported as PNG successfully!', 'success');
+            }).catch(err => {
+                if (wasHidden) {
+                    dashboardTab.classList.add('hidden');
+                }
+                showStatus('Error generating PNG: ' + err.message, 'error');
+                console.error(err);
+            });
+        }
+
+        function clearAll() {
+            Object.keys(uploadedData).forEach(key => {
+                uploadedData[key] = null;
+                document.getElementById(`zone-${key}`).classList.remove('has-file');
+                document.getElementById(`status-${key}`).textContent = 'Click or drag to upload';
+                document.getElementById(`file-${key}`).value = '';
+            });
+            
+            reportResults = {
+                aedc: { results: [], totals: {} },
+                bss: { results: [], totals: {} },
+                nysc: { results: [], totals: {} },
+                dateRange: '',
+                formattedDate: ''
+            };
+            
+            document.getElementById('resultsSection').style.display = 'none';
+            updateStats();
+            updateDashboard();
+            
+            showStatus('All data cleared', 'info');
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            const colors = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                info: 'bg-blue-500 text-white',
+                warning: 'bg-yellow-500 text-black'
+            };
+            
+            statusEl.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg transition-all transform ${colors[type]} no-print`;
+            statusEl.textContent = message;
+            statusEl.style.transform = 'translateY(0)';
+            statusEl.style.opacity = '1';
+            
+            setTimeout(() => {
+                statusEl.style.transform = 'translateY(20px)';
+                statusEl.style.opacity = '0';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
