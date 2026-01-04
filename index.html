@@ -75,8 +75,14 @@
         .admin-mode .admin-only.hidden {
             display: none !important;
         }
+        .admin-mode .admin-only-inline {
+            display: inline-flex !important;
+        }
         .admin-mode .public-only {
-            display: none;
+            display: none !important;
+        }
+        .public-only {
+            display: block;
         }
         .sync-indicator {
             animation: pulse 2s infinite;
@@ -98,6 +104,17 @@
         .firebase-connected { background-color: #dcfce7; color: #166534; }
         .firebase-disconnected { background-color: #fee2e2; color: #991b1b; }
         .firebase-syncing { background-color: #fef3c7; color: #92400e; }
+        .date-chip {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .date-chip:hover {
+            transform: scale(1.05);
+        }
+        .date-chip.selected {
+            ring: 2px;
+            ring-color: #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -264,9 +281,6 @@
                         <button onclick="generateReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
                             <span>📊</span> Generate Report
                         </button>
-                        <button onclick="saveToCloud()" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
-                            <span>☁️</span> Save to Cloud
-                        </button>
                         <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
                             <span>📥</span> Export Excel
                         </button>
@@ -295,8 +309,8 @@
                             <div class="text-2xl font-bold text-gray-800" id="mappedCount">0</div>
                         </div>
                         <div class="p-4 bg-purple-50 rounded-lg">
-                            <div class="text-sm text-purple-600">Cloud Sync</div>
-                            <div class="text-lg font-bold text-purple-800" id="lastSyncTime">Not synced yet</div>
+                            <div class="text-sm text-purple-600">Saved Dashboards</div>
+                            <div class="text-lg font-bold text-purple-800" id="savedDashboardsCount">0</div>
                         </div>
                     </div>
                     <div class="mt-6 p-4 bg-blue-50 rounded-lg">
@@ -467,16 +481,63 @@
 
         <!-- Dashboard Tab -->
         <div id="content-dashboard" class="tab-content hidden">
+            <!-- Date Selection for Dashboard (Public View) -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6 no-print">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span>📅</span> Select Dashboard Date
+                </h2>
+                
+                <!-- Date Mode Selection -->
+                <div class="flex items-center gap-4 mb-4">
+                    <label class="flex items-center gap-2">
+                        <input type="radio" name="dashDateMode" value="single" checked class="text-blue-600" onchange="toggleDashDateMode()">
+                        <span>Single Date</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="radio" name="dashDateMode" value="range" class="text-blue-600" onchange="toggleDashDateMode()">
+                        <span>Date Range</span>
+                    </label>
+                </div>
+                
+                <!-- Date Inputs -->
+                <div class="flex flex-wrap gap-4 mb-4">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <input type="date" id="dashStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="loadDashboardForDate()">
+                    </div>
+                    <div class="flex-1 min-w-[200px]" id="dashEndDateContainer">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                        <input type="date" id="dashEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled onchange="loadDashboardForDate()">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadDashboardForDate()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors">
+                            Load Dashboard
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Available Saved Dates -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">📂 Available Saved Dashboards:</label>
+                    <div id="savedDatesList" class="flex flex-wrap gap-2">
+                        <span class="text-gray-500 italic text-sm">No saved dashboards yet</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Dashboard Header with Date -->
             <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-8 mb-6 text-white text-center">
                 <h2 class="text-3xl font-bold mb-2" id="dashboardDateHeader">📊 Enumeration Dashboard</h2>
-                <p class="text-lg opacity-90" id="dashboardSubtitle">Generate a report to view dashboard</p>
+                <p class="text-lg opacity-90" id="dashboardSubtitle">Select a date to view dashboard</p>
             </div>
 
             <!-- Action Buttons -->
             <div class="flex justify-end gap-3 mb-6 no-print">
-                <button onclick="loadFromCloud()" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
-                    <span>🔄</span> Refresh Data
+                <button onclick="saveDashboardToCloud()" class="admin-only bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <span>☁️</span> Save to Cloud
+                </button>
+                <button onclick="loadSavedDates()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <span>🔄</span> Refresh
                 </button>
                 <button onclick="exportToPNG()" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
                     <span>📸</span> Export PNG
@@ -754,35 +815,54 @@
         // ============================================
         // FIREBASE CONFIGURATION
         // ============================================
-        // IMPORTANT: Replace with your own Firebase config
-        // Go to: https://console.firebase.google.com/
-        // 1. Create a new project (or use existing)
-        // 2. Go to Project Settings > General > Your apps
-        // 3. Click "Add app" > Web
-        // 4. Copy the firebaseConfig object and paste below
-        // 5. Go to Realtime Database > Create Database > Start in Test Mode
-        // ============================================
-        
         const firebaseConfig = {
-            apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
         let database = null;
         let firebaseInitialized = false;
 
+        // Access Control
+        const ADMIN_PASSWORD = 'admin123';
+        let isAdminMode = false;
+
+        // Data storage
+        const uploadedData = { dss: null, ht: null, lt: null, cust: null, issues: null };
+        const usernameMappings = { aedc: new Map(), bss: new Map(), nysc: new Map() };
+        
+        // Report results storage
+        let reportResults = {
+            aedc: { results: [], totals: {} },
+            bss: { results: [], totals: {} },
+            nysc: { results: [], totals: {} },
+            dateRange: '',
+            formattedDate: '',
+            dateKey: ''
+        };
+
+        // Saved dashboards storage
+        let savedDashboards = {};
+        let availableDates = [];
+
+        // Chart instances
+        let pieChart = null;
+        let barChart = null;
+
+        // ============================================
+        // FIREBASE INITIALIZATION
+        // ============================================
         function initFirebase() {
             try {
                 if (firebaseConfig.apiKey === "YOUR_API_KEY") {
                     console.warn("Firebase not configured. Using local storage as fallback.");
-                    updateFirebaseStatus('local', 'Using Local Storage');
+                    updateFirebaseStatus('local', '💾 Local Storage');
                     loadFromLocalStorage();
                     return;
                 }
@@ -791,12 +871,12 @@
                 database = firebase.database();
                 firebaseInitialized = true;
                 
-                // Listen for connection state
                 const connectedRef = database.ref('.info/connected');
                 connectedRef.on('value', (snap) => {
                     if (snap.val() === true) {
                         updateFirebaseStatus('connected', '🟢 Cloud Connected');
-                        loadFromCloud();
+                        loadSavedDates();
+                        loadMappingsFromCloud();
                     } else {
                         updateFirebaseStatus('disconnected', '🔴 Offline');
                     }
@@ -831,71 +911,219 @@
             }
         }
 
-        // Access Control
-        const ADMIN_PASSWORD = 'admin123'; // Change this password
-        let isAdminMode = false;
-
-        // Data storage
-        const uploadedData = { dss: null, ht: null, lt: null, cust: null, issues: null };
-        const usernameMappings = { aedc: new Map(), bss: new Map(), nysc: new Map() };
-        
-        // Report results storage with status
-        let reportResults = {
-            aedc: { results: [], totals: {} },
-            bss: { results: [], totals: {} },
-            nysc: { results: [], totals: {} },
-            dateRange: '',
-            formattedDate: ''
-        };
-
-        // Chart instances
-        let pieChart = null;
-        let barChart = null;
-
         // ============================================
         // CLOUD STORAGE FUNCTIONS
         // ============================================
         
-        function saveToCloud() {
+        function saveDashboardToCloud() {
+            if (!reportResults.dateKey) {
+                showStatus('Generate a report first before saving', 'error');
+                return;
+            }
+            
             updateFirebaseStatus('syncing', '🔄 Saving...');
             
+            const dateKey = reportResults.dateKey;
             const dataToSave = {
-                reportResults: {
-                    aedc: {
-                        results: reportResults.aedc.results,
-                        totals: reportResults.aedc.totals
-                    },
-                    bss: {
-                        results: reportResults.bss.results,
-                        totals: reportResults.bss.totals
-                    },
-                    nysc: {
-                        results: reportResults.nysc.results,
-                        totals: reportResults.nysc.totals
-                    },
-                    dateRange: reportResults.dateRange,
-                    formattedDate: reportResults.formattedDate
-                },
-                lastUpdated: new Date().toISOString()
+                aedc: { results: reportResults.aedc.results, totals: reportResults.aedc.totals },
+                bss: { results: reportResults.bss.results, totals: reportResults.bss.totals },
+                nysc: { results: reportResults.nysc.results, totals: reportResults.nysc.totals },
+                dateRange: reportResults.dateRange,
+                formattedDate: reportResults.formattedDate,
+                dateKey: dateKey,
+                savedAt: new Date().toISOString()
             };
             
             if (firebaseInitialized && database) {
-                database.ref('dashboardData').set(dataToSave)
+                database.ref('dashboards/' + dateKey).set(dataToSave)
                     .then(() => {
                         updateFirebaseStatus('connected', '🟢 Cloud Connected');
-                        document.getElementById('lastSyncTime').textContent = 'Saved: ' + new Date().toLocaleTimeString();
-                        showStatus('Data saved to cloud successfully!', 'success');
+                        showStatus(`Dashboard saved for ${reportResults.formattedDate}!`, 'success');
+                        loadSavedDates();
                     })
                     .catch((error) => {
                         console.error("Save error:", error);
-                        saveToLocalStorage(dataToSave);
+                        saveToLocalStorage(dateKey, dataToSave);
                         updateFirebaseStatus('error', '⚠️ Save Error');
                         showStatus('Cloud save failed. Saved locally.', 'warning');
                     });
             } else {
-                saveToLocalStorage(dataToSave);
-                showStatus('Data saved locally (Firebase not configured)', 'info');
+                saveToLocalStorage(dateKey, dataToSave);
+                showStatus('Dashboard saved locally', 'info');
+                loadSavedDates();
             }
+        }
+        
+        function loadSavedDates() {
+            if (firebaseInitialized && database) {
+                database.ref('dashboards').once('value')
+                    .then((snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            savedDashboards = data;
+                            availableDates = Object.keys(data).sort().reverse();
+                            renderSavedDatesList();
+                            document.getElementById('savedDashboardsCount').textContent = availableDates.length;
+                            
+                            // Load latest dashboard by default
+                            if (availableDates.length > 0 && !reportResults.dateKey) {
+                                loadDashboardByKey(availableDates[0]);
+                            }
+                        }
+                        updateFirebaseStatus('connected', '🟢 Cloud Connected');
+                    })
+                    .catch((error) => {
+                        console.error("Load dates error:", error);
+                        loadDatesFromLocalStorage();
+                    });
+            } else {
+                loadDatesFromLocalStorage();
+            }
+        }
+        
+        function loadDashboardByKey(dateKey) {
+            const data = savedDashboards[dateKey];
+            if (data) {
+                reportResults.aedc = data.aedc || { results: [], totals: {} };
+                reportResults.bss = data.bss || { results: [], totals: {} };
+                reportResults.nysc = data.nysc || { results: [], totals: {} };
+                reportResults.dateRange = data.dateRange || '';
+                reportResults.formattedDate = data.formattedDate || '';
+                reportResults.dateKey = data.dateKey || dateKey;
+                
+                updateDashboard();
+                showStatus(`Loaded dashboard for ${data.formattedDate || dateKey}`, 'success');
+            }
+        }
+        
+        function loadDashboardForDate() {
+            const startDate = document.getElementById('dashStartDate').value;
+            const endDate = document.getElementById('dashEndDate').value;
+            const isRange = document.querySelector('input[name="dashDateMode"]:checked').value === 'range';
+            
+            if (!startDate) {
+                showStatus('Please select a date', 'error');
+                return;
+            }
+            
+            if (isRange && endDate) {
+                // Load and aggregate multiple dates
+                loadDashboardRange(startDate, endDate);
+            } else {
+                // Load single date
+                const dateKey = startDate;
+                if (savedDashboards[dateKey]) {
+                    loadDashboardByKey(dateKey);
+                } else {
+                    showStatus(`No dashboard saved for ${formatDateHeader(startDate)}`, 'warning');
+                }
+            }
+        }
+        
+        function loadDashboardRange(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            // Initialize aggregated results
+            const aggregated = {
+                aedc: { results: [], totals: { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 } },
+                bss: { results: [], totals: { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 } },
+                nysc: { results: [], totals: { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 } }
+            };
+            
+            // Maps to aggregate by fullname
+            const maps = { aedc: new Map(), bss: new Map(), nysc: new Map() };
+            
+            let datesFound = 0;
+            
+            // Iterate through date range
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const dateKey = d.toISOString().split('T')[0];
+                const data = savedDashboards[dateKey];
+                
+                if (data) {
+                    datesFound++;
+                    ['aedc', 'bss', 'nysc'].forEach(group => {
+                        if (data[group] && data[group].results) {
+                            data[group].results.forEach(r => {
+                                const key = r.fullname;
+                                if (maps[group].has(key)) {
+                                    const existing = maps[group].get(key);
+                                    existing.dss += r.dss || 0;
+                                    existing.ht += r.ht || 0;
+                                    existing.cust += r.cust || 0;
+                                    existing.lt += r.lt || 0;
+                                    existing.issues += r.issues || 0;
+                                    existing.total += r.total || 0;
+                                    // Keep latest status
+                                    if (r.status !== 'present') existing.status = r.status;
+                                } else {
+                                    maps[group].set(key, {
+                                        username: r.username,
+                                        fullname: r.fullname,
+                                        dss: r.dss || 0,
+                                        ht: r.ht || 0,
+                                        cust: r.cust || 0,
+                                        lt: r.lt || 0,
+                                        issues: r.issues || 0,
+                                        total: r.total || 0,
+                                        status: r.status || 'present'
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+            
+            if (datesFound === 0) {
+                showStatus('No dashboards found in selected date range', 'warning');
+                return;
+            }
+            
+            // Convert maps to arrays and calculate totals
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                aggregated[group].results = Array.from(maps[group].values()).sort((a, b) => b.total - a.total);
+                aggregated[group].results.forEach(r => {
+                    aggregated[group].totals.dss += r.dss;
+                    aggregated[group].totals.ht += r.ht;
+                    aggregated[group].totals.cust += r.cust;
+                    aggregated[group].totals.lt += r.lt;
+                    aggregated[group].totals.issues += r.issues;
+                    aggregated[group].totals.total += r.total;
+                });
+            });
+            
+            reportResults.aedc = aggregated.aedc;
+            reportResults.bss = aggregated.bss;
+            reportResults.nysc = aggregated.nysc;
+            reportResults.formattedDate = `${formatDateHeader(startDate)} - ${formatDateHeader(endDate)}`;
+            reportResults.dateRange = `(${startDate} to ${endDate})`;
+            reportResults.dateKey = `${startDate}_to_${endDate}`;
+            
+            updateDashboard();
+            showStatus(`Loaded ${datesFound} dashboards for date range`, 'success');
+        }
+        
+        function renderSavedDatesList() {
+            const container = document.getElementById('savedDatesList');
+            
+            if (availableDates.length === 0) {
+                container.innerHTML = '<span class="text-gray-500 italic text-sm">No saved dashboards yet</span>';
+                return;
+            }
+            
+            container.innerHTML = availableDates.map(dateKey => {
+                const formatted = formatDateHeader(dateKey);
+                return `<button onclick="loadDashboardByKey('${dateKey}')" class="date-chip px-3 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-full text-sm font-medium transition-colors">
+                    📅 ${formatted}
+                </button>`;
+            }).join('');
+        }
+        
+        function toggleDashDateMode() {
+            const isRange = document.querySelector('input[name="dashDateMode"]:checked').value === 'range';
+            document.getElementById('dashEndDate').disabled = !isRange;
         }
         
         function saveMappingsToCloud() {
@@ -925,86 +1153,58 @@
             }
         }
         
-        function loadFromCloud() {
-            if (!firebaseInitialized || !database) {
-                loadFromLocalStorage();
-                return;
-            }
-            
-            updateFirebaseStatus('syncing', '🔄 Loading...');
-            
-            // Load report data
-            database.ref('dashboardData').once('value')
-                .then((snapshot) => {
-                    const data = snapshot.val();
-                    if (data && data.reportResults) {
-                        reportResults.aedc = data.reportResults.aedc || { results: [], totals: {} };
-                        reportResults.bss = data.reportResults.bss || { results: [], totals: {} };
-                        reportResults.nysc = data.reportResults.nysc || { results: [], totals: {} };
-                        reportResults.dateRange = data.reportResults.dateRange || '';
-                        reportResults.formattedDate = data.reportResults.formattedDate || '';
-                        
-                        if (data.lastUpdated) {
-                            document.getElementById('lastSyncTime').textContent = 'Last: ' + new Date(data.lastUpdated).toLocaleString();
+        function loadMappingsFromCloud() {
+            if (firebaseInitialized && database) {
+                database.ref('mappings').once('value')
+                    .then((snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            loadMappingsFromData(data);
                         }
-                        
-                        updateDashboard();
-                        showStatus('Data loaded from cloud', 'success');
-                    }
-                    updateFirebaseStatus('connected', '🟢 Cloud Connected');
-                })
-                .catch((error) => {
-                    console.error("Load error:", error);
-                    loadFromLocalStorage();
-                });
-            
-            // Load mappings
-            database.ref('mappings').once('value')
-                .then((snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        loadMappingsFromData(data);
-                    }
-                })
-                .catch((error) => {
-                    console.error("Mappings load error:", error);
-                    loadMappingsFromLocalStorage();
-                });
+                    })
+                    .catch((error) => {
+                        console.error("Mappings load error:", error);
+                        loadMappingsFromLocalStorage();
+                    });
+            } else {
+                loadMappingsFromLocalStorage();
+            }
         }
         
-        function saveToLocalStorage(data) {
+        function saveToLocalStorage(dateKey, data) {
             try {
-                localStorage.setItem('dashboardData', JSON.stringify(data));
-                document.getElementById('lastSyncTime').textContent = 'Local: ' + new Date().toLocaleTimeString();
+                const saved = JSON.parse(localStorage.getItem('savedDashboards') || '{}');
+                saved[dateKey] = data;
+                localStorage.setItem('savedDashboards', JSON.stringify(saved));
+                savedDashboards = saved;
+                availableDates = Object.keys(saved).sort().reverse();
+                renderSavedDatesList();
             } catch (e) {
                 console.error("Local storage error:", e);
             }
         }
         
-        function loadFromLocalStorage() {
+        function loadDatesFromLocalStorage() {
             try {
-                const saved = localStorage.getItem('dashboardData');
+                const saved = localStorage.getItem('savedDashboards');
                 if (saved) {
-                    const data = JSON.parse(saved);
-                    if (data && data.reportResults) {
-                        reportResults.aedc = data.reportResults.aedc || { results: [], totals: {} };
-                        reportResults.bss = data.reportResults.bss || { results: [], totals: {} };
-                        reportResults.nysc = data.reportResults.nysc || { results: [], totals: {} };
-                        reportResults.dateRange = data.reportResults.dateRange || '';
-                        reportResults.formattedDate = data.reportResults.formattedDate || '';
-                        
-                        if (data.lastUpdated) {
-                            document.getElementById('lastSyncTime').textContent = 'Local: ' + new Date(data.lastUpdated).toLocaleString();
-                        }
-                        
-                        updateDashboard();
+                    savedDashboards = JSON.parse(saved);
+                    availableDates = Object.keys(savedDashboards).sort().reverse();
+                    renderSavedDatesList();
+                    document.getElementById('savedDashboardsCount').textContent = availableDates.length;
+                    
+                    if (availableDates.length > 0 && !reportResults.dateKey) {
+                        loadDashboardByKey(availableDates[0]);
                     }
                 }
-                
-                loadMappingsFromLocalStorage();
             } catch (e) {
                 console.error("Local storage read error:", e);
             }
+        }
+        
+        function loadFromLocalStorage() {
+            loadDatesFromLocalStorage();
+            loadMappingsFromLocalStorage();
         }
         
         function loadMappingsFromLocalStorage() {
@@ -1036,6 +1236,7 @@
         
         function renderMappingRows(group) {
             const container = document.getElementById(`mappingContainer-${group}`);
+            if (!container) return;
             container.innerHTML = '';
             
             usernameMappings[group].forEach((fullname, username) => {
@@ -1048,7 +1249,9 @@
             }
         }
 
-        // Access Control Functions
+        // ============================================
+        // ACCESS CONTROL
+        // ============================================
         function enterPublicMode() {
             isAdminMode = false;
             document.body.classList.remove('admin-mode');
@@ -1062,7 +1265,7 @@
             });
             
             switchTab('dashboard');
-            loadFromCloud();
+            loadSavedDates();
             showStatus('Welcome! You are viewing in Public Mode', 'info');
         }
 
@@ -1081,7 +1284,8 @@
                 });
                 
                 switchTab('data');
-                loadFromCloud();
+                loadSavedDates();
+                loadMappingsFromCloud();
                 showStatus('Welcome Admin! You have full access', 'success');
             } else {
                 showStatus('Invalid password. Please try again.', 'error');
@@ -1095,11 +1299,15 @@
             document.getElementById('adminPassword').value = '';
         }
 
-        // Initialize
+        // ============================================
+        // INITIALIZATION
+        // ============================================
         document.addEventListener('DOMContentLoaded', () => {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('startDate').value = today;
             document.getElementById('endDate').value = today;
+            document.getElementById('dashStartDate').value = today;
+            document.getElementById('dashEndDate').value = today;
             
             ['aedc', 'bss', 'nysc'].forEach(group => {
                 addMappingRow(group);
@@ -1203,6 +1411,8 @@
 
         function addMappingRow(group, username = '', fullname = '') {
             const container = document.getElementById(`mappingContainer-${group}`);
+            if (!container) return;
+            
             const colors = { aedc: 'blue', bss: 'green', nysc: 'orange' };
             const color = colors[group];
             
@@ -1341,6 +1551,7 @@
             reportResults.formattedDate = isRange 
                 ? `${formatDateHeader(startDateStr)} - ${formatDateHeader(endDateStr)}`
                 : formatDateHeader(startDateStr);
+            reportResults.dateKey = startDateStr === endDateStr ? startDateStr : `${startDateStr}_to_${endDateStr}`;
 
             ['aedc', 'bss', 'nysc'].forEach(group => {
                 const groupResults = [];
@@ -1393,6 +1604,8 @@
             const tfoot = document.getElementById(`resultsTfoot${capitalize(group)}`);
             const dateDisplay = document.getElementById(`dateRange${capitalize(group)}`);
             
+            if (!tbody || !tfoot) return;
+            
             dateDisplay.textContent = reportResults.dateRange;
             
             tbody.innerHTML = results.map((r, i) => `
@@ -1441,7 +1654,7 @@
             document.getElementById('dashboardDateHeader').textContent = reportResults.formattedDate 
                 ? `📊 ${reportResults.formattedDate} Enumeration Dashboard`
                 : '📊 Enumeration Dashboard';
-            document.getElementById('dashboardSubtitle').textContent = reportResults.dateRange || 'Generate a report to view dashboard';
+            document.getElementById('dashboardSubtitle').textContent = reportResults.dateRange || 'Select a date to view dashboard';
 
             let presentCount = 0, absentCount = 0, sickCount = 0, excusedCount = 0;
             const absentList = [], sickList = [], excusedList = [];
@@ -1543,6 +1756,8 @@
             const grandTotalBody = document.getElementById('bodyGrandTotal');
             const grandTotalFoot = document.getElementById('footGrandTotal');
             
+            if (!grandTotalBody || !grandTotalFoot) return;
+            
             const groups = [
                 { name: 'AEDC Enumerators', data: reportResults.aedc.totals || {}, color: 'blue' },
                 { name: 'BSS Enumerators', data: reportResults.bss.totals || {}, color: 'green' },
@@ -1596,37 +1811,39 @@
             const bssTotal = (reportResults.bss.totals || {}).total || 0;
             const nyscTotal = (reportResults.nysc.totals || {}).total || 0;
 
-            const pieCtx = document.getElementById('pieChart').getContext('2d');
-            pieChart = new Chart(pieCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['AEDC', 'BSS', 'NYSC'],
-                    datasets: [{
-                        data: [aedcTotal, bssTotal, nyscTotal],
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(34, 197, 94, 0.8)',
-                            'rgba(249, 115, 22, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(59, 130, 246, 1)',
-                            'rgba(34, 197, 94, 1)',
-                            'rgba(249, 115, 22, 1)'
-                        ],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { padding: 20, font: { size: 12 } }
+            const pieCtx = document.getElementById('pieChart');
+            if (pieCtx) {
+                pieChart = new Chart(pieCtx.getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: ['AEDC', 'BSS', 'NYSC'],
+                        datasets: [{
+                            data: [aedcTotal, bssTotal, nyscTotal],
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(34, 197, 94, 0.8)',
+                                'rgba(249, 115, 22, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(34, 197, 94, 1)',
+                                'rgba(249, 115, 22, 1)'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { padding: 20, font: { size: 12 } }
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
 
             const grandTotals = {
                 dss: ((reportResults.aedc.totals || {}).dss || 0) + ((reportResults.bss.totals || {}).dss || 0) + ((reportResults.nysc.totals || {}).dss || 0),
@@ -1636,49 +1853,51 @@
                 issues: ((reportResults.aedc.totals || {}).issues || 0) + ((reportResults.bss.totals || {}).issues || 0) + ((reportResults.nysc.totals || {}).issues || 0)
             };
 
-            const barCtx = document.getElementById('barChart').getContext('2d');
-            barChart = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues'],
-                    datasets: [{
-                        label: 'Total Count',
-                        data: [grandTotals.dss, grandTotals.ht, grandTotals.cust, grandTotals.lt, grandTotals.issues],
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(249, 115, 22, 0.8)',
-                            'rgba(234, 179, 8, 0.8)',
-                            'rgba(34, 197, 94, 0.8)',
-                            'rgba(239, 68, 68, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(59, 130, 246, 1)',
-                            'rgba(249, 115, 22, 1)',
-                            'rgba(234, 179, 8, 1)',
-                            'rgba(34, 197, 94, 1)',
-                            'rgba(239, 68, 68, 1)'
-                        ],
-                        borderWidth: 2,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+            const barCtx = document.getElementById('barChart');
+            if (barCtx) {
+                barChart = new Chart(barCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues'],
+                        datasets: [{
+                            label: 'Total Count',
+                            data: [grandTotals.dss, grandTotals.ht, grandTotals.cust, grandTotals.lt, grandTotals.issues],
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(249, 115, 22, 0.8)',
+                                'rgba(234, 179, 8, 0.8)',
+                                'rgba(34, 197, 94, 0.8)',
+                                'rgba(239, 68, 68, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(249, 115, 22, 1)',
+                                'rgba(234, 179, 8, 1)',
+                                'rgba(34, 197, 94, 1)',
+                                'rgba(239, 68, 68, 1)'
+                            ],
+                            borderWidth: 2,
+                            borderRadius: 8
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(0,0,0,0.05)' }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
                         },
-                        x: {
-                            grid: { display: false }
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         function capitalize(str) {
@@ -1714,16 +1933,15 @@
                 }
             });
             
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            XLSX.writeFile(wb, `Report_Summary_${startDate}_to_${endDate}.xlsx`);
+            const filename = `Report_Summary_${reportResults.dateKey || 'report'}.xlsx`;
+            XLSX.writeFile(wb, filename);
             showStatus('Report exported successfully', 'success');
         }
 
         function exportDashboard() {
             const hasData = (reportResults.aedc.results || []).length || (reportResults.bss.results || []).length || (reportResults.nysc.results || []).length;
             if (!hasData) {
-                showStatus('No data to export. Generate a report first.', 'error');
+                showStatus('No data to export. Load a dashboard first.', 'error');
                 return;
             }
             
@@ -1759,9 +1977,7 @@
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), group.toUpperCase());
             });
             
-            const startDate = document.getElementById('startDate').value || 'report';
-            const endDate = document.getElementById('endDate').value || 'date';
-            XLSX.writeFile(wb, `Dashboard_${startDate}_to_${endDate}.xlsx`);
+            XLSX.writeFile(wb, `Dashboard_${reportResults.dateKey || 'report'}.xlsx`);
             showStatus('Dashboard exported successfully', 'success');
         }
 
@@ -1778,17 +1994,11 @@
 
             const hasData = (reportResults.aedc.results || []).length || (reportResults.bss.results || []).length || (reportResults.nysc.results || []).length;
             if (!hasData) {
-                showStatus('No data to export. Generate a report first.', 'error');
+                showStatus('No data to export. Load a dashboard first.', 'error');
                 return;
             }
 
             showStatus('Generating PNG... Please wait', 'info');
-
-            const dashboardTab = document.getElementById('content-dashboard');
-            const wasHidden = dashboardTab.classList.contains('hidden');
-            if (wasHidden) {
-                dashboardTab.classList.remove('hidden');
-            }
 
             html2canvas(captureElement, {
                 scale: 2,
@@ -1797,22 +2007,12 @@
                 backgroundColor: '#f3f4f6',
                 logging: false
             }).then(canvas => {
-                if (wasHidden) {
-                    dashboardTab.classList.add('hidden');
-                }
-
                 const link = document.createElement('a');
-                const startDate = document.getElementById('startDate').value || 'report';
-                const endDate = document.getElementById('endDate').value || 'date';
-                link.download = `Dashboard_${startDate}_to_${endDate}.png`;
+                link.download = `Dashboard_${reportResults.dateKey || 'report'}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
-
                 showStatus('Dashboard exported as PNG successfully!', 'success');
             }).catch(err => {
-                if (wasHidden) {
-                    dashboardTab.classList.add('hidden');
-                }
                 showStatus('Error generating PNG: ' + err.message, 'error');
                 console.error(err);
             });
@@ -1821,9 +2021,12 @@
         function clearAll() {
             Object.keys(uploadedData).forEach(key => {
                 uploadedData[key] = null;
-                document.getElementById(`zone-${key}`).classList.remove('has-file');
-                document.getElementById(`status-${key}`).textContent = 'Click or drag to upload';
-                document.getElementById(`file-${key}`).value = '';
+                const zone = document.getElementById(`zone-${key}`);
+                const status = document.getElementById(`status-${key}`);
+                const file = document.getElementById(`file-${key}`);
+                if (zone) zone.classList.remove('has-file');
+                if (status) status.textContent = 'Click or drag to upload';
+                if (file) file.value = '';
             });
             
             reportResults = {
@@ -1831,10 +2034,12 @@
                 bss: { results: [], totals: {} },
                 nysc: { results: [], totals: {} },
                 dateRange: '',
-                formattedDate: ''
+                formattedDate: '',
+                dateKey: ''
             };
             
-            document.getElementById('resultsSection').style.display = 'none';
+            const resultsSection = document.getElementById('resultsSection');
+            if (resultsSection) resultsSection.style.display = 'none';
             updateStats();
             updateDashboard();
             
