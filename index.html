@@ -8,6 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         .upload-zone {
             border: 2px dashed #cbd5e1;
@@ -75,9 +78,34 @@
         .admin-mode .public-only {
             display: none;
         }
+        .sync-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .firebase-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .firebase-connected { background-color: #dcfce7; color: #166534; }
+        .firebase-disconnected { background-color: #fee2e2; color: #991b1b; }
+        .firebase-syncing { background-color: #fef3c7; color: #92400e; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <!-- Firebase Status Indicator -->
+    <div id="firebaseStatus" class="firebase-status firebase-disconnected no-print">
+        🔴 Connecting...
+    </div>
+
     <!-- Access Control Modal -->
     <div id="accessModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal">
         <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 fade-in">
@@ -236,6 +264,9 @@
                         <button onclick="generateReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
                             <span>📊</span> Generate Report
                         </button>
+                        <button onclick="saveToCloud()" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
+                            <span>☁️</span> Save to Cloud
+                        </button>
                         <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
                             <span>📥</span> Export Excel
                         </button>
@@ -262,6 +293,10 @@
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <div class="text-sm text-gray-600">Enumerators Mapped</div>
                             <div class="text-2xl font-bold text-gray-800" id="mappedCount">0</div>
+                        </div>
+                        <div class="p-4 bg-purple-50 rounded-lg">
+                            <div class="text-sm text-purple-600">Cloud Sync</div>
+                            <div class="text-lg font-bold text-purple-800" id="lastSyncTime">Not synced yet</div>
                         </div>
                     </div>
                     <div class="mt-6 p-4 bg-blue-50 rounded-lg">
@@ -420,6 +455,13 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Save Mappings Button -->
+                <div class="flex gap-4">
+                    <button onclick="saveMappingsToCloud()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
+                        <span>☁️</span> Save Mappings to Cloud
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -433,6 +475,9 @@
 
             <!-- Action Buttons -->
             <div class="flex justify-end gap-3 mb-6 no-print">
+                <button onclick="loadFromCloud()" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <span>🔄</span> Refresh Data
+                </button>
                 <button onclick="exportToPNG()" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
                     <span>📸</span> Export PNG
                 </button>
@@ -706,6 +751,85 @@
     </div>
 
     <script>
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        // IMPORTANT: Replace with your own Firebase config
+        // Go to: https://console.firebase.google.com/
+        // 1. Create a new project (or use existing)
+        // 2. Go to Project Settings > General > Your apps
+        // 3. Click "Add app" > Web
+        // 4. Copy the firebaseConfig object and paste below
+        // 5. Go to Realtime Database > Create Database > Start in Test Mode
+        // ============================================
+        
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        let database = null;
+        let firebaseInitialized = false;
+
+        function initFirebase() {
+            try {
+                if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+                    console.warn("Firebase not configured. Using local storage as fallback.");
+                    updateFirebaseStatus('local', 'Using Local Storage');
+                    loadFromLocalStorage();
+                    return;
+                }
+                
+                firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                firebaseInitialized = true;
+                
+                // Listen for connection state
+                const connectedRef = database.ref('.info/connected');
+                connectedRef.on('value', (snap) => {
+                    if (snap.val() === true) {
+                        updateFirebaseStatus('connected', '🟢 Cloud Connected');
+                        loadFromCloud();
+                    } else {
+                        updateFirebaseStatus('disconnected', '🔴 Offline');
+                    }
+                });
+                
+            } catch (error) {
+                console.error("Firebase initialization error:", error);
+                updateFirebaseStatus('error', '⚠️ Cloud Error');
+                loadFromLocalStorage();
+            }
+        }
+
+        function updateFirebaseStatus(status, text) {
+            const statusEl = document.getElementById('firebaseStatus');
+            statusEl.textContent = text;
+            statusEl.className = 'firebase-status no-print';
+            
+            switch(status) {
+                case 'connected':
+                    statusEl.classList.add('firebase-connected');
+                    break;
+                case 'disconnected':
+                case 'error':
+                    statusEl.classList.add('firebase-disconnected');
+                    break;
+                case 'syncing':
+                    statusEl.classList.add('firebase-syncing', 'sync-indicator');
+                    break;
+                case 'local':
+                    statusEl.classList.add('firebase-syncing');
+                    break;
+            }
+        }
+
         // Access Control
         const ADMIN_PASSWORD = 'admin123'; // Change this password
         let isAdminMode = false;
@@ -727,6 +851,202 @@
         let pieChart = null;
         let barChart = null;
 
+        // ============================================
+        // CLOUD STORAGE FUNCTIONS
+        // ============================================
+        
+        function saveToCloud() {
+            updateFirebaseStatus('syncing', '🔄 Saving...');
+            
+            const dataToSave = {
+                reportResults: {
+                    aedc: {
+                        results: reportResults.aedc.results,
+                        totals: reportResults.aedc.totals
+                    },
+                    bss: {
+                        results: reportResults.bss.results,
+                        totals: reportResults.bss.totals
+                    },
+                    nysc: {
+                        results: reportResults.nysc.results,
+                        totals: reportResults.nysc.totals
+                    },
+                    dateRange: reportResults.dateRange,
+                    formattedDate: reportResults.formattedDate
+                },
+                lastUpdated: new Date().toISOString()
+            };
+            
+            if (firebaseInitialized && database) {
+                database.ref('dashboardData').set(dataToSave)
+                    .then(() => {
+                        updateFirebaseStatus('connected', '🟢 Cloud Connected');
+                        document.getElementById('lastSyncTime').textContent = 'Saved: ' + new Date().toLocaleTimeString();
+                        showStatus('Data saved to cloud successfully!', 'success');
+                    })
+                    .catch((error) => {
+                        console.error("Save error:", error);
+                        saveToLocalStorage(dataToSave);
+                        updateFirebaseStatus('error', '⚠️ Save Error');
+                        showStatus('Cloud save failed. Saved locally.', 'warning');
+                    });
+            } else {
+                saveToLocalStorage(dataToSave);
+                showStatus('Data saved locally (Firebase not configured)', 'info');
+            }
+        }
+        
+        function saveMappingsToCloud() {
+            updateFirebaseStatus('syncing', '🔄 Saving Mappings...');
+            
+            const mappingsToSave = {
+                aedc: Array.from(usernameMappings.aedc.entries()),
+                bss: Array.from(usernameMappings.bss.entries()),
+                nysc: Array.from(usernameMappings.nysc.entries()),
+                lastUpdated: new Date().toISOString()
+            };
+            
+            if (firebaseInitialized && database) {
+                database.ref('mappings').set(mappingsToSave)
+                    .then(() => {
+                        updateFirebaseStatus('connected', '🟢 Cloud Connected');
+                        showStatus('Mappings saved to cloud!', 'success');
+                    })
+                    .catch((error) => {
+                        console.error("Mappings save error:", error);
+                        localStorage.setItem('enumeratorMappings', JSON.stringify(mappingsToSave));
+                        showStatus('Cloud save failed. Saved locally.', 'warning');
+                    });
+            } else {
+                localStorage.setItem('enumeratorMappings', JSON.stringify(mappingsToSave));
+                showStatus('Mappings saved locally', 'info');
+            }
+        }
+        
+        function loadFromCloud() {
+            if (!firebaseInitialized || !database) {
+                loadFromLocalStorage();
+                return;
+            }
+            
+            updateFirebaseStatus('syncing', '🔄 Loading...');
+            
+            // Load report data
+            database.ref('dashboardData').once('value')
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.reportResults) {
+                        reportResults.aedc = data.reportResults.aedc || { results: [], totals: {} };
+                        reportResults.bss = data.reportResults.bss || { results: [], totals: {} };
+                        reportResults.nysc = data.reportResults.nysc || { results: [], totals: {} };
+                        reportResults.dateRange = data.reportResults.dateRange || '';
+                        reportResults.formattedDate = data.reportResults.formattedDate || '';
+                        
+                        if (data.lastUpdated) {
+                            document.getElementById('lastSyncTime').textContent = 'Last: ' + new Date(data.lastUpdated).toLocaleString();
+                        }
+                        
+                        updateDashboard();
+                        showStatus('Data loaded from cloud', 'success');
+                    }
+                    updateFirebaseStatus('connected', '🟢 Cloud Connected');
+                })
+                .catch((error) => {
+                    console.error("Load error:", error);
+                    loadFromLocalStorage();
+                });
+            
+            // Load mappings
+            database.ref('mappings').once('value')
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        loadMappingsFromData(data);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Mappings load error:", error);
+                    loadMappingsFromLocalStorage();
+                });
+        }
+        
+        function saveToLocalStorage(data) {
+            try {
+                localStorage.setItem('dashboardData', JSON.stringify(data));
+                document.getElementById('lastSyncTime').textContent = 'Local: ' + new Date().toLocaleTimeString();
+            } catch (e) {
+                console.error("Local storage error:", e);
+            }
+        }
+        
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('dashboardData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (data && data.reportResults) {
+                        reportResults.aedc = data.reportResults.aedc || { results: [], totals: {} };
+                        reportResults.bss = data.reportResults.bss || { results: [], totals: {} };
+                        reportResults.nysc = data.reportResults.nysc || { results: [], totals: {} };
+                        reportResults.dateRange = data.reportResults.dateRange || '';
+                        reportResults.formattedDate = data.reportResults.formattedDate || '';
+                        
+                        if (data.lastUpdated) {
+                            document.getElementById('lastSyncTime').textContent = 'Local: ' + new Date(data.lastUpdated).toLocaleString();
+                        }
+                        
+                        updateDashboard();
+                    }
+                }
+                
+                loadMappingsFromLocalStorage();
+            } catch (e) {
+                console.error("Local storage read error:", e);
+            }
+        }
+        
+        function loadMappingsFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('enumeratorMappings');
+                if (saved) {
+                    loadMappingsFromData(JSON.parse(saved));
+                }
+            } catch (e) {
+                console.error("Mappings local storage error:", e);
+            }
+        }
+        
+        function loadMappingsFromData(data) {
+            if (data.aedc) {
+                usernameMappings.aedc = new Map(data.aedc);
+                renderMappingRows('aedc');
+            }
+            if (data.bss) {
+                usernameMappings.bss = new Map(data.bss);
+                renderMappingRows('bss');
+            }
+            if (data.nysc) {
+                usernameMappings.nysc = new Map(data.nysc);
+                renderMappingRows('nysc');
+            }
+            updateStats();
+        }
+        
+        function renderMappingRows(group) {
+            const container = document.getElementById(`mappingContainer-${group}`);
+            container.innerHTML = '';
+            
+            usernameMappings[group].forEach((fullname, username) => {
+                addMappingRow(group, username, fullname);
+            });
+            
+            if (usernameMappings[group].size === 0) {
+                addMappingRow(group);
+                addMappingRow(group);
+            }
+        }
+
         // Access Control Functions
         function enterPublicMode() {
             isAdminMode = false;
@@ -736,13 +1056,12 @@
             document.getElementById('accessBadge').textContent = '👁️ Public View';
             document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
             
-            // Initialize all tabs to hidden first
             document.querySelectorAll('.tab-content').forEach(el => {
                 el.style.display = 'none';
             });
             
-            // Switch to dashboard tab for public users
             switchTab('dashboard');
+            loadFromCloud();
             showStatus('Welcome! You are viewing in Public Mode', 'info');
         }
 
@@ -756,13 +1075,12 @@
                 document.getElementById('accessBadge').textContent = '🔑 Admin Mode';
                 document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700';
                 
-                // Initialize all tabs to hidden first
                 document.querySelectorAll('.tab-content').forEach(el => {
                     el.style.display = 'none';
                 });
                 
-                // Switch to data tab for admin
                 switchTab('data');
+                loadFromCloud();
                 showStatus('Welcome Admin! You have full access', 'success');
             } else {
                 showStatus('Invalid password. Please try again.', 'error');
@@ -789,30 +1107,26 @@
 
             setupDragAndDrop();
             updateStats();
+            initFirebase();
         });
 
         function switchTab(tabName) {
-            // For public mode, only allow dashboard
             if (!isAdminMode && tabName !== 'dashboard') {
                 showStatus('Please login as Admin to access this section', 'warning');
                 return;
             }
             
-            // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(el => {
                 el.classList.add('hidden');
                 el.style.display = 'none';
             });
             
-            // Remove active state from all tabs
             document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.remove('tab-active'));
             
-            // Show selected tab content
             const selectedContent = document.getElementById(`content-${tabName}`);
             selectedContent.classList.remove('hidden');
             selectedContent.style.display = 'block';
             
-            // Add active state to selected tab
             document.getElementById(`tab-${tabName}`).classList.add('tab-active');
 
             if (tabName === 'dashboard') {
@@ -1133,7 +1447,7 @@
 
             ['aedc', 'bss', 'nysc'].forEach(group => {
                 const groupLabel = group.toUpperCase();
-                reportResults[group].results.forEach(r => {
+                (reportResults[group].results || []).forEach(r => {
                     switch(r.status) {
                         case 'present': presentCount++; break;
                         case 'absent': absentCount++; absentList.push(`${r.fullname} (${groupLabel})`); break;
@@ -1159,7 +1473,7 @@
                 : '<li class="text-gray-500 italic">None</li>';
 
             ['aedc', 'bss', 'nysc'].forEach(group => {
-                const results = reportResults[group].results.filter(r => r.status === 'present');
+                const results = (reportResults[group].results || []).filter(r => r.status === 'present');
                 const sorted = [...results].sort((a, b) => b.total - a.total);
                 const top = sorted[0];
                 const least = sorted[sorted.length - 1];
@@ -1168,7 +1482,7 @@
                 document.getElementById(`${group}TopCount`).textContent = top ? `(${top.total})` : '(0)';
                 document.getElementById(`${group}LeastName`).textContent = least ? least.fullname : '-';
                 document.getElementById(`${group}LeastCount`).textContent = least ? `(${least.total})` : '(0)';
-                document.getElementById(`${group}TotalDash`).textContent = reportResults[group].totals.total || 0;
+                document.getElementById(`${group}TotalDash`).textContent = (reportResults[group].totals || {}).total || 0;
             });
 
             updateGrandTotalTable();
@@ -1183,7 +1497,7 @@
         }
 
         function renderDashboardGroupTable(group, bgClass) {
-            const { results, totals } = reportResults[group];
+            const { results, totals } = reportResults[group] || { results: [], totals: {} };
             const tbody = document.getElementById(`dashboardBody${capitalize(group)}`);
             const tfoot = document.getElementById(`dashboardTfoot${capitalize(group)}`);
             
@@ -1196,7 +1510,7 @@
                 'excused': '<span class="status-badge px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">Excused</span>'
             };
             
-            tbody.innerHTML = results.map((r, i) => `
+            tbody.innerHTML = (results || []).map((r, i) => `
                 <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
                     <td class="border-b">${i + 1}</td>
                     <td class="border-b font-medium">${escapeHtml(r.fullname)}</td>
@@ -1212,7 +1526,7 @@
             
             tfoot.innerHTML = `
                 <tr>
-                    <td colspan="2">TOTAL (${results.length})</td>
+                    <td colspan="2">TOTAL (${(results || []).length})</td>
                     <td class="text-center">${totals.dss || 0}</td>
                     <td class="text-center">${totals.ht || 0}</td>
                     <td class="text-center">${totals.cust || 0}</td>
@@ -1229,9 +1543,9 @@
             const grandTotalFoot = document.getElementById('footGrandTotal');
             
             const groups = [
-                { name: 'AEDC Enumerators', data: reportResults.aedc.totals, color: 'blue' },
-                { name: 'BSS Enumerators', data: reportResults.bss.totals, color: 'green' },
-                { name: 'NYSC Enumerators', data: reportResults.nysc.totals, color: 'orange' }
+                { name: 'AEDC Enumerators', data: reportResults.aedc.totals || {}, color: 'blue' },
+                { name: 'BSS Enumerators', data: reportResults.bss.totals || {}, color: 'green' },
+                { name: 'NYSC Enumerators', data: reportResults.nysc.totals || {}, color: 'orange' }
             ];
             
             grandTotalBody.innerHTML = groups.map((g, i) => `
@@ -1252,12 +1566,12 @@
             `).join('');
             
             const grandTotals = {
-                dss: (reportResults.aedc.totals.dss || 0) + (reportResults.bss.totals.dss || 0) + (reportResults.nysc.totals.dss || 0),
-                ht: (reportResults.aedc.totals.ht || 0) + (reportResults.bss.totals.ht || 0) + (reportResults.nysc.totals.ht || 0),
-                cust: (reportResults.aedc.totals.cust || 0) + (reportResults.bss.totals.cust || 0) + (reportResults.nysc.totals.cust || 0),
-                lt: (reportResults.aedc.totals.lt || 0) + (reportResults.bss.totals.lt || 0) + (reportResults.nysc.totals.lt || 0),
-                issues: (reportResults.aedc.totals.issues || 0) + (reportResults.bss.totals.issues || 0) + (reportResults.nysc.totals.issues || 0),
-                total: (reportResults.aedc.totals.total || 0) + (reportResults.bss.totals.total || 0) + (reportResults.nysc.totals.total || 0)
+                dss: ((reportResults.aedc.totals || {}).dss || 0) + ((reportResults.bss.totals || {}).dss || 0) + ((reportResults.nysc.totals || {}).dss || 0),
+                ht: ((reportResults.aedc.totals || {}).ht || 0) + ((reportResults.bss.totals || {}).ht || 0) + ((reportResults.nysc.totals || {}).ht || 0),
+                cust: ((reportResults.aedc.totals || {}).cust || 0) + ((reportResults.bss.totals || {}).cust || 0) + ((reportResults.nysc.totals || {}).cust || 0),
+                lt: ((reportResults.aedc.totals || {}).lt || 0) + ((reportResults.bss.totals || {}).lt || 0) + ((reportResults.nysc.totals || {}).lt || 0),
+                issues: ((reportResults.aedc.totals || {}).issues || 0) + ((reportResults.bss.totals || {}).issues || 0) + ((reportResults.nysc.totals || {}).issues || 0),
+                total: ((reportResults.aedc.totals || {}).total || 0) + ((reportResults.bss.totals || {}).total || 0) + ((reportResults.nysc.totals || {}).total || 0)
             };
             
             grandTotalFoot.innerHTML = `
@@ -1277,9 +1591,9 @@
             if (pieChart) pieChart.destroy();
             if (barChart) barChart.destroy();
 
-            const aedcTotal = reportResults.aedc.totals.total || 0;
-            const bssTotal = reportResults.bss.totals.total || 0;
-            const nyscTotal = reportResults.nysc.totals.total || 0;
+            const aedcTotal = (reportResults.aedc.totals || {}).total || 0;
+            const bssTotal = (reportResults.bss.totals || {}).total || 0;
+            const nyscTotal = (reportResults.nysc.totals || {}).total || 0;
 
             const pieCtx = document.getElementById('pieChart').getContext('2d');
             pieChart = new Chart(pieCtx, {
@@ -1314,11 +1628,11 @@
             });
 
             const grandTotals = {
-                dss: (reportResults.aedc.totals.dss || 0) + (reportResults.bss.totals.dss || 0) + (reportResults.nysc.totals.dss || 0),
-                ht: (reportResults.aedc.totals.ht || 0) + (reportResults.bss.totals.ht || 0) + (reportResults.nysc.totals.ht || 0),
-                cust: (reportResults.aedc.totals.cust || 0) + (reportResults.bss.totals.cust || 0) + (reportResults.nysc.totals.cust || 0),
-                lt: (reportResults.aedc.totals.lt || 0) + (reportResults.bss.totals.lt || 0) + (reportResults.nysc.totals.lt || 0),
-                issues: (reportResults.aedc.totals.issues || 0) + (reportResults.bss.totals.issues || 0) + (reportResults.nysc.totals.issues || 0)
+                dss: ((reportResults.aedc.totals || {}).dss || 0) + ((reportResults.bss.totals || {}).dss || 0) + ((reportResults.nysc.totals || {}).dss || 0),
+                ht: ((reportResults.aedc.totals || {}).ht || 0) + ((reportResults.bss.totals || {}).ht || 0) + ((reportResults.nysc.totals || {}).ht || 0),
+                cust: ((reportResults.aedc.totals || {}).cust || 0) + ((reportResults.bss.totals || {}).cust || 0) + ((reportResults.nysc.totals || {}).cust || 0),
+                lt: ((reportResults.aedc.totals || {}).lt || 0) + ((reportResults.bss.totals || {}).lt || 0) + ((reportResults.nysc.totals || {}).lt || 0),
+                issues: ((reportResults.aedc.totals || {}).issues || 0) + ((reportResults.bss.totals || {}).issues || 0) + ((reportResults.nysc.totals || {}).issues || 0)
             };
 
             const barCtx = document.getElementById('barChart').getContext('2d');
@@ -1377,7 +1691,7 @@
         }
 
         function exportToExcel() {
-            const hasData = reportResults.aedc.results.length || reportResults.bss.results.length || reportResults.nysc.results.length;
+            const hasData = (reportResults.aedc.results || []).length || (reportResults.bss.results || []).length || (reportResults.nysc.results || []).length;
             if (!hasData) {
                 showStatus('No data to export. Generate a report first.', 'error');
                 return;
@@ -1387,7 +1701,7 @@
             
             ['aedc', 'bss', 'nysc'].forEach(group => {
                 const { results, totals } = reportResults[group];
-                if (results.length > 0) {
+                if ((results || []).length > 0) {
                     const sheetData = [
                         ['S/N', 'Full Name', 'DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues', 'Total', 'Status'],
                         ...results.map((r, i) => [i + 1, r.fullname, r.dss, r.ht, r.cust, r.lt, r.issues, r.total, r.status]),
@@ -1406,7 +1720,7 @@
         }
 
         function exportDashboard() {
-            const hasData = reportResults.aedc.results.length || reportResults.bss.results.length || reportResults.nysc.results.length;
+            const hasData = (reportResults.aedc.results || []).length || (reportResults.bss.results || []).length || (reportResults.nysc.results || []).length;
             if (!hasData) {
                 showStatus('No data to export. Generate a report first.', 'error');
                 return;
@@ -1426,26 +1740,26 @@
                 [''],
                 ['GROUP TOTALS'],
                 ['Group', 'DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues', 'Total'],
-                ['AEDC', reportResults.aedc.totals.dss || 0, reportResults.aedc.totals.ht || 0, reportResults.aedc.totals.cust || 0, reportResults.aedc.totals.lt || 0, reportResults.aedc.totals.issues || 0, reportResults.aedc.totals.total || 0],
-                ['BSS', reportResults.bss.totals.dss || 0, reportResults.bss.totals.ht || 0, reportResults.bss.totals.cust || 0, reportResults.bss.totals.lt || 0, reportResults.bss.totals.issues || 0, reportResults.bss.totals.total || 0],
-                ['NYSC', reportResults.nysc.totals.dss || 0, reportResults.nysc.totals.ht || 0, reportResults.nysc.totals.cust || 0, reportResults.nysc.totals.lt || 0, reportResults.nysc.totals.issues || 0, reportResults.nysc.totals.total || 0]
+                ['AEDC', (reportResults.aedc.totals || {}).dss || 0, (reportResults.aedc.totals || {}).ht || 0, (reportResults.aedc.totals || {}).cust || 0, (reportResults.aedc.totals || {}).lt || 0, (reportResults.aedc.totals || {}).issues || 0, (reportResults.aedc.totals || {}).total || 0],
+                ['BSS', (reportResults.bss.totals || {}).dss || 0, (reportResults.bss.totals || {}).ht || 0, (reportResults.bss.totals || {}).cust || 0, (reportResults.bss.totals || {}).lt || 0, (reportResults.bss.totals || {}).issues || 0, (reportResults.bss.totals || {}).total || 0],
+                ['NYSC', (reportResults.nysc.totals || {}).dss || 0, (reportResults.nysc.totals || {}).ht || 0, (reportResults.nysc.totals || {}).cust || 0, (reportResults.nysc.totals || {}).lt || 0, (reportResults.nysc.totals || {}).issues || 0, (reportResults.nysc.totals || {}).total || 0]
             ];
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), 'Summary');
             
             ['aedc', 'bss', 'nysc'].forEach(group => {
-                const { results, totals } = reportResults[group];
+                const { results, totals } = reportResults[group] || { results: [], totals: {} };
                 const sheetData = [
                     [`${group.toUpperCase()} ENUMERATORS ${reportResults.dateRange}`],
                     [''],
                     ['S/N', 'Full Name', 'DT/DSS', 'HT Pole', 'Customer', 'LT Pole', 'Issues', 'Total', 'Status'],
-                    ...results.map((r, i) => [i + 1, r.fullname, r.dss, r.ht, r.cust, r.lt, r.issues, r.total, r.status]),
+                    ...(results || []).map((r, i) => [i + 1, r.fullname, r.dss, r.ht, r.cust, r.lt, r.issues, r.total, r.status]),
                     ['', 'TOTAL', totals.dss || 0, totals.ht || 0, totals.cust || 0, totals.lt || 0, totals.issues || 0, totals.total || 0, '']
                 ];
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), group.toUpperCase());
             });
             
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
+            const startDate = document.getElementById('startDate').value || 'report';
+            const endDate = document.getElementById('endDate').value || 'date';
             XLSX.writeFile(wb, `Dashboard_${startDate}_to_${endDate}.xlsx`);
             showStatus('Dashboard exported successfully', 'success');
         }
@@ -1461,7 +1775,7 @@
                 return;
             }
 
-            const hasData = reportResults.aedc.results.length || reportResults.bss.results.length || reportResults.nysc.results.length;
+            const hasData = (reportResults.aedc.results || []).length || (reportResults.bss.results || []).length || (reportResults.nysc.results || []).length;
             if (!hasData) {
                 showStatus('No data to export. Generate a report first.', 'error');
                 return;
@@ -1487,8 +1801,8 @@
                 }
 
                 const link = document.createElement('a');
-                const startDate = document.getElementById('startDate').value;
-                const endDate = document.getElementById('endDate').value;
+                const startDate = document.getElementById('startDate').value || 'report';
+                const endDate = document.getElementById('endDate').value || 'date';
                 link.download = `Dashboard_${startDate}_to_${endDate}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
