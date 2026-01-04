@@ -2204,113 +2204,130 @@
 
             showStatus('Generating PNG... Please wait', 'info');
 
-            // Convert Chart.js canvases to images for better capture
-            const pieCanvas = document.getElementById('pieChart');
-            const barCanvas = document.getElementById('barChart');
-            
-            // Store original chart containers
-            const pieContainer = pieCanvas ? pieCanvas.parentElement : null;
-            const barContainer = barCanvas ? barCanvas.parentElement : null;
-            
-            // Create image elements from chart canvases
-            let pieImage = null;
-            let barImage = null;
+            // Get chart images before cloning
+            let pieChartDataUrl = null;
+            let barChartDataUrl = null;
             
             try {
-                if (pieCanvas && pieChart) {
-                    pieImage = document.createElement('img');
-                    pieImage.src = pieCanvas.toDataURL('image/png', 1.0);
-                    pieImage.style.width = '100%';
-                    pieImage.style.height = '100%';
-                    pieImage.style.objectFit = 'contain';
-                }
+                const pieCanvas = document.getElementById('pieChart');
+                const barCanvas = document.getElementById('barChart');
                 
-                if (barCanvas && barChart) {
-                    barImage = document.createElement('img');
-                    barImage.src = barCanvas.toDataURL('image/png', 1.0);
-                    barImage.style.width = '100%';
-                    barImage.style.height = '100%';
-                    barImage.style.objectFit = 'contain';
+                if (pieCanvas && pieChart) {
+                    pieChartDataUrl = pieCanvas.toDataURL('image/png', 1.0);
                 }
-            } catch (chartError) {
-                console.warn('Could not convert charts to images:', chartError);
+                if (barCanvas && barChart) {
+                    barChartDataUrl = barCanvas.toDataURL('image/png', 1.0);
+                }
+            } catch (e) {
+                console.warn('Could not capture charts:', e);
             }
 
-            // Temporarily replace canvases with images
-            if (pieImage && pieContainer && pieCanvas) {
-                pieCanvas.style.display = 'none';
-                pieContainer.appendChild(pieImage);
-            }
-            if (barImage && barContainer && barCanvas) {
-                barCanvas.style.display = 'none';
-                barContainer.appendChild(barImage);
-            }
-
-            // Use html2canvas to capture
+            // Use html2canvas with special handling
             html2canvas(captureElement, {
                 scale: 2,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#f3f4f6',
                 logging: false,
-                onclone: function(clonedDoc) {
-                    // Add CSS overrides for oklch colors
+                ignoreElements: function(element) {
+                    // Ignore canvas elements - we'll handle them separately
+                    return element.tagName === 'CANVAS';
+                },
+                onclone: function(clonedDoc, clonedElement) {
+                    // Remove Tailwind's CSS that uses oklch
+                    const tailwindScripts = clonedDoc.querySelectorAll('script[src*="tailwindcss"]');
+                    tailwindScripts.forEach(s => s.remove());
+                    
+                    // Add comprehensive CSS reset with standard colors
                     const style = clonedDoc.createElement('style');
                     style.textContent = `
-                        * { 
-                            color: inherit !important;
+                        * {
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
                         }
-                        .bg-gray-100 { background-color: #f3f4f6 !important; }
-                        .bg-white { background-color: #ffffff !important; }
-                        .bg-blue-50 { background-color: #eff6ff !important; }
-                        .bg-green-50 { background-color: #f0fdf4 !important; }
-                        .bg-orange-50 { background-color: #fff7ed !important; }
-                        .bg-purple-50 { background-color: #faf5ff !important; }
-                        .bg-red-50 { background-color: #fef2f2 !important; }
-                        .bg-yellow-50 { background-color: #fefce8 !important; }
-                        .bg-indigo-50 { background-color: #eef2ff !important; }
-                        .text-gray-700 { color: #374151 !important; }
-                        .text-gray-800 { color: #1f2937 !important; }
-                        .text-blue-600 { color: #2563eb !important; }
-                        .text-green-600 { color: #16a34a !important; }
-                        .text-orange-600 { color: #ea580c !important; }
-                        .text-purple-600 { color: #9333ea !important; }
-                        .text-red-600 { color: #dc2626 !important; }
-                        .text-white { color: #ffffff !important; }
-                        .border-b { border-bottom: 1px solid #e5e7eb !important; }
+                        body, html {
+                            background-color: #f3f4f6 !important;
+                            color: #1f2937 !important;
+                        }
+                        #dashboardCapture {
+                            background-color: #f3f4f6 !important;
+                        }
+                        .chart-container {
+                            position: relative;
+                            height: 300px;
+                        }
                     `;
                     clonedDoc.head.appendChild(style);
+                    
+                    // Replace chart canvases with images in cloned document
+                    const clonedPieContainer = clonedElement.querySelector('#pieChart')?.parentElement;
+                    const clonedBarContainer = clonedElement.querySelector('#barChart')?.parentElement;
+                    
+                    if (clonedPieContainer && pieChartDataUrl) {
+                        const pieCanvas = clonedPieContainer.querySelector('canvas');
+                        if (pieCanvas) pieCanvas.remove();
+                        const img = clonedDoc.createElement('img');
+                        img.src = pieChartDataUrl;
+                        img.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+                        clonedPieContainer.appendChild(img);
+                    }
+                    
+                    if (clonedBarContainer && barChartDataUrl) {
+                        const barCanvas = clonedBarContainer.querySelector('canvas');
+                        if (barCanvas) barCanvas.remove();
+                        const img = clonedDoc.createElement('img');
+                        img.src = barChartDataUrl;
+                        img.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+                        clonedBarContainer.appendChild(img);
+                    }
                 }
             }).then(canvas => {
-                // Restore original canvases
-                if (pieImage && pieContainer) {
-                    pieContainer.removeChild(pieImage);
-                }
-                if (barImage && barContainer) {
-                    barContainer.removeChild(barImage);
-                }
-                if (pieCanvas) pieCanvas.style.display = 'block';
-                if (barCanvas) barCanvas.style.display = 'block';
-                
-                // Download the image
                 const link = document.createElement('a');
                 link.download = `Dashboard_${reportResults.dateKey || 'report'}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
                 showStatus('Dashboard exported as PNG successfully!', 'success');
             }).catch(err => {
-                // Restore original canvases on error
-                if (pieImage && pieContainer && pieContainer.contains(pieImage)) {
-                    pieContainer.removeChild(pieImage);
-                }
-                if (barImage && barContainer && barContainer.contains(barImage)) {
-                    barContainer.removeChild(barImage);
-                }
-                if (pieCanvas) pieCanvas.style.display = 'block';
-                if (barCanvas) barCanvas.style.display = 'block';
-                
                 console.error('PNG Export Error:', err);
-                showStatus('PNG export failed. Try using Print instead.', 'error');
+                // Fallback: try without charts
+                exportToPNGFallback();
+            });
+        }
+        
+        function exportToPNGFallback() {
+            showStatus('Trying alternative export method...', 'info');
+            
+            const captureElement = document.getElementById('dashboardCapture');
+            
+            // Create a completely new element without any Tailwind classes
+            const exportDiv = document.createElement('div');
+            exportDiv.style.cssText = 'position: absolute; left: -9999px; background: #f3f4f6; padding: 20px; width: 1200px;';
+            exportDiv.innerHTML = captureElement.innerHTML;
+            document.body.appendChild(exportDiv);
+            
+            // Replace any remaining canvas elements with placeholders
+            exportDiv.querySelectorAll('canvas').forEach(canvas => {
+                const placeholder = document.createElement('div');
+                placeholder.style.cssText = 'width: 100%; height: 300px; background: #e5e7eb; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 14px;';
+                placeholder.textContent = '[Chart - See Dashboard]';
+                canvas.parentElement.replaceChild(placeholder, canvas);
+            });
+            
+            html2canvas(exportDiv, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#f3f4f6',
+                logging: false
+            }).then(canvas => {
+                document.body.removeChild(exportDiv);
+                const link = document.createElement('a');
+                link.download = `Dashboard_${reportResults.dateKey || 'report'}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showStatus('Dashboard exported (charts may be missing)', 'success');
+            }).catch(err => {
+                document.body.removeChild(exportDiv);
+                console.error('Fallback PNG Export Error:', err);
+                showStatus('PNG export failed. Please use Print (Ctrl+P) and save as PDF/Image.', 'error');
             });
         }
 
