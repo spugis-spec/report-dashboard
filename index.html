@@ -560,12 +560,6 @@
                 </div>
             </div>
 
-            <!-- Dashboard Header with Date -->
-            <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-8 mb-6 text-white text-center">
-                <h2 class="text-3xl font-bold mb-2" id="dashboardDateHeader">📊 Enumeration Dashboard</h2>
-                <p class="text-lg opacity-90" id="dashboardSubtitle">Select a date to view dashboard</p>
-            </div>
-
             <!-- Action Buttons -->
             <div class="flex justify-end gap-3 mb-6 no-print">
                 <button onclick="saveDashboardToCloud()" class="admin-only bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2">
@@ -585,121 +579,127 @@
                 </button>
             </div>
             
-            <!-- Dashboard Content for PNG Export -->
-            <div id="dashboardCapture">
+            <!-- Dashboard Content for PNG Export - Starts from Header -->
+            <div id="dashboardCapture" style="background-color: #f3f4f6; padding: 20px; border-radius: 12px;">
+            
+            <!-- Dashboard Header with Date -->
+            <div style="background: linear-gradient(to right, #9333ea, #2563eb); border-radius: 12px; padding: 32px; margin-bottom: 24px; color: white; text-align: center;">
+                <h2 style="font-size: 1.875rem; font-weight: bold; margin-bottom: 8px;" id="dashboardDateHeader">📊 Enumeration Dashboard</h2>
+                <p style="font-size: 1.125rem; opacity: 0.9;" id="dashboardSubtitle">Select a date to view dashboard</p>
+            </div>
 
             <!-- Top/Least Performers Cards -->
-            <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
                 <!-- AEDC Card -->
-                <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
-                    <div class="text-center mb-4">
-                        <span class="text-3xl">🏆</span>
-                        <h3 class="text-lg font-bold text-blue-600">AEDC</h3>
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-left: 4px solid #3b82f6;">
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <span style="font-size: 1.875rem;">🏆</span>
+                        <h3 style="font-size: 1.125rem; font-weight: bold; color: #2563eb;">AEDC</h3>
                     </div>
-                    <div class="space-y-3">
-                        <div class="bg-green-50 p-3 rounded-lg">
-                            <div class="text-xs text-green-600 font-semibold">🏅 Top Performer</div>
-                            <div class="font-bold text-green-800" id="aedcTopName">-</div>
-                            <div class="text-sm text-green-600" id="aedcTopCount">(0)</div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="background-color: #f0fdf4; padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 0.75rem; color: #16a34a; font-weight: 600;">🏅 Top Performer</div>
+                            <div style="font-weight: bold; color: #166534;" id="aedcTopName">-</div>
+                            <div style="font-size: 0.875rem; color: #16a34a;" id="aedcTopCount">(0)</div>
                         </div>
-                        <div class="bg-red-50 p-3 rounded-lg">
-                            <div class="text-xs text-red-600 font-semibold">📉 Least Performer</div>
-                            <div class="font-bold text-red-800" id="aedcLeastName">-</div>
-                            <div class="text-sm text-red-600" id="aedcLeastCount">(0)</div>
+                        <div style="background-color: #fef2f2; padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 0.75rem; color: #dc2626; font-weight: 600;">📉 Least Performer</div>
+                            <div style="font-weight: bold; color: #991b1b;" id="aedcLeastName">-</div>
+                            <div style="font-size: 0.875rem; color: #dc2626;" id="aedcLeastCount">(0)</div>
                         </div>
-                        <div class="bg-blue-100 p-3 rounded-lg text-center">
-                            <div class="text-2xl font-bold text-blue-800" id="aedcTotalDash">0</div>
-                            <div class="text-xs text-blue-600">Total Entries</div>
+                        <div style="background-color: #dbeafe; padding: 12px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #1e40af;" id="aedcTotalDash">0</div>
+                            <div style="font-size: 0.75rem; color: #2563eb;">Total Entries</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- BSS Card -->
-                <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
-                    <div class="text-center mb-4">
-                        <span class="text-3xl">🏆</span>
-                        <h3 class="text-lg font-bold text-green-600">BSS</h3>
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-left: 4px solid #22c55e;">
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <span style="font-size: 1.875rem;">🏆</span>
+                        <h3 style="font-size: 1.125rem; font-weight: bold; color: #16a34a;">BSS</h3>
                     </div>
-                    <div class="space-y-3">
-                        <div class="bg-green-50 p-3 rounded-lg">
-                            <div class="text-xs text-green-600 font-semibold">🏅 Top Performer</div>
-                            <div class="font-bold text-green-800" id="bssTopName">-</div>
-                            <div class="text-sm text-green-600" id="bssTopCount">(0)</div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="background-color: #f0fdf4; padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 0.75rem; color: #16a34a; font-weight: 600;">🏅 Top Performer</div>
+                            <div style="font-weight: bold; color: #166534;" id="bssTopName">-</div>
+                            <div style="font-size: 0.875rem; color: #16a34a;" id="bssTopCount">(0)</div>
                         </div>
-                        <div class="bg-red-50 p-3 rounded-lg">
-                            <div class="text-xs text-red-600 font-semibold">📉 Least Performer</div>
-                            <div class="font-bold text-red-800" id="bssLeastName">-</div>
-                            <div class="text-sm text-red-600" id="bssLeastCount">(0)</div>
+                        <div style="background-color: #fef2f2; padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 0.75rem; color: #dc2626; font-weight: 600;">📉 Least Performer</div>
+                            <div style="font-weight: bold; color: #991b1b;" id="bssLeastName">-</div>
+                            <div style="font-size: 0.875rem; color: #dc2626;" id="bssLeastCount">(0)</div>
                         </div>
-                        <div class="bg-green-100 p-3 rounded-lg text-center">
-                            <div class="text-2xl font-bold text-green-800" id="bssTotalDash">0</div>
-                            <div class="text-xs text-green-600">Total Entries</div>
+                        <div style="background-color: #dcfce7; padding: 12px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #166534;" id="bssTotalDash">0</div>
+                            <div style="font-size: 0.75rem; color: #16a34a;">Total Entries</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- NYSC Card -->
-                <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
-                    <div class="text-center mb-4">
-                        <span class="text-3xl">🏆</span>
-                        <h3 class="text-lg font-bold text-orange-600">NYSC</h3>
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-left: 4px solid #f97316;">
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <span style="font-size: 1.875rem;">🏆</span>
+                        <h3 style="font-size: 1.125rem; font-weight: bold; color: #ea580c;">NYSC</h3>
                     </div>
-                    <div class="space-y-3">
-                        <div class="bg-green-50 p-3 rounded-lg">
-                            <div class="text-xs text-green-600 font-semibold">🏅 Top Performer</div>
-                            <div class="font-bold text-green-800" id="nyscTopName">-</div>
-                            <div class="text-sm text-green-600" id="nyscTopCount">(0)</div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="background-color: #f0fdf4; padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 0.75rem; color: #16a34a; font-weight: 600;">🏅 Top Performer</div>
+                            <div style="font-weight: bold; color: #166534;" id="nyscTopName">-</div>
+                            <div style="font-size: 0.875rem; color: #16a34a;" id="nyscTopCount">(0)</div>
                         </div>
-                        <div class="bg-red-50 p-3 rounded-lg">
-                            <div class="text-xs text-red-600 font-semibold">📉 Least Performer</div>
-                            <div class="font-bold text-red-800" id="nyscLeastName">-</div>
-                            <div class="text-sm text-red-600" id="nyscLeastCount">(0)</div>
+                        <div style="background-color: #fef2f2; padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 0.75rem; color: #dc2626; font-weight: 600;">📉 Least Performer</div>
+                            <div style="font-weight: bold; color: #991b1b;" id="nyscLeastName">-</div>
+                            <div style="font-size: 0.875rem; color: #dc2626;" id="nyscLeastCount">(0)</div>
                         </div>
-                        <div class="bg-orange-100 p-3 rounded-lg text-center">
-                            <div class="text-2xl font-bold text-orange-800" id="nyscTotalDash">0</div>
-                            <div class="text-xs text-orange-600">Total Entries</div>
+                        <div style="background-color: #ffedd5; padding: 12px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #9a3412;" id="nyscTotalDash">0</div>
+                            <div style="font-size: 0.75rem; color: #ea580c;">Total Entries</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Attendance Summary Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-gradient-to-br from-green-400 to-green-600 rounded-xl shadow-md p-6 text-white text-center">
-                    <div class="text-3xl mb-2">👥</div>
-                    <div class="text-sm opacity-90">Present</div>
-                    <div class="text-4xl font-bold" id="presentCount">0</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                <div style="background: linear-gradient(to bottom right, #4ade80, #16a34a); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; color: white; text-align: center;">
+                    <div style="font-size: 1.875rem; margin-bottom: 8px;">👥</div>
+                    <div style="font-size: 0.875rem; opacity: 0.9;">Present</div>
+                    <div style="font-size: 2.25rem; font-weight: bold;" id="presentCount">0</div>
                 </div>
-                <div class="bg-gradient-to-br from-red-400 to-red-600 rounded-xl shadow-md p-6 text-white text-center">
-                    <div class="text-3xl mb-2">🚫</div>
-                    <div class="text-sm opacity-90">Absent</div>
-                    <div class="text-4xl font-bold" id="absentCount">0</div>
+                <div style="background: linear-gradient(to bottom right, #f87171, #dc2626); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; color: white; text-align: center;">
+                    <div style="font-size: 1.875rem; margin-bottom: 8px;">🚫</div>
+                    <div style="font-size: 0.875rem; opacity: 0.9;">Absent</div>
+                    <div style="font-size: 2.25rem; font-weight: bold;" id="absentCount">0</div>
                 </div>
-                <div class="bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl shadow-md p-6 text-white text-center">
-                    <div class="text-3xl mb-2">📝</div>
-                    <div class="text-sm opacity-90">Excused</div>
-                    <div class="text-4xl font-bold" id="excusedCount">0</div>
+                <div style="background: linear-gradient(to bottom right, #818cf8, #4f46e5); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; color: white; text-align: center;">
+                    <div style="font-size: 1.875rem; margin-bottom: 8px;">📝</div>
+                    <div style="font-size: 0.875rem; opacity: 0.9;">Excused</div>
+                    <div style="font-size: 2.25rem; font-weight: bold;" id="excusedCount">0</div>
                 </div>
-                <div class="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-md p-6 text-white text-center">
-                    <div class="text-3xl mb-2">🤒</div>
-                    <div class="text-sm opacity-90">Sick</div>
-                    <div class="text-4xl font-bold" id="sickCount">0</div>
+                <div style="background: linear-gradient(to bottom right, #facc15, #ca8a04); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; color: white; text-align: center;">
+                    <div style="font-size: 1.875rem; margin-bottom: 8px;">🤒</div>
+                    <div style="font-size: 0.875rem; opacity: 0.9;">Sick</div>
+                    <div style="font-size: 2.25rem; font-weight: bold;" id="sickCount">0</div>
                 </div>
             </div>
 
             <!-- Charts Section -->
-            <div class="grid md:grid-cols-2 gap-6 mb-6">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px;">
                 <!-- Pie Chart -->
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">📊 Group Comparison</h3>
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 16px; text-align: center;">📊 Group Comparison</h3>
                     <div class="chart-container">
                         <canvas id="pieChart"></canvas>
                     </div>
                 </div>
 
                 <!-- Bar Chart -->
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">📈 Asset Distribution</h3>
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 16px; text-align: center;">📈 Asset Distribution</h3>
                     <div class="chart-container">
                         <canvas id="barChart"></canvas>
                     </div>
@@ -707,135 +707,135 @@
             </div>
 
             <!-- AEDC Dashboard Table -->
-            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
-                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <span class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">A</span>
+            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+                <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 24px; height: 24px; background-color: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">A</span>
                     AEDC Enumerators
                 </h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs compact-table">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; font-size: 11px; border-collapse: collapse;" class="compact-table">
                         <thead>
-                            <tr class="bg-blue-50">
-                                <th class="text-left font-semibold text-gray-700 border-b">S/N</th>
-                                <th class="text-left font-semibold text-gray-700 border-b">Full Name</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
-                                <th class="text-center font-semibold text-gray-700 border-b bg-blue-100">Total</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Status</th>
+                            <tr style="background-color: #eff6ff;">
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">S/N</th>
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Full Name</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">DT/DSS</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">HT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Customer</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">LT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Issues</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px; background-color: #dbeafe;">Total</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Status</th>
                             </tr>
                         </thead>
                         <tbody id="dashboardBodyAedc"></tbody>
-                        <tfoot id="dashboardTfootAedc" class="bg-blue-100 font-semibold"></tfoot>
+                        <tfoot id="dashboardTfootAedc" style="background-color: #dbeafe; font-weight: 600;"></tfoot>
                     </table>
                 </div>
             </div>
 
             <!-- BSS Dashboard Table -->
-            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
-                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <span class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">B</span>
+            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+                <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 24px; height: 24px; background-color: #22c55e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">B</span>
                     BSS Enumerators
                 </h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs compact-table">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; font-size: 11px; border-collapse: collapse;" class="compact-table">
                         <thead>
-                            <tr class="bg-green-50">
-                                <th class="text-left font-semibold text-gray-700 border-b">S/N</th>
-                                <th class="text-left font-semibold text-gray-700 border-b">Full Name</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
-                                <th class="text-center font-semibold text-gray-700 border-b bg-green-100">Total</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Status</th>
+                            <tr style="background-color: #f0fdf4;">
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">S/N</th>
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Full Name</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">DT/DSS</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">HT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Customer</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">LT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Issues</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px; background-color: #dcfce7;">Total</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Status</th>
                             </tr>
                         </thead>
                         <tbody id="dashboardBodyBss"></tbody>
-                        <tfoot id="dashboardTfootBss" class="bg-green-100 font-semibold"></tfoot>
+                        <tfoot id="dashboardTfootBss" style="background-color: #dcfce7; font-weight: 600;"></tfoot>
                     </table>
                 </div>
             </div>
 
             <!-- NYSC Dashboard Table -->
-            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
-                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <span class="w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs">N</span>
+            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+                <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 24px; height: 24px; background-color: #f97316; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">N</span>
                     NYSC Enumerators
                 </h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs compact-table">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; font-size: 11px; border-collapse: collapse;" class="compact-table">
                         <thead>
-                            <tr class="bg-orange-50">
-                                <th class="text-left font-semibold text-gray-700 border-b">S/N</th>
-                                <th class="text-left font-semibold text-gray-700 border-b">Full Name</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
-                                <th class="text-center font-semibold text-gray-700 border-b bg-orange-100">Total</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Status</th>
+                            <tr style="background-color: #fff7ed;">
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">S/N</th>
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Full Name</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">DT/DSS</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">HT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Customer</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">LT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Issues</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px; background-color: #ffedd5;">Total</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Status</th>
                             </tr>
                         </thead>
                         <tbody id="dashboardBodyNysc"></tbody>
-                        <tfoot id="dashboardTfootNysc" class="bg-orange-100 font-semibold"></tfoot>
+                        <tfoot id="dashboardTfootNysc" style="background-color: #ffedd5; font-weight: 600;"></tfoot>
                     </table>
                 </div>
             </div>
 
             <!-- Grand Total Summary -->
-            <div class="bg-white rounded-xl shadow-md p-4 mb-4">
-                <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <span class="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">Σ</span>
+            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+                <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 24px; height: 24px; background-color: #a855f7; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">Σ</span>
                     Grand Total Summary
                 </h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs compact-table" id="tableGrandTotal">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; font-size: 11px; border-collapse: collapse;" class="compact-table" id="tableGrandTotal">
                         <thead>
-                            <tr class="bg-purple-50">
-                                <th class="text-left font-semibold text-gray-700 border-b">Group</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">DT/DSS</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">HT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Customer</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">LT Pole</th>
-                                <th class="text-center font-semibold text-gray-700 border-b">Issues</th>
-                                <th class="text-center font-semibold text-gray-700 border-b bg-purple-100">Total</th>
+                            <tr style="background-color: #faf5ff;">
+                                <th style="text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Group</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">DT/DSS</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">HT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Customer</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">LT Pole</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">Issues</th>
+                                <th style="text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; padding: 4px 8px; background-color: #e9d5ff;">Total</th>
                             </tr>
                         </thead>
                         <tbody id="bodyGrandTotal"></tbody>
-                        <tfoot id="footGrandTotal" class="bg-purple-200 font-bold"></tfoot>
+                        <tfoot id="footGrandTotal" style="background-color: #e9d5ff; font-weight: bold;"></tfoot>
                     </table>
                 </div>
             </div>
 
             <!-- Absent/Sick/Excused Lists -->
-            <div class="grid md:grid-cols-3 gap-6">
-                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-red-500">
-                    <h3 class="text-lg font-semibold text-red-600 mb-4 flex items-center gap-2">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-top: 4px solid #ef4444;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #dc2626; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                         <span>🚫</span> Absent Enumerators
                     </h3>
-                    <ul class="space-y-2" id="absentList">
-                        <li class="text-gray-500 italic">None</li>
+                    <ul style="display: flex; flex-direction: column; gap: 8px;" id="absentList">
+                        <li style="color: #6b7280; font-style: italic;">None</li>
                     </ul>
                 </div>
-                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-yellow-500">
-                    <h3 class="text-lg font-semibold text-yellow-600 mb-4 flex items-center gap-2">
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-top: 4px solid #eab308;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #ca8a04; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                         <span>🤒</span> Sick Enumerators
                     </h3>
-                    <ul class="space-y-2" id="sickList">
-                        <li class="text-gray-500 italic">None</li>
+                    <ul style="display: flex; flex-direction: column; gap: 8px;" id="sickList">
+                        <li style="color: #6b7280; font-style: italic;">None</li>
                     </ul>
                 </div>
-                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-indigo-500">
-                    <h3 class="text-lg font-semibold text-indigo-600 mb-4 flex items-center gap-2">
+                <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-top: 4px solid #6366f1;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #4f46e5; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                         <span>📝</span> Excused Enumerators
                     </h3>
-                    <ul class="space-y-2" id="excusedList">
-                        <li class="text-gray-500 italic">None</li>
+                    <ul style="display: flex; flex-direction: column; gap: 8px;" id="excusedList">
+                        <li style="color: #6b7280; font-style: italic;">None</li>
                     </ul>
                 </div>
             </div>
@@ -851,14 +851,13 @@
         // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
-            apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -1882,14 +1881,14 @@
             document.getElementById('excusedCount').textContent = excusedCount;
 
             document.getElementById('absentList').innerHTML = absentList.length 
-                ? absentList.map(n => `<li class="p-2 bg-red-50 rounded text-red-700 text-sm">${n}</li>`).join('')
-                : '<li class="text-gray-500 italic">None</li>';
+                ? absentList.map(n => `<li style="padding: 8px; background-color: #fef2f2; border-radius: 6px; color: #b91c1c; font-size: 0.875rem;">${n}</li>`).join('')
+                : '<li style="color: #6b7280; font-style: italic;">None</li>';
             document.getElementById('sickList').innerHTML = sickList.length 
-                ? sickList.map(n => `<li class="p-2 bg-yellow-50 rounded text-yellow-700 text-sm">${n}</li>`).join('')
-                : '<li class="text-gray-500 italic">None</li>';
+                ? sickList.map(n => `<li style="padding: 8px; background-color: #fefce8; border-radius: 6px; color: #a16207; font-size: 0.875rem;">${n}</li>`).join('')
+                : '<li style="color: #6b7280; font-style: italic;">None</li>';
             document.getElementById('excusedList').innerHTML = excusedList.length 
-                ? excusedList.map(n => `<li class="p-2 bg-indigo-50 rounded text-indigo-700 text-sm">${n}</li>`).join('')
-                : '<li class="text-gray-500 italic">None</li>';
+                ? excusedList.map(n => `<li style="padding: 8px; background-color: #eef2ff; border-radius: 6px; color: #4338ca; font-size: 0.875rem;">${n}</li>`).join('')
+                : '<li style="color: #6b7280; font-style: italic;">None</li>';
 
             ['aedc', 'bss', 'nysc'].forEach(group => {
                 const results = (reportResults[group].results || []).filter(r => r.status === 'present');
@@ -1923,36 +1922,36 @@
             if (!tbody || !tfoot) return;
             
             const statusLabels = {
-                'present': '<span class="status-badge px-1 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Present</span>',
-                'absent': '<span class="status-badge px-1 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Absent</span>',
-                'sick': '<span class="status-badge px-1 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Sick</span>',
-                'excused': '<span class="status-badge px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">Excused</span>'
+                'present': '<span style="padding: 2px 8px; background-color: #dcfce7; color: #166534; border-radius: 9999px; font-size: 10px; font-weight: 500;">Present</span>',
+                'absent': '<span style="padding: 2px 8px; background-color: #fee2e2; color: #991b1b; border-radius: 9999px; font-size: 10px; font-weight: 500;">Absent</span>',
+                'sick': '<span style="padding: 2px 8px; background-color: #fef3c7; color: #92400e; border-radius: 9999px; font-size: 10px; font-weight: 500;">Sick</span>',
+                'excused': '<span style="padding: 2px 8px; background-color: #e0e7ff; color: #3730a3; border-radius: 9999px; font-size: 10px; font-weight: 500;">Excused</span>'
             };
             
             tbody.innerHTML = (results || []).map((r, i) => `
-                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                    <td class="border-b">${i + 1}</td>
-                    <td class="border-b font-medium">${escapeHtml(r.fullname)}</td>
-                    <td class="border-b text-center">${r.dss || '-'}</td>
-                    <td class="border-b text-center">${r.ht || '-'}</td>
-                    <td class="border-b text-center">${r.cust || '-'}</td>
-                    <td class="border-b text-center">${r.lt || '-'}</td>
-                    <td class="border-b text-center">${r.issues || '-'}</td>
-                    <td class="border-b text-center font-bold">${r.total}</td>
-                    <td class="border-b text-center">${statusLabels[r.status] || statusLabels['present']}</td>
+                <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px;">${i + 1}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; font-weight: 500;">${escapeHtml(r.fullname)}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${r.dss || '-'}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${r.ht || '-'}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${r.cust || '-'}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${r.lt || '-'}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${r.issues || '-'}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center; font-weight: bold;">${r.total}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${statusLabels[r.status] || statusLabels['present']}</td>
                 </tr>
             `).join('');
             
             tfoot.innerHTML = `
                 <tr>
-                    <td colspan="2">TOTAL (${(results || []).length})</td>
-                    <td class="text-center">${totals.dss || 0}</td>
-                    <td class="text-center">${totals.ht || 0}</td>
-                    <td class="text-center">${totals.cust || 0}</td>
-                    <td class="text-center">${totals.lt || 0}</td>
-                    <td class="text-center">${totals.issues || 0}</td>
-                    <td class="text-center font-bold">${totals.total || 0}</td>
-                    <td class="text-center"></td>
+                    <td style="padding: 4px 8px;" colspan="2">TOTAL (${(results || []).length})</td>
+                    <td style="padding: 4px 8px; text-align: center;">${totals.dss || 0}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${totals.ht || 0}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${totals.cust || 0}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${totals.lt || 0}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${totals.issues || 0}</td>
+                    <td style="padding: 4px 8px; text-align: center; font-weight: bold;">${totals.total || 0}</td>
+                    <td style="padding: 4px 8px; text-align: center;"></td>
                 </tr>
             `;
         }
@@ -1964,25 +1963,25 @@
             if (!grandTotalBody || !grandTotalFoot) return;
             
             const groups = [
-                { name: 'AEDC Enumerators', data: reportResults.aedc.totals || {}, color: 'blue' },
-                { name: 'BSS Enumerators', data: reportResults.bss.totals || {}, color: 'green' },
-                { name: 'NYSC Enumerators', data: reportResults.nysc.totals || {}, color: 'orange' }
+                { name: 'AEDC Enumerators', data: reportResults.aedc.totals || {}, color: '#3b82f6' },
+                { name: 'BSS Enumerators', data: reportResults.bss.totals || {}, color: '#22c55e' },
+                { name: 'NYSC Enumerators', data: reportResults.nysc.totals || {}, color: '#f97316' }
             ];
             
             grandTotalBody.innerHTML = groups.map((g, i) => `
-                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                    <td class="border-b font-medium">
-                        <span class="inline-flex items-center gap-2">
-                            <span class="w-3 h-3 bg-${g.color}-500 rounded-full"></span>
+                <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; font-weight: 500;">
+                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: ${g.color}; border-radius: 50%;"></span>
                             ${g.name}
                         </span>
                     </td>
-                    <td class="border-b text-center">${g.data.dss || 0}</td>
-                    <td class="border-b text-center">${g.data.ht || 0}</td>
-                    <td class="border-b text-center">${g.data.cust || 0}</td>
-                    <td class="border-b text-center">${g.data.lt || 0}</td>
-                    <td class="border-b text-center">${g.data.issues || 0}</td>
-                    <td class="border-b text-center font-bold">${g.data.total || 0}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${g.data.dss || 0}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${g.data.ht || 0}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${g.data.cust || 0}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${g.data.lt || 0}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center;">${g.data.issues || 0}</td>
+                    <td style="border-bottom: 1px solid #e5e7eb; padding: 4px 8px; text-align: center; font-weight: bold;">${g.data.total || 0}</td>
                 </tr>
             `).join('');
             
@@ -1997,13 +1996,13 @@
             
             grandTotalFoot.innerHTML = `
                 <tr>
-                    <td>GRAND TOTAL</td>
-                    <td class="text-center">${grandTotals.dss}</td>
-                    <td class="text-center">${grandTotals.ht}</td>
-                    <td class="text-center">${grandTotals.cust}</td>
-                    <td class="text-center">${grandTotals.lt}</td>
-                    <td class="text-center">${grandTotals.issues}</td>
-                    <td class="text-center">${grandTotals.total}</td>
+                    <td style="padding: 4px 8px;">GRAND TOTAL</td>
+                    <td style="padding: 4px 8px; text-align: center;">${grandTotals.dss}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${grandTotals.ht}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${grandTotals.cust}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${grandTotals.lt}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${grandTotals.issues}</td>
+                    <td style="padding: 4px 8px; text-align: center;">${grandTotals.total}</td>
                 </tr>
             `;
         }
@@ -2205,21 +2204,113 @@
 
             showStatus('Generating PNG... Please wait', 'info');
 
+            // Convert Chart.js canvases to images for better capture
+            const pieCanvas = document.getElementById('pieChart');
+            const barCanvas = document.getElementById('barChart');
+            
+            // Store original chart containers
+            const pieContainer = pieCanvas ? pieCanvas.parentElement : null;
+            const barContainer = barCanvas ? barCanvas.parentElement : null;
+            
+            // Create image elements from chart canvases
+            let pieImage = null;
+            let barImage = null;
+            
+            try {
+                if (pieCanvas && pieChart) {
+                    pieImage = document.createElement('img');
+                    pieImage.src = pieCanvas.toDataURL('image/png', 1.0);
+                    pieImage.style.width = '100%';
+                    pieImage.style.height = '100%';
+                    pieImage.style.objectFit = 'contain';
+                }
+                
+                if (barCanvas && barChart) {
+                    barImage = document.createElement('img');
+                    barImage.src = barCanvas.toDataURL('image/png', 1.0);
+                    barImage.style.width = '100%';
+                    barImage.style.height = '100%';
+                    barImage.style.objectFit = 'contain';
+                }
+            } catch (chartError) {
+                console.warn('Could not convert charts to images:', chartError);
+            }
+
+            // Temporarily replace canvases with images
+            if (pieImage && pieContainer && pieCanvas) {
+                pieCanvas.style.display = 'none';
+                pieContainer.appendChild(pieImage);
+            }
+            if (barImage && barContainer && barCanvas) {
+                barCanvas.style.display = 'none';
+                barContainer.appendChild(barImage);
+            }
+
+            // Use html2canvas to capture
             html2canvas(captureElement, {
                 scale: 2,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#f3f4f6',
-                logging: false
+                logging: false,
+                onclone: function(clonedDoc) {
+                    // Add CSS overrides for oklch colors
+                    const style = clonedDoc.createElement('style');
+                    style.textContent = `
+                        * { 
+                            color: inherit !important;
+                        }
+                        .bg-gray-100 { background-color: #f3f4f6 !important; }
+                        .bg-white { background-color: #ffffff !important; }
+                        .bg-blue-50 { background-color: #eff6ff !important; }
+                        .bg-green-50 { background-color: #f0fdf4 !important; }
+                        .bg-orange-50 { background-color: #fff7ed !important; }
+                        .bg-purple-50 { background-color: #faf5ff !important; }
+                        .bg-red-50 { background-color: #fef2f2 !important; }
+                        .bg-yellow-50 { background-color: #fefce8 !important; }
+                        .bg-indigo-50 { background-color: #eef2ff !important; }
+                        .text-gray-700 { color: #374151 !important; }
+                        .text-gray-800 { color: #1f2937 !important; }
+                        .text-blue-600 { color: #2563eb !important; }
+                        .text-green-600 { color: #16a34a !important; }
+                        .text-orange-600 { color: #ea580c !important; }
+                        .text-purple-600 { color: #9333ea !important; }
+                        .text-red-600 { color: #dc2626 !important; }
+                        .text-white { color: #ffffff !important; }
+                        .border-b { border-bottom: 1px solid #e5e7eb !important; }
+                    `;
+                    clonedDoc.head.appendChild(style);
+                }
             }).then(canvas => {
+                // Restore original canvases
+                if (pieImage && pieContainer) {
+                    pieContainer.removeChild(pieImage);
+                }
+                if (barImage && barContainer) {
+                    barContainer.removeChild(barImage);
+                }
+                if (pieCanvas) pieCanvas.style.display = 'block';
+                if (barCanvas) barCanvas.style.display = 'block';
+                
+                // Download the image
                 const link = document.createElement('a');
                 link.download = `Dashboard_${reportResults.dateKey || 'report'}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
                 showStatus('Dashboard exported as PNG successfully!', 'success');
             }).catch(err => {
-                showStatus('Error generating PNG: ' + err.message, 'error');
-                console.error(err);
+                // Restore original canvases on error
+                if (pieImage && pieContainer && pieContainer.contains(pieImage)) {
+                    pieContainer.removeChild(pieImage);
+                }
+                if (barImage && barContainer && barContainer.contains(barImage)) {
+                    barContainer.removeChild(barImage);
+                }
+                if (pieCanvas) pieCanvas.style.display = 'block';
+                if (barCanvas) barCanvas.style.display = 'block';
+                
+                console.error('PNG Export Error:', err);
+                showStatus('PNG export failed. Try using Print instead.', 'error');
             });
         }
 
