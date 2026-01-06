@@ -970,7 +970,7 @@
                 savedAt: new Date().toISOString()
             };
             
-            if (firebaseInitialized && database) {
+            if (firebaseInitialized && database && isAdminAuthenticated) {
                 database.ref('dashboards/' + dateKey).set(dataToSave)
                     .then(() => {
                         updateFirebaseStatus('connected', '🟢 Cloud Connected');
@@ -1387,7 +1387,7 @@
         function deleteAllDashboards() {
             updateFirebaseStatus('syncing', '🔄 Clearing all...');
             
-            if (firebaseInitialized && database) {
+            if (firebaseInitialized && database && isAdminAuthenticated) {
                 database.ref('dashboards').remove()
                     .then(() => {
                         savedDashboards = {};
