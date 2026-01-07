@@ -903,14 +903,13 @@
         // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
-	        apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -2412,10 +2411,6 @@
             const showAbsentSick = document.getElementById('showAbsentSick').checked;
             const showCharts = document.getElementById('showCharts').checked;
 
-            // Create a custom export element
-            const exportDiv = document.createElement('div');
-            exportDiv.style.cssText = 'position: absolute; left: -9999px; background: #f3f4f6; padding: 16px; width: 800px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;';
-            
             // Build visible tables
             let tableHTML = '';
             const groupColors = {
@@ -2446,8 +2441,9 @@
                     </div>
                 `;
             }
-            
-            exportDiv.innerHTML = `
+
+            // Build complete HTML for iframe
+            const exportHTML = `
                 <!-- Header -->
                 <div style="background: linear-gradient(to right, #9333ea, #2563eb); border-radius: 8px; padding: 16px; margin-bottom: 12px; color: white; text-align: center;">
                     <h2 style="font-size: 1.1rem; font-weight: bold; margin: 0 0 4px 0;">📊 ${reportResults.formattedDate || 'Enumeration Dashboard'}</h2>
@@ -2492,18 +2488,48 @@
                 ${tableHTML}
             `;
             
-            document.body.appendChild(exportDiv);
+            // Create an iframe to isolate from Tailwind CSS
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'position: absolute; left: -10000px; top: 0; width: 800px; height: 3000px; border: none;';
+            document.body.appendChild(iframe);
             
-            // Use setTimeout to allow the DOM to render before capturing
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { 
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+                            background: #f3f4f6;
+                            padding: 16px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div id="captureContent">${exportHTML}</div>
+                </body>
+                </html>
+            `);
+            iframeDoc.close();
+            
+            // Wait for iframe to fully render
             setTimeout(() => {
-                html2canvas(exportDiv, {
+                const captureElement = iframeDoc.getElementById('captureContent');
+                
+                html2canvas(captureElement, {
                     scale: 2,
                     useCORS: true,
                     allowTaint: true,
                     backgroundColor: '#f3f4f6',
-                    logging: false
+                    logging: false,
+                    windowWidth: 800,
+                    windowHeight: captureElement.scrollHeight
                 }).then(canvas => {
-                    document.body.removeChild(exportDiv);
+                    document.body.removeChild(iframe);
                     const link = document.createElement('a');
                     const filename = `Dashboard_${reportResults.dateKey || 'report'}.png`;
                     link.download = filename;
@@ -2511,11 +2537,11 @@
                     link.click();
                     showStatus('PNG exported successfully!', 'success');
                 }).catch(err => {
-                    document.body.removeChild(exportDiv);
+                    document.body.removeChild(iframe);
                     console.error('PNG Export Error:', err);
-                    showStatus('PNG export failed. Try using Print instead.', 'error');
+                    showStatus('PNG export failed: ' + err.message, 'error');
                 });
-            }, 200);
+            }, 500);
         }
         
         function buildPerformerCardHTML(group, color, name) {
