@@ -903,14 +903,13 @@
         // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
-	        apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -2516,6 +2515,234 @@
                     showStatus('PNG export failed. Try using Print instead.', 'error');
                 });
             }, 200);
+        }
+        
+        function buildPerformerCardHTML(group, color, name) {
+            const results = (reportResults[group].results || []).filter(r => r.status === 'present');
+            const sorted = [...results].sort((a, b) => b.total - a.total);
+            const top = sorted[0];
+            const least = sorted[sorted.length - 1];
+            const total = (reportResults[group].totals || {}).total || 0;
+            
+            return `
+                <div style="flex: 1; background: white; border-radius: 6px; padding: 8px; border-left: 3px solid ${color}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="text-align: center; margin-bottom: 6px;">
+                        <span style="font-size: 1rem;">🏆</span>
+                        <div style="font-size: 0.75rem; font-weight: bold; color: ${color};">${name}</div>
+                    </div>
+                    <div style="background: #f0fdf4; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px;">
+                        <div style="font-size: 0.55rem; color: #16a34a; font-weight: 600;">🏅 Top</div>
+                        <div style="font-size: 0.7rem; font-weight: bold; color: #166534;">${top ? top.fullname : '-'}</div>
+                        <div style="font-size: 0.65rem; color: #16a34a;">(${top ? top.total : 0})</div>
+                    </div>
+                    <div style="background: #fef2f2; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px;">
+                        <div style="font-size: 0.55rem; color: #dc2626; font-weight: 600;">📉 Least</div>
+                        <div style="font-size: 0.7rem; font-weight: bold; color: #991b1b;">${least ? least.fullname : '-'}</div>
+                        <div style="font-size: 0.65rem; color: #dc2626;">(${least ? least.total : 0})</div>
+                    </div>
+                    <div style="background: #f3f4f6; padding: 4px 6px; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 0.9rem; font-weight: bold; color: #1f2937;">${total}</div>
+                        <div style="font-size: 0.5rem; color: #6b7280;">Total</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function buildGroupTableHTML(group, colors) {
+            const { results, totals } = reportResults[group] || { results: [], totals: {} };
+            const statusLabels = {
+                'present': '<span style="padding: 1px 4px; background: #dcfce7; color: #166534; border-radius: 4px; font-size: 8px;">Present</span>',
+                'absent': '<span style="padding: 1px 4px; background: #fee2e2; color: #991b1b; border-radius: 4px; font-size: 8px;">Absent</span>',
+                'sick': '<span style="padding: 1px 4px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 8px;">Sick</span>',
+                'excused': '<span style="padding: 1px 4px; background: #e0e7ff; color: #3730a3; border-radius: 4px; font-size: 8px;">Excused</span>'
+            };
+            
+            let rows = results.map((r, i) => `
+                <tr style="background: ${i % 2 === 0 ? colors.bg : '#ffffff'};">
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px;">${i + 1}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; font-weight: 500;">${escapeHtml(r.fullname)}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; text-align: center;">${r.dss || '-'}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; text-align: center;">${r.ht || '-'}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; text-align: center;">${r.cust || '-'}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; text-align: center;">${r.lt || '-'}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; text-align: center;">${r.issues || '-'}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; font-size: 9px; text-align: center; font-weight: bold;">${r.total}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 2px 4px; text-align: center;">${statusLabels[r.status] || statusLabels['present']}</td>
+                </tr>
+            `).join('');
+            
+            return `
+                <div style="background: white; border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 18px; height: 18px; background: ${colors.header}; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem;">${colors.name.charAt(0)}</span>
+                        ${colors.name} Enumerators
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+                        <thead>
+                            <tr style="background: ${colors.bg};">
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">S/N</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px; text-align: left;">Full Name</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">DT/DSS</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">HT</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">Cust</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">LT</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">Issues</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">Total</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 8px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                        <tfoot>
+                            <tr style="background: ${colors.bg}; font-weight: bold;">
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px;" colspan="2">TOTAL (${results.length})</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px; text-align: center;">${totals.dss || 0}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px; text-align: center;">${totals.ht || 0}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px; text-align: center;">${totals.cust || 0}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px; text-align: center;">${totals.lt || 0}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px; text-align: center;">${totals.issues || 0}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px; font-size: 9px; text-align: center;">${totals.total || 0}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 4px;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function buildGrandTotalHTML() {
+            const groups = [
+                { name: 'AEDC', data: reportResults.aedc.totals || {}, color: '#3b82f6' },
+                { name: 'BSS', data: reportResults.bss.totals || {}, color: '#22c55e' },
+                { name: 'NYSC', data: reportResults.nysc.totals || {}, color: '#f97316' }
+            ];
+            
+            const grandTotals = {
+                dss: groups.reduce((sum, g) => sum + (g.data.dss || 0), 0),
+                ht: groups.reduce((sum, g) => sum + (g.data.ht || 0), 0),
+                cust: groups.reduce((sum, g) => sum + (g.data.cust || 0), 0),
+                lt: groups.reduce((sum, g) => sum + (g.data.lt || 0), 0),
+                issues: groups.reduce((sum, g) => sum + (g.data.issues || 0), 0),
+                total: groups.reduce((sum, g) => sum + (g.data.total || 0), 0)
+            };
+            
+            let rows = groups.map((g, i) => `
+                <tr style="background: ${i % 2 === 0 ? '#faf5ff' : '#ffffff'};">
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; font-weight: 500;">
+                        <span style="display: inline-flex; align-items: center; gap: 4px;">
+                            <span style="width: 8px; height: 8px; background: ${g.color}; border-radius: 50%;"></span>
+                            ${g.name}
+                        </span>
+                    </td>
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${g.data.dss || 0}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${g.data.ht || 0}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${g.data.cust || 0}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${g.data.lt || 0}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${g.data.issues || 0}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center; font-weight: bold;">${g.data.total || 0}</td>
+                </tr>
+            `).join('');
+            
+            return `
+                <div style="background: white; border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 18px; height: 18px; background: #a855f7; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem;">Σ</span>
+                        Grand Total Summary
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #faf5ff;">
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px; text-align: left;">Group</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px;">DT/DSS</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px;">HT</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px;">Cust</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px;">LT</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px;">Issues</th>
+                                <th style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 8px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                        <tfoot>
+                            <tr style="background: #e9d5ff; font-weight: bold;">
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px;">GRAND TOTAL</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${grandTotals.dss}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${grandTotals.ht}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${grandTotals.cust}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${grandTotals.lt}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${grandTotals.issues}</td>
+                                <td style="border: 1px solid #d1d5db; padding: 3px 6px; font-size: 9px; text-align: center;">${grandTotals.total}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function buildAbsentSickExcusedHTML() {
+            const absentList = [], sickList = [], excusedList = [];
+            
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const groupLabel = group.toUpperCase();
+                (reportResults[group].results || []).forEach(r => {
+                    if (r.status === 'absent') absentList.push(`${r.fullname} (${groupLabel})`);
+                    if (r.status === 'sick') sickList.push(`${r.fullname} (${groupLabel})`);
+                    if (r.status === 'excused') excusedList.push(`${r.fullname} (${groupLabel})`);
+                });
+            });
+            
+            return `
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1; background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #ef4444; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <h4 style="font-size: 0.75rem; font-weight: 600; color: #dc2626; margin: 0 0 6px 0;">🚫 Absent</h4>
+                        ${absentList.length ? absentList.map(n => `<div style="font-size: 0.65rem; padding: 2px 4px; background: #fef2f2; border-radius: 4px; margin-bottom: 2px; color: #991b1b;">${n}</div>`).join('') : '<div style="font-size: 0.65rem; color: #9ca3af; font-style: italic;">None</div>'}
+                    </div>
+                    <div style="flex: 1; background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #eab308; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <h4 style="font-size: 0.75rem; font-weight: 600; color: #ca8a04; margin: 0 0 6px 0;">🤒 Sick</h4>
+                        ${sickList.length ? sickList.map(n => `<div style="font-size: 0.65rem; padding: 2px 4px; background: #fefce8; border-radius: 4px; margin-bottom: 2px; color: #a16207;">${n}</div>`).join('') : '<div style="font-size: 0.65rem; color: #9ca3af; font-style: italic;">None</div>'}
+                    </div>
+                    <div style="flex: 1; background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #6366f1; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <h4 style="font-size: 0.75rem; font-weight: 600; color: #4f46e5; margin: 0 0 6px 0;">📝 Excused</h4>
+                        ${excusedList.length ? excusedList.map(n => `<div style="font-size: 0.65rem; padding: 2px 4px; background: #eef2ff; border-radius: 4px; margin-bottom: 2px; color: #4338ca;">${n}</div>`).join('') : '<div style="font-size: 0.65rem; color: #9ca3af; font-style: italic;">None</div>'}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function exportToPNGFallback() {
+            showStatus('Trying alternative export method...', 'info');
+            
+            const captureElement = document.getElementById('dashboardCapture');
+            
+            // Create a completely new element without any Tailwind classes
+            const exportDiv = document.createElement('div');
+            exportDiv.style.cssText = 'position: absolute; left: -9999px; background: #f3f4f6; padding: 20px; width: 1200px;';
+            exportDiv.innerHTML = captureElement.innerHTML;
+            document.body.appendChild(exportDiv);
+            
+            // Replace any remaining canvas elements with placeholders
+            exportDiv.querySelectorAll('canvas').forEach(canvas => {
+                const placeholder = document.createElement('div');
+                placeholder.style.cssText = 'width: 100%; height: 300px; background: #e5e7eb; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 14px;';
+                placeholder.textContent = '[Chart - See Dashboard]';
+                canvas.parentElement.replaceChild(placeholder, canvas);
+            });
+            
+            html2canvas(exportDiv, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#f3f4f6',
+                logging: false
+            }).then(canvas => {
+                document.body.removeChild(exportDiv);
+                const link = document.createElement('a');
+                link.download = `Dashboard_${reportResults.dateKey || 'report'}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showStatus('Dashboard exported (charts may be missing)', 'success');
+            }).catch(err => {
+                document.body.removeChild(exportDiv);
+                console.error('Fallback PNG Export Error:', err);
+                showStatus('PNG export failed. Please use Print (Ctrl+P) and save as PDF/Image.', 'error');
+            });
         }
         
         function buildPerformerCardHTML(group, color, name) {
