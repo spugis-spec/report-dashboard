@@ -574,7 +574,7 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex flex-wrap justify-end gap-2 mb-6 no-print">
+            <div class="flex flex-wrap justify-end gap-2 mb-4 no-print">
                 <button onclick="saveDashboardToCloud()" class="admin-only bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm">
                     <span>☁️</span> Save to Cloud
                 </button>
@@ -599,6 +599,45 @@
                 <button onclick="exportDashboard()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm">
                     <span>📥</span> Export Excel
                 </button>
+            </div>
+            
+            <!-- Visibility Controls -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-6 no-print">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span>👁️</span> Dashboard Visibility Controls
+                </h3>
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="showAedc" checked class="w-4 h-4 text-blue-600 rounded" onchange="toggleSection('aedc')">
+                        <span class="text-sm text-gray-700">AEDC Table</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="showBss" checked class="w-4 h-4 text-green-600 rounded" onchange="toggleSection('bss')">
+                        <span class="text-sm text-gray-700">BSS Table</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="showNysc" checked class="w-4 h-4 text-orange-600 rounded" onchange="toggleSection('nysc')">
+                        <span class="text-sm text-gray-700">NYSC Table</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="showGrandTotal" checked class="w-4 h-4 text-purple-600 rounded" onchange="toggleSection('grandTotal')">
+                        <span class="text-sm text-gray-700">Grand Total</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="showAbsentSick" checked class="w-4 h-4 text-red-600 rounded" onchange="toggleSection('absentSick')">
+                        <span class="text-sm text-gray-700">Absent/Sick/Excused</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="showCharts" checked class="w-4 h-4 text-indigo-600 rounded" onchange="toggleSection('charts')">
+                        <span class="text-sm text-gray-700">Charts</span>
+                    </label>
+                </div>
+                <div class="mt-3 pt-3 border-t flex gap-2">
+                    <button onclick="showAllSections()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full">Show All</button>
+                    <button onclick="showOnlyAedc()" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full">AEDC Only</button>
+                    <button onclick="showOnlyBss()" class="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-full">BSS Only</button>
+                    <button onclick="showOnlyNysc()" class="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded-full">NYSC Only</button>
+                </div>
             </div>
             
             <!-- Dashboard Content for PNG Export - Starts from Header -->
@@ -710,7 +749,7 @@
             </div>
 
             <!-- Charts Section -->
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px;">
+            <div id="sectionCharts" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px;">
                 <!-- Pie Chart -->
                 <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px;">
                     <h3 style="font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 16px; text-align: center;">📊 Group Comparison</h3>
@@ -729,7 +768,7 @@
             </div>
 
             <!-- AEDC Dashboard Table -->
-            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+            <div id="sectionAedc" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
                 <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 24px; height: 24px; background-color: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">A</span>
                     AEDC Enumerators
@@ -756,7 +795,7 @@
             </div>
 
             <!-- BSS Dashboard Table -->
-            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+            <div id="sectionBss" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
                 <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 24px; height: 24px; background-color: #22c55e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">B</span>
                     BSS Enumerators
@@ -783,7 +822,7 @@
             </div>
 
             <!-- NYSC Dashboard Table -->
-            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+            <div id="sectionNysc" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
                 <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 24px; height: 24px; background-color: #f97316; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">N</span>
                     NYSC Enumerators
@@ -810,7 +849,7 @@
             </div>
 
             <!-- Grand Total Summary -->
-            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
+            <div id="sectionGrandTotal" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px;">
                 <h3 style="font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 24px; height: 24px; background-color: #a855f7; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">Σ</span>
                     Grand Total Summary
@@ -835,7 +874,7 @@
             </div>
 
             <!-- Absent/Sick/Excused Lists -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+            <div id="sectionAbsentSick" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
                 <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; border-top: 4px solid #ef4444;">
                     <h3 style="font-size: 1.125rem; font-weight: 600; color: #dc2626; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                         <span>🚫</span> Absent Enumerators
@@ -873,14 +912,13 @@
         // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
-	        apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -2744,6 +2782,93 @@
                 statusEl.style.transform = 'translateY(20px)';
                 statusEl.style.opacity = '0';
             }, 3000);
+        }
+        
+        // ============================================
+        // VISIBILITY TOGGLE FUNCTIONS
+        // ============================================
+        function toggleSection(section) {
+            const sectionMap = {
+                'aedc': 'sectionAedc',
+                'bss': 'sectionBss',
+                'nysc': 'sectionNysc',
+                'grandTotal': 'sectionGrandTotal',
+                'absentSick': 'sectionAbsentSick',
+                'charts': 'sectionCharts'
+            };
+            
+            const checkboxMap = {
+                'aedc': 'showAedc',
+                'bss': 'showBss',
+                'nysc': 'showNysc',
+                'grandTotal': 'showGrandTotal',
+                'absentSick': 'showAbsentSick',
+                'charts': 'showCharts'
+            };
+            
+            const sectionEl = document.getElementById(sectionMap[section]);
+            const checkbox = document.getElementById(checkboxMap[section]);
+            
+            if (sectionEl && checkbox) {
+                if (checkbox.checked) {
+                    sectionEl.style.display = section === 'charts' || section === 'absentSick' ? 'grid' : 'block';
+                } else {
+                    sectionEl.style.display = 'none';
+                }
+            }
+        }
+        
+        function showAllSections() {
+            ['aedc', 'bss', 'nysc', 'grandTotal', 'absentSick', 'charts'].forEach(section => {
+                const checkboxMap = {
+                    'aedc': 'showAedc',
+                    'bss': 'showBss',
+                    'nysc': 'showNysc',
+                    'grandTotal': 'showGrandTotal',
+                    'absentSick': 'showAbsentSick',
+                    'charts': 'showCharts'
+                };
+                const checkbox = document.getElementById(checkboxMap[section]);
+                if (checkbox) {
+                    checkbox.checked = true;
+                    toggleSection(section);
+                }
+            });
+            showStatus('All sections visible', 'info');
+        }
+        
+        function showOnlyAedc() {
+            setVisibility({ aedc: true, bss: false, nysc: false, grandTotal: true, absentSick: true, charts: true });
+            showStatus('Showing AEDC table only', 'info');
+        }
+        
+        function showOnlyBss() {
+            setVisibility({ aedc: false, bss: true, nysc: false, grandTotal: true, absentSick: true, charts: true });
+            showStatus('Showing BSS table only', 'info');
+        }
+        
+        function showOnlyNysc() {
+            setVisibility({ aedc: false, bss: false, nysc: true, grandTotal: true, absentSick: true, charts: true });
+            showStatus('Showing NYSC table only', 'info');
+        }
+        
+        function setVisibility(visibility) {
+            const checkboxMap = {
+                'aedc': 'showAedc',
+                'bss': 'showBss',
+                'nysc': 'showNysc',
+                'grandTotal': 'showGrandTotal',
+                'absentSick': 'showAbsentSick',
+                'charts': 'showCharts'
+            };
+            
+            Object.keys(visibility).forEach(section => {
+                const checkbox = document.getElementById(checkboxMap[section]);
+                if (checkbox) {
+                    checkbox.checked = visibility[section];
+                    toggleSection(section);
+                }
+            });
         }
     </script>
 </body>
