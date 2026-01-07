@@ -903,14 +903,13 @@
         // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
-	        apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -2511,10 +2510,13 @@
                             line-height: 1.5;
                         }
                         table { border-collapse: collapse; width: 100%; }
-                        td, th { padding: 6px 8px; word-wrap: break-word; overflow: visible; vertical-align: middle; line-height: 1.5; }
+                        td, th { padding: 8px 10px; word-wrap: break-word; overflow: visible; vertical-align: middle; line-height: 1.8; font-size: 12px; }
                         div { overflow: visible; }
-                        tr { line-height: 1.5; }
-                        h2, h3, h4, p, span { line-height: 1.4; }
+                        tr { line-height: 1.8; min-height: 30px; }
+                        h2, h3, h4, p, span { line-height: 1.5; }
+                        tbody tr { height: auto; min-height: 28px; }
+                        thead th { padding: 8px 10px; font-size: 11px; }
+                        tfoot td { padding: 8px 10px; font-size: 12px; }
                     </style>
                 </head>
                 <body>
