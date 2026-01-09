@@ -578,6 +578,9 @@
                 <button onclick="saveDashboardToCloud()" class="admin-only bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm">
                     <span>☁️</span> Save to Cloud
                 </button>
+                <button onclick="updateAndSaveDashboard()" class="admin-only bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm">
+                    <span>💾</span> Update & Save
+                </button>
                 <button onclick="loadSavedDates()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm">
                     <span>🔄</span> Refresh
                 </button>
@@ -903,14 +906,13 @@
         // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
-	        apiKey: "AIzaSyA_Ql8LLNx4jf8o6H89u9iwSAmeZflj-hs",
-            authDomain: "spugis.firebaseapp.com",
-            databaseURL: "https://spugis-default-rtdb.firebaseio.com",
-            projectId: "spugis",
-            storageBucket: "spugis.firebasestorage.app",
-            messagingSenderId: "295940607308",
-            appId: "1:295940607308:web:5ad07c96ab8ede791d13e9",
-            measurementId: "G-M1TBHGMV5V"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -1669,6 +1671,26 @@
             document.getElementById('adminPassword').value = '';
             document.getElementById('adminLoginError').classList.add('hidden');
         }
+        
+        async function logoutAdmin() {
+            if (auth && currentUser) {
+                try {
+                    await auth.signOut();
+                    currentUser = null;
+                    showStatus('Logged out successfully', 'success');
+                } catch (error) {
+                    console.error("Sign out error:", error);
+                }
+            }
+            
+            isAdminMode = false;
+            document.body.classList.remove('admin-mode');
+            document.getElementById('accessModal').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('adminEmail').value = '';
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('adminLoginError').classList.add('hidden');
+        }
 
         // ============================================
         // INITIALIZATION
@@ -1968,6 +1990,73 @@
                 updateDashboard();
             }
         }
+        
+        // Update status directly from dashboard (for admin)
+        function updateDashboardStatus(group, index, status) {
+            if (reportResults[group] && reportResults[group].results[index]) {
+                reportResults[group].results[index].status = status;
+                // Update the attendance counts and lists without full re-render
+                updateAttendanceSummary();
+                showStatus(`Updated ${reportResults[group].results[index].fullname} to ${status}`, 'info');
+            }
+        }
+        
+        // Update attendance summary without full dashboard re-render
+        function updateAttendanceSummary() {
+            let presentCount = 0, absentCount = 0, sickCount = 0, excusedCount = 0;
+            const absentList = [], sickList = [], excusedList = [];
+
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const groupLabel = group.toUpperCase();
+                (reportResults[group].results || []).forEach(r => {
+                    switch(r.status) {
+                        case 'present': presentCount++; break;
+                        case 'absent': absentCount++; absentList.push(`${r.fullname} (${groupLabel})`); break;
+                        case 'sick': sickCount++; sickList.push(`${r.fullname} (${groupLabel})`); break;
+                        case 'excused': excusedCount++; excusedList.push(`${r.fullname} (${groupLabel})`); break;
+                    }
+                });
+            });
+
+            document.getElementById('presentCount').textContent = presentCount;
+            document.getElementById('absentCount').textContent = absentCount;
+            document.getElementById('sickCount').textContent = sickCount;
+            document.getElementById('excusedCount').textContent = excusedCount;
+
+            document.getElementById('absentList').innerHTML = absentList.length 
+                ? absentList.map(n => `<li style="padding: 8px; background-color: #fef2f2; border-radius: 6px; color: #b91c1c; font-size: 0.875rem;">${n}</li>`).join('')
+                : '<li style="color: #6b7280; font-style: italic;">None</li>';
+            document.getElementById('sickList').innerHTML = sickList.length 
+                ? sickList.map(n => `<li style="padding: 8px; background-color: #fefce8; border-radius: 6px; color: #a16207; font-size: 0.875rem;">${n}</li>`).join('')
+                : '<li style="color: #6b7280; font-style: italic;">None</li>';
+            document.getElementById('excusedList').innerHTML = excusedList.length 
+                ? excusedList.map(n => `<li style="padding: 8px; background-color: #eef2ff; border-radius: 6px; color: #4338ca; font-size: 0.875rem;">${n}</li>`).join('')
+                : '<li style="color: #6b7280; font-style: italic;">None</li>';
+                
+            // Update top/least performers
+            ['aedc', 'bss', 'nysc'].forEach(group => {
+                const results = (reportResults[group].results || []).filter(r => r.status === 'present');
+                const sorted = [...results].sort((a, b) => b.total - a.total);
+                const top = sorted[0];
+                const least = sorted[sorted.length - 1];
+                
+                document.getElementById(`${group}TopName`).textContent = top ? top.fullname : '-';
+                document.getElementById(`${group}TopCount`).textContent = top ? `(${top.total})` : '(0)';
+                document.getElementById(`${group}LeastName`).textContent = least ? least.fullname : '-';
+                document.getElementById(`${group}LeastCount`).textContent = least ? `(${least.total})` : '(0)';
+            });
+        }
+        
+        // Update and save dashboard to cloud
+        function updateAndSaveDashboard() {
+            if (!reportResults.dateKey) {
+                showStatus('No dashboard loaded to update', 'error');
+                return;
+            }
+            
+            // Save the current state
+            saveDashboardToCloud();
+        }
 
         function renderGroupTable(group, bgClass) {
             const { results, totals } = reportResults[group];
@@ -2102,6 +2191,20 @@
                 'excused': '<span style="padding: 1px 6px; background-color: #e0e7ff; color: #3730a3; border-radius: 9999px; font-size: 9px; font-weight: 500;">Excused</span>'
             };
             
+            // For admin mode, show editable dropdowns; for public, show static labels
+            const getStatusCell = (r, i) => {
+                if (isAdminMode) {
+                    return `<select onchange="updateDashboardStatus('${group}', ${i}, this.value)" class="status-select status-${r.status}" style="font-size: 9px; padding: 2px 4px; border-radius: 4px;">
+                        <option value="present" ${r.status === 'present' ? 'selected' : ''}>Present</option>
+                        <option value="absent" ${r.status === 'absent' ? 'selected' : ''}>Absent</option>
+                        <option value="sick" ${r.status === 'sick' ? 'selected' : ''}>Sick</option>
+                        <option value="excused" ${r.status === 'excused' ? 'selected' : ''}>Excused</option>
+                    </select>`;
+                } else {
+                    return statusLabels[r.status] || statusLabels['present'];
+                }
+            };
+            
             tbody.innerHTML = (results || []).map((r, i) => `
                 <tr style="background-color: ${i % 2 === 0 ? colors.bg : colors.altBg};">
                     <td style="border: 1px solid ${colors.border}; padding: 2px 6px; font-size: 10px;">${i + 1}</td>
@@ -2112,7 +2215,7 @@
                     <td style="border: 1px solid ${colors.border}; padding: 2px 6px; text-align: center; font-size: 10px;">${r.lt || '-'}</td>
                     <td style="border: 1px solid ${colors.border}; padding: 2px 6px; text-align: center; font-size: 10px;">${r.issues || '-'}</td>
                     <td style="border: 1px solid ${colors.border}; padding: 2px 6px; text-align: center; font-weight: bold; font-size: 10px;">${r.total}</td>
-                    <td style="border: 1px solid ${colors.border}; padding: 2px 6px; text-align: center;">${statusLabels[r.status] || statusLabels['present']}</td>
+                    <td style="border: 1px solid ${colors.border}; padding: 2px 6px; text-align: center;">${getStatusCell(r, i)}</td>
                 </tr>
             `).join('');
             
@@ -2511,10 +2614,13 @@
                             line-height: 1.5;
                         }
                         table { border-collapse: collapse; width: 100%; }
-                        td, th { padding: 6px 8px; word-wrap: break-word; overflow: visible; vertical-align: middle; line-height: 1.5; }
+                        td, th { padding: 8px 10px; word-wrap: break-word; overflow: visible; vertical-align: middle; line-height: 1.8; font-size: 12px; }
                         div { overflow: visible; }
-                        tr { line-height: 1.5; }
-                        h2, h3, h4, p, span { line-height: 1.4; }
+                        tr { line-height: 1.8; min-height: 30px; }
+                        h2, h3, h4, p, span { line-height: 1.5; }
+                        tbody tr { height: auto; min-height: 28px; }
+                        thead th { padding: 8px 10px; font-size: 11px; }
+                        tfoot td { padding: 8px 10px; font-size: 12px; }
                     </style>
                 </head>
                 <body>
