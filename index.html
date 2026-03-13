@@ -545,8 +545,8 @@
         <!-- Dashboard Tab -->
         <div id="content-dashboard" class="tab-content hidden">
             <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-                <!-- Public Date Selection -->
-                <div class="mb-6 public-only">
+                <!-- Date Selection - Visible for both Admin and Public -->
+                <div class="mb-6">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <span>📅</span> Select Dashboard Date
                     </h3>
@@ -1016,6 +1016,10 @@
                 
                 loadMappingsFromCloud();
                 loadSavedDashboards();
+                
+                // Make saved dates visible in admin mode too
+                renderSavedDatesList();
+                
                 showStatus('Logged in as Admin', 'success');
             } catch (error) {
                 console.error('Login error:', error);
@@ -1487,6 +1491,8 @@
             document.getElementById('dashboardDateHeader').innerHTML = `📊 ${reportResults.formattedDate || 'Enumeration'} Dashboard`;
             document.getElementById('dashboardDateSubheader').textContent = reportResults.dateRange || '';
             
+            const isDateRange = reportResults.isDateRange || false;
+            
             // Calculate attendance
             let presentCount = 0, absentCount = 0, sickCount = 0, excusedCount = 0;
             const absentList = [], sickList = [], excusedList = [];
@@ -1494,10 +1500,24 @@
             ['aedc', 'bss', 'nysc'].forEach(group => {
                 const groupLabel = group.toUpperCase();
                 (reportResults[group].results || []).forEach(r => {
-                    if (r.status === 'present') presentCount++;
-                    else if (r.status === 'absent') { absentCount++; absentList.push(`${r.fullname} (${groupLabel})`); }
-                    else if (r.status === 'sick') { sickCount++; sickList.push(`${r.fullname} (${groupLabel})`); }
-                    else if (r.status === 'excused') { excusedCount++; excusedList.push(`${r.fullname} (${groupLabel})`); }
+                    // For date ranges, use statusBreakdown totals
+                    if (isDateRange && r.statusBreakdown) {
+                        presentCount += r.statusBreakdown.present || 0;
+                        absentCount += r.statusBreakdown.absent || 0;
+                        sickCount += r.statusBreakdown.sick || 0;
+                        excusedCount += r.statusBreakdown.excused || 0;
+                        
+                        // Add to lists if they have any absent/sick/excused days
+                        if (r.statusBreakdown.absent > 0) absentList.push(`${r.fullname} (${groupLabel}) - ${r.statusBreakdown.absent} day(s)`);
+                        if (r.statusBreakdown.sick > 0) sickList.push(`${r.fullname} (${groupLabel}) - ${r.statusBreakdown.sick} day(s)`);
+                        if (r.statusBreakdown.excused > 0) excusedList.push(`${r.fullname} (${groupLabel}) - ${r.statusBreakdown.excused} day(s)`);
+                    } else {
+                        // Single day - use status directly
+                        if (r.status === 'present') presentCount++;
+                        else if (r.status === 'absent') { absentCount++; absentList.push(`${r.fullname} (${groupLabel})`); }
+                        else if (r.status === 'sick') { sickCount++; sickList.push(`${r.fullname} (${groupLabel})`); }
+                        else if (r.status === 'excused') { excusedCount++; excusedList.push(`${r.fullname} (${groupLabel})`); }
+                    }
                 });
             });
             
@@ -1557,6 +1577,7 @@
             const { results, totals } = reportResults[group];
             const tbody = document.getElementById(`dashboard${group.charAt(0).toUpperCase() + group.slice(1)}Body`);
             const tfoot = document.getElementById(`dashboard${group.charAt(0).toUpperCase() + group.slice(1)}Foot`);
+            const isDateRange = reportResults.isDateRange || false;
             
             const colors = {
                 aedc: { bg: '#eff6ff', border: '#bfdbfe' },
@@ -1572,8 +1593,31 @@
             };
             
             tbody.innerHTML = (results || []).map((r, i) => {
-                const statusLabel = r.status === 'present' ? `${r.total} ✓` : r.status.charAt(0).toUpperCase() + r.status.slice(1);
-                const statusStyle = statusColors[r.status] || statusColors.present;
+                let statusDisplay = '';
+                
+                // Check if this is a date range with status breakdown
+                if (isDateRange && r.statusBreakdown) {
+                    const parts = [];
+                    if (r.statusBreakdown.present > 0) parts.push(`<span style="color: #166534;">P(${r.statusBreakdown.present})</span>`);
+                    if (r.statusBreakdown.absent > 0) parts.push(`<span style="color: #991b1b;">A(${r.statusBreakdown.absent})</span>`);
+                    if (r.statusBreakdown.sick > 0) parts.push(`<span style="color: #92400e;">S(${r.statusBreakdown.sick})</span>`);
+                    if (r.statusBreakdown.excused > 0) parts.push(`<span style="color: #3730a3;">E(${r.statusBreakdown.excused})</span>`);
+                    statusDisplay = `<span style="font-size: 9px; display: flex; gap: 3px; flex-wrap: wrap; justify-content: center;">${parts.join(' ')}</span>`;
+                } else {
+                    const statusLabel = r.status === 'present' ? `${r.total} ✓` : r.status.charAt(0).toUpperCase() + r.status.slice(1);
+                    const statusStyle = statusColors[r.status] || statusColors.present;
+                    
+                    if (isAdminMode && !isDateRange) {
+                        statusDisplay = `<select class="status-select" style="background: ${statusStyle.bg}; color: ${statusStyle.color}; padding: 2px 6px; border-radius: 4px; font-size: 10px;" onchange="updateDashboardStatus('${group}', ${i}, this.value)">
+                            <option value="present" ${r.status === 'present' ? 'selected' : ''}>${r.total} ✓</option>
+                            <option value="absent" ${r.status === 'absent' ? 'selected' : ''}>Absent</option>
+                            <option value="sick" ${r.status === 'sick' ? 'selected' : ''}>Sick</option>
+                            <option value="excused" ${r.status === 'excused' ? 'selected' : ''}>Excused</option>
+                        </select>`;
+                    } else {
+                        statusDisplay = `<span style="background: ${statusStyle.bg}; color: ${statusStyle.color}; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${statusLabel}</span>`;
+                    }
+                }
                 
                 return `
                     <tr style="background: ${i % 2 === 0 ? colors[group].bg : '#ffffff'};">
@@ -1586,15 +1630,7 @@
                         <td style="border: 1px solid ${colors[group].border}; padding: 4px 8px; text-align: center;">${r.issues || '-'}</td>
                         <td style="border: 1px solid ${colors[group].border}; padding: 4px 8px; text-align: center; font-weight: 600;">${r.total}</td>
                         <td style="border: 1px solid ${colors[group].border}; padding: 4px 8px; text-align: center;">
-                            ${isAdminMode 
-                                ? `<select class="status-select" style="background: ${statusStyle.bg}; color: ${statusStyle.color}; padding: 2px 6px; border-radius: 4px; font-size: 10px;" onchange="updateDashboardStatus('${group}', ${i}, this.value)">
-                                    <option value="present" ${r.status === 'present' ? 'selected' : ''}>${r.total} ✓</option>
-                                    <option value="absent" ${r.status === 'absent' ? 'selected' : ''}>Absent</option>
-                                    <option value="sick" ${r.status === 'sick' ? 'selected' : ''}>Sick</option>
-                                    <option value="excused" ${r.status === 'excused' ? 'selected' : ''}>Excused</option>
-                                </select>`
-                                : `<span style="background: ${statusStyle.bg}; color: ${statusStyle.color}; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${statusLabel}</span>`
-                            }
+                            ${statusDisplay}
                         </td>
                     </tr>
                 `;
@@ -2048,21 +2084,27 @@
             }
             
             if (isRange && startDate !== endDate) {
-                // Aggregate multiple dashboards
+                // Aggregate multiple dashboards with status breakdown
                 const aggregatedResults = {
                     aedc: { results: [], totals: { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 } },
                     bss: { results: [], totals: { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 } },
                     nysc: { results: [], totals: { dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0 } },
                     dateRange: `(${startDate} to ${endDate})`,
                     formattedDate: `${formatDateFull(startDate)} to ${formatDateFull(endDate)}`,
-                    dateKey: `${startDate}_to_${endDate}`
+                    dateKey: `${startDate}_to_${endDate}`,
+                    isDateRange: true
                 };
+                
+                // Track aggregated data per person
+                const personData = { aedc: {}, bss: {}, nysc: {} };
                 
                 const start = new Date(startDate);
                 const end = new Date(endDate);
                 let loadedCount = 0;
+                let totalDays = 0;
                 
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    totalDays++;
                     const dateKey = d.toISOString().split('T')[0];
                     if (savedDashboards[dateKey]) {
                         loadedCount++;
@@ -2073,17 +2115,47 @@
                                     aggregatedResults[group].totals[key] += saved.totals[key] || 0;
                                 });
                             }
-                            if (saved && saved.results && aggregatedResults[group].results.length === 0) {
-                                aggregatedResults[group].results = saved.results.map(r => ({...r, total: 0}));
+                            if (saved && saved.results) {
+                                saved.results.forEach(r => {
+                                    const key = r.username || r.fullname;
+                                    if (!personData[group][key]) {
+                                        personData[group][key] = {
+                                            username: r.username,
+                                            fullname: r.fullname,
+                                            dss: 0, ht: 0, cust: 0, lt: 0, issues: 0, total: 0,
+                                            statusCounts: { present: 0, absent: 0, sick: 0, excused: 0 }
+                                        };
+                                    }
+                                    // Aggregate totals
+                                    personData[group][key].dss += r.dss || 0;
+                                    personData[group][key].ht += r.ht || 0;
+                                    personData[group][key].cust += r.cust || 0;
+                                    personData[group][key].lt += r.lt || 0;
+                                    personData[group][key].issues += r.issues || 0;
+                                    personData[group][key].total += r.total || 0;
+                                    // Count status
+                                    const status = r.status || 'present';
+                                    personData[group][key].statusCounts[status]++;
+                                });
                             }
                         });
                     }
                 }
                 
+                // Convert aggregated person data to results array
+                ['aedc', 'bss', 'nysc'].forEach(group => {
+                    aggregatedResults[group].results = Object.values(personData[group]).map(p => ({
+                        ...p,
+                        status: 'present', // Default, will be displayed as breakdown
+                        statusBreakdown: p.statusCounts
+                    }));
+                    aggregatedResults[group].results.sort((a, b) => b.total - a.total);
+                });
+                
                 if (loadedCount > 0) {
                     reportResults = aggregatedResults;
                     updateDashboard();
-                    showStatus(`Loaded ${loadedCount} dashboards for date range`, 'success');
+                    showStatus(`Loaded ${loadedCount} of ${totalDays} days for date range`, 'success');
                 } else {
                     showStatus('No saved dashboards found in selected range', 'warning');
                 }
