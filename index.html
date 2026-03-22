@@ -188,6 +188,44 @@
         </div>
     </div>
 
+<!-- PNG Export Selection Modal -->
+<div id="pngExportModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 fade-in">
+        <div class="text-center mb-4">
+            <div class="text-4xl mb-2">📸</div>
+            <h2 class="text-xl font-bold text-gray-800">Export to PNG</h2>
+            <p class="text-gray-600 text-sm mt-1">Select teams to export as separate images</p>
+        </div>
+        
+        <div class="space-y-3 mb-4">
+            <label class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                <input type="checkbox" id="exportAedc" checked class="w-5 h-5 text-blue-600 rounded">
+                <span class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">A</span>
+                <span class="font-medium text-gray-700">AEDC Team</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+                <input type="checkbox" id="exportBss" checked class="w-5 h-5 text-green-600 rounded">
+                <span class="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold">B</span>
+                <span class="font-medium text-gray-700">BSS Team</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors">
+                <input type="checkbox" id="exportNysc" checked class="w-5 h-5 text-orange-600 rounded">
+                <span class="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">N</span>
+                <span class="font-medium text-gray-700">NYSC Team</span>
+            </label>
+        </div>
+        
+        <div class="flex gap-3">
+            <button onclick="closePngExportModal()" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all">
+                Cancel
+            </button>
+            <button onclick="startPngExport()" class="flex-1 py-2 px-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all">
+                📸 Export Selected
+            </button>
+        </div>
+    </div>
+</div>
+
     <!-- Access Control Modal -->
     <div id="accessModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal">
         <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 fade-in">
@@ -592,7 +630,7 @@
                     <button onclick="refreshDashboard()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm">
                         <span>🔄</span> Refresh Data
                     </button>
-                    <button onclick="exportToPNG()" class="py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm">
+                    <button onclick="exportToPNG()" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm">
                         <span>📸</span> Export PNG
                     </button>
                     <button onclick="window.print()" class="py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm">
@@ -1798,72 +1836,303 @@
             barChart.update();
         }
 
-        // ============================================
-        // PNG EXPORT - SIMPLE SCREEN CAPTURE
-        // ============================================
-        async function exportToPNG() {
-            showStatus('Capturing dashboard...', 'info');
-            
-            const captureElement = document.getElementById('dashboardCapture');
-            if (!captureElement) {
-                showStatus('Nothing to export. Load a dashboard first.', 'error');
-                return;
-            }
-            
-            try {
-                // Wait for any pending renders
-                await new Promise(r => setTimeout(r, 500));
-                
-                // Use html2canvas with specific options to handle Tailwind
-                const canvas = await html2canvas(captureElement, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#f3f4f6',
-                    logging: false,
-                    width: captureElement.scrollWidth,
-                    height: captureElement.scrollHeight,
-                    onclone: function(clonedDoc) {
-                        // Remove any scripts from the cloned document
-                        const scripts = clonedDoc.querySelectorAll('script');
-                        scripts.forEach(s => s.remove());
-                        
-                        // Force all elements to use computed styles
-                        const allElements = clonedDoc.querySelectorAll('*');
-                        allElements.forEach(el => {
-                            const computed = window.getComputedStyle(el);
-                            el.style.cssText = computed.cssText;
-                        });
-                    }
-                });
-                
-                // Download
-                const link = document.createElement('a');
-                const dateKey = reportResults.dateKey || 'dashboard';
-                link.download = `Dashboard_${dateKey}_${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png', 1.0);
-                link.click();
-                
-                showStatus('PNG exported successfully!', 'success');
-            } catch (error) {
-                console.error('PNG Export Error:', error);
-                
-                // Fallback - show manual instructions
-                alert(
-                    'PNG Export Failed!\n\n' +
-                    'Use the manual method:\n' +
-                    '1. Press F12 to open DevTools\n' +
-                    '2. Click "Elements" tab\n' +
-                    '3. Press Ctrl+F, search for "dashboardCapture"\n' +
-                    '4. Right-click the <div id="dashboardCapture">\n' +
-                    '5. Select "Capture node screenshot"\n' +
-                    '6. PNG downloads automatically!'
-                );
-                
-                showStatus('PNG export failed. See instructions in popup.', 'error');
-            }
-        }
+// ============================================
+// PNG EXPORT - SEPARATE TEAM EXPORTS
+// ============================================
 
+function exportToPNG() {
+    const hasData = (reportResults.aedc.results || []).length || 
+                    (reportResults.bss.results || []).length || 
+                    (reportResults.nysc.results || []).length;
+    
+    if (!hasData) {
+        showStatus('No data to export. Load a dashboard first.', 'error');
+        return;
+    }
+    
+    // Show selection modal
+    document.getElementById('pngExportModal').classList.remove('hidden');
+}
+
+function closePngExportModal() {
+    document.getElementById('pngExportModal').classList.add('hidden');
+}
+
+async function startPngExport() {
+    const exportAedc = document.getElementById('exportAedc').checked;
+    const exportBss = document.getElementById('exportBss').checked;
+    const exportNysc = document.getElementById('exportNysc').checked;
+    
+    if (!exportAedc && !exportBss && !exportNysc) {
+        showStatus('Please select at least one team to export', 'error');
+        return;
+    }
+    
+    closePngExportModal();
+    
+    const teamsToExport = [];
+    if (exportAedc) teamsToExport.push({ key: 'aedc', name: 'AEDC', color: '#3b82f6', bgColor: '#eff6ff' });
+    if (exportBss) teamsToExport.push({ key: 'bss', name: 'BSS', color: '#22c55e', bgColor: '#f0fdf4' });
+    if (exportNysc) teamsToExport.push({ key: 'nysc', name: 'NYSC', color: '#f97316', bgColor: '#fff7ed' });
+    
+    showStatus(`Exporting ${teamsToExport.length} team(s)... Please wait`, 'info');
+    
+    for (let i = 0; i < teamsToExport.length; i++) {
+        const team = teamsToExport[i];
+        showStatus(`Exporting ${team.name} (${i + 1}/${teamsToExport.length})...`, 'info');
+        
+        await exportTeamToPNG(team);
+        
+        // Wait between downloads
+        if (i < teamsToExport.length - 1) {
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+    
+    showStatus(`Successfully exported ${teamsToExport.length} PNG file(s)!`, 'success');
+}
+
+async function exportTeamToPNG(team) {
+    const { key, name, color, bgColor } = team;
+    const results = reportResults[key] || { results: [], totals: {} };
+    const totals = results.totals || {};
+    
+    // Get attendance counts
+    let presentCount = 0, absentCount = 0, sickCount = 0, excusedCount = 0;
+    (results.results || []).forEach(r => {
+        switch(r.status) {
+            case 'present': presentCount++; break;
+            case 'absent': absentCount++; break;
+            case 'sick': sickCount++; break;
+            case 'excused': excusedCount++; break;
+        }
+    });
+    
+    // Get top/least performers
+    const presentResults = (results.results || []).filter(r => r.status === 'present');
+    const sorted = [...presentResults].sort((a, b) => b.total - a.total);
+    const top = sorted[0];
+    const least = sorted[sorted.length - 1];
+    
+    // Format the date for filename
+    const dateForFilename = reportResults.formattedDate || reportResults.dateKey || 'Report';
+    const cleanDate = dateForFilename.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+    const filename = `${name} Performance for ${cleanDate}.png`;
+    
+    // Build the HTML for this team
+    const exportHTML = buildTeamExportHTML(key, name, color, bgColor, results, totals, top, least, presentCount, absentCount, sickCount, excusedCount);
+    
+    // Create iframe for isolated rendering
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position: fixed; left: -9999px; top: 0; width: 420px; height: 2000px; border: none; visibility: hidden;';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+                    background: #f3f4f6;
+                    padding: 12px;
+                    width: 420px;
+                }
+                table { border-collapse: collapse; width: 100%; }
+                td, th { padding: 4px 6px; }
+            </style>
+        </head>
+        <body>
+            <div id="captureContent">${exportHTML}</div>
+        </body>
+        </html>
+    `);
+    iframeDoc.close();
+    
+    // Wait for render
+    await new Promise(r => setTimeout(r, 300));
+    
+    try {
+        const captureElement = iframeDoc.getElementById('captureContent');
+        
+        const canvas = await html2canvas(captureElement, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#f3f4f6',
+            logging: false,
+            width: 420,
+            height: captureElement.scrollHeight
+        });
+        
+        document.body.removeChild(iframe);
+        
+        // Download
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+        
+    } catch (error) {
+        document.body.removeChild(iframe);
+        console.error(`PNG Export Error for ${name}:`, error);
+        showStatus(`Failed to export ${name}. Error: ${error.message}`, 'error');
+    }
+}
+
+function buildTeamExportHTML(key, name, color, bgColor, results, totals, top, least, presentCount, absentCount, sickCount, excusedCount) {
+    const dateDisplay = reportResults.formattedDate || 'Dashboard';
+    
+    // Status labels
+    const statusLabels = {
+        'present': '<span style="padding:1px 4px;background:#dcfce7;color:#166534;border-radius:4px;font-size:7px;">Present</span>',
+        'absent': '<span style="padding:1px 4px;background:#fee2e2;color:#991b1b;border-radius:4px;font-size:7px;">Absent</span>',
+        'sick': '<span style="padding:1px 4px;background:#fef3c7;color:#92400e;border-radius:4px;font-size:7px;">Sick</span>',
+        'excused': '<span style="padding:1px 4px;background:#e0e7ff;color:#3730a3;border-radius:4px;font-size:7px;">Excused</span>'
+    };
+    
+    // Build table rows
+    const tableRows = (results.results || []).map((r, i) => `
+        <tr style="background:${i % 2 === 0 ? bgColor : '#ffffff'};">
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${i + 1}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;font-weight:500;">${escapeHtml(r.fullname)}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${r.dss || '-'}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${r.ht || '-'}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${r.cust || '-'}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${r.lt || '-'}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${r.issues || '-'}</td>
+            <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;font-weight:bold;">${r.total}</td>
+            <td style="border:1px solid #d1d5db;padding:2px 3px;text-align:center;">${statusLabels[r.status] || statusLabels['present']}</td>
+        </tr>
+    `).join('');
+    
+    return `
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg, ${color}, ${color}dd);border-radius:8px;padding:12px;margin-bottom:10px;color:white;text-align:center;">
+            <div style="font-size:11px;opacity:0.9;margin-bottom:2px;">${dateDisplay}</div>
+            <h2 style="font-size:16px;font-weight:bold;margin:0;">${name} Performance Report</h2>
+        </div>
+        
+        <!-- Top/Least Performers - Stacked Vertically -->
+        <div style="background:white;border-radius:8px;padding:10px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:3px solid ${color};">
+            <div style="text-align:center;margin-bottom:8px;">
+                <span style="font-size:14px;">🏆</span>
+                <span style="font-size:11px;font-weight:bold;color:${color};margin-left:4px;">${name} Top & Least Performers</span>
+            </div>
+            
+            <!-- Top Performer -->
+            <div style="background:#f0fdf4;padding:8px;border-radius:6px;margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;">🏅</span>
+                    <div style="flex:1;">
+                        <div style="font-size:8px;color:#16a34a;font-weight:600;">TOP PERFORMER</div>
+                        <div style="font-size:11px;font-weight:bold;color:#166534;">${top ? top.fullname : '-'}</div>
+                    </div>
+                    <div style="background:#dcfce7;padding:4px 10px;border-radius:12px;">
+                        <span style="font-size:14px;font-weight:bold;color:#166534;">${top ? top.total : 0}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Least Performer -->
+            <div style="background:#fef2f2;padding:8px;border-radius:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;">📉</span>
+                    <div style="flex:1;">
+                        <div style="font-size:8px;color:#dc2626;font-weight:600;">LEAST PERFORMER</div>
+                        <div style="font-size:11px;font-weight:bold;color:#991b1b;">${least ? least.fullname : '-'}</div>
+                    </div>
+                    <div style="background:#fee2e2;padding:4px 10px;border-radius:12px;">
+                        <span style="font-size:14px;font-weight:bold;color:#991b1b;">${least ? least.total : 0}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Attendance Summary -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <div style="flex:1;background:linear-gradient(135deg,#4ade80,#16a34a);border-radius:6px;padding:6px;color:white;text-align:center;">
+                <div style="font-size:10px;">👥</div>
+                <div style="font-size:7px;opacity:0.9;">Present</div>
+                <div style="font-size:14px;font-weight:bold;">${presentCount}</div>
+            </div>
+            <div style="flex:1;background:linear-gradient(135deg,#f87171,#dc2626);border-radius:6px;padding:6px;color:white;text-align:center;">
+                <div style="font-size:10px;">🚫</div>
+                <div style="font-size:7px;opacity:0.9;">Absent</div>
+                <div style="font-size:14px;font-weight:bold;">${absentCount}</div>
+            </div>
+            <div style="flex:1;background:linear-gradient(135deg,#818cf8,#4f46e5);border-radius:6px;padding:6px;color:white;text-align:center;">
+                <div style="font-size:10px;">📝</div>
+                <div style="font-size:7px;opacity:0.9;">Excused</div>
+                <div style="font-size:14px;font-weight:bold;">${excusedCount}</div>
+            </div>
+            <div style="flex:1;background:linear-gradient(135deg,#facc15,#ca8a04);border-radius:6px;padding:6px;color:white;text-align:center;">
+                <div style="font-size:10px;">🤒</div>
+                <div style="font-size:7px;opacity:0.9;">Sick</div>
+                <div style="font-size:14px;font-weight:bold;">${sickCount}</div>
+            </div>
+        </div>
+        
+        <!-- Team Table -->
+        <div style="background:white;border-radius:8px;padding:8px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+            <h3 style="font-size:10px;font-weight:600;margin:0 0 6px 0;display:flex;align-items:center;gap:4px;">
+                <span style="width:14px;height:14px;background:${color};color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:8px;">${name.charAt(0)}</span>
+                ${name} Enumerators
+            </h3>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                    <tr style="background:${bgColor};">
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">S/N</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:left;">Full Name</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">DT</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">HT</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">Cust</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">LT</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">Iss</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">Total</th>
+                        <th style="border:1px solid #d1d5db;padding:3px 4px;font-size:7px;text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+                <tfoot>
+                    <tr style="background:${bgColor};font-weight:bold;">
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;" colspan="2">TOTAL (${(results.results || []).length})</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${totals.dss || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${totals.ht || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${totals.cust || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${totals.lt || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${totals.issues || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;font-size:8px;text-align:center;">${totals.total || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:3px 4px;"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <!-- Grand Total for this team -->
+        <div style="background:white;border-radius:8px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:18px;height:18px;background:${color};color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;">Σ</span>
+                    <span style="font-size:10px;font-weight:600;">${name} Grand Total</span>
+                </div>
+                <div style="background:${bgColor};padding:6px 14px;border-radius:8px;">
+                    <span style="font-size:18px;font-weight:bold;color:${color};">${totals.total || 0}</span>
+                    <span style="font-size:8px;color:#6b7280;margin-left:4px;">entries</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="text-align:center;margin-top:10px;padding-top:8px;border-top:1px dashed #d1d5db;">
+            <div style="font-size:8px;color:#9ca3af;">Generated on ${new Date().toLocaleString()}</div>
+        </div>
+    `;
+}
         // ============================================
         // CLOUD STORAGE
         // ============================================
