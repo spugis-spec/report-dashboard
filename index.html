@@ -1897,7 +1897,7 @@ async function exportTeamToPNG(team) {
     const results = reportResults[key] || { results: [], totals: {} };
     const totals = results.totals || {};
     
-    // Get attendance counts
+    // Get attendance counts for this team
     let presentCount = 0, absentCount = 0, sickCount = 0, excusedCount = 0;
     (results.results || []).forEach(r => {
         switch(r.status) {
@@ -1924,7 +1924,7 @@ async function exportTeamToPNG(team) {
     
     // Create iframe for isolated rendering - WIDER for desktop view
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position: fixed; left: -9999px; top: 0; width: 800px; height: 3000px; border: none; visibility: hidden;';
+    iframe.style.cssText = 'position: fixed; left: -9999px; top: 0; width: 900px; height: 4000px; border: none; visibility: hidden;';
     document.body.appendChild(iframe);
     
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -1939,11 +1939,11 @@ async function exportTeamToPNG(team) {
                 body { 
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
                     background: #f3f4f6;
-                    padding: 20px;
-                    width: 800px;
+                    padding: 24px;
+                    width: 900px;
                 }
                 table { border-collapse: collapse; width: 100%; }
-                td, th { padding: 8px 12px; }
+                td, th { padding: 10px 14px; }
             </style>
         </head>
         <body>
@@ -1954,7 +1954,7 @@ async function exportTeamToPNG(team) {
     iframeDoc.close();
     
     // Wait for render
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
     
     try {
         const captureElement = iframeDoc.getElementById('captureContent');
@@ -1965,7 +1965,7 @@ async function exportTeamToPNG(team) {
             allowTaint: true,
             backgroundColor: '#f3f4f6',
             logging: false,
-            width: 800,
+            width: 900,
             height: captureElement.scrollHeight
         });
         
@@ -1988,15 +1988,29 @@ function buildTeamExportHTML(key, name, color, bgColor, results, totals, top, le
     const dateDisplay = reportResults.formattedDate || 'Dashboard';
     const dateKey = reportResults.dateKey || '';
     
-    // Status labels
-    const statusLabels = {
-        'present': '<span style="padding:2px 8px;background:#dcfce7;color:#166534;border-radius:6px;font-size:11px;font-weight:500;">Present</span>',
-        'absent': '<span style="padding:2px 8px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:500;">Absent</span>',
-        'sick': '<span style="padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:11px;font-weight:500;">Sick</span>',
-        'excused': '<span style="padding:2px 8px;background:#e0e7ff;color:#3730a3;border-radius:6px;font-size:11px;font-weight:500;">Excused</span>'
+    // Get all groups data for Grand Total Summary table
+    const aedcTotals = reportResults.aedc.totals || {};
+    const bssTotals = reportResults.bss.totals || {};
+    const nyscTotals = reportResults.nysc.totals || {};
+    
+    const grandTotals = {
+        dss: (aedcTotals.dss || 0) + (bssTotals.dss || 0) + (nyscTotals.dss || 0),
+        ht: (aedcTotals.ht || 0) + (bssTotals.ht || 0) + (nyscTotals.ht || 0),
+        cust: (aedcTotals.cust || 0) + (bssTotals.cust || 0) + (nyscTotals.cust || 0),
+        lt: (aedcTotals.lt || 0) + (bssTotals.lt || 0) + (nyscTotals.lt || 0),
+        issues: (aedcTotals.issues || 0) + (bssTotals.issues || 0) + (nyscTotals.issues || 0),
+        total: (aedcTotals.total || 0) + (bssTotals.total || 0) + (nyscTotals.total || 0)
     };
     
-    // Build table rows
+    // Status labels
+    const statusLabels = {
+        'present': '<span style="padding:3px 10px;background:#dcfce7;color:#166534;border-radius:6px;font-size:11px;font-weight:500;">Present</span>',
+        'absent': '<span style="padding:3px 10px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:500;">Absent</span>',
+        'sick': '<span style="padding:3px 10px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:11px;font-weight:500;">Sick</span>',
+        'excused': '<span style="padding:3px 10px;background:#e0e7ff;color:#3730a3;border-radius:6px;font-size:11px;font-weight:500;">Excused</span>'
+    };
+    
+    // Build table rows for team
     const tableRows = (results.results || []).map((r, i) => `
         <tr style="background:${i % 2 === 0 ? bgColor : '#ffffff'};">
             <td style="border:1px solid #d1d5db;padding:10px 12px;font-size:13px;text-align:center;font-weight:500;">${i + 1}</td>
@@ -2012,132 +2026,195 @@ function buildTeamExportHTML(key, name, color, bgColor, results, totals, top, le
     `).join('');
     
     return `
-        <!-- Main Header with Date -->
-        <div style="background:linear-gradient(135deg, #9333ea, #2563eb);border-radius:12px;padding:24px;margin-bottom:20px;color:white;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,0.2);">
-            <div style="font-size:28px;margin-bottom:8px;">📊</div>
-            <h1 style="font-size:24px;font-weight:bold;margin:0 0 8px 0;">${dateDisplay}</h1>
-            <h2 style="font-size:18px;font-weight:600;margin:0 0 6px 0;">Dashboard</h2>
-            <div style="font-size:14px;opacity:0.85;background:rgba(255,255,255,0.15);display:inline-block;padding:4px 16px;border-radius:20px;">(${dateKey})</div>
+        <!-- Header with Date and Team Name -->
+        <div style="background:linear-gradient(135deg, ${color}, ${color}dd);border-radius:14px;padding:28px;margin-bottom:24px;color:white;text-align:center;box-shadow:0 4px 20px ${color}50;">
+            <div style="font-size:14px;opacity:0.9;margin-bottom:6px;">${dateDisplay}</div>
+            <h1 style="font-size:28px;font-weight:bold;margin:0;">${name} Performance Report</h1>
+            <div style="font-size:13px;opacity:0.8;margin-top:8px;">(${dateKey})</div>
         </div>
         
-        <!-- Top/Least Performers Card -->
-        <div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);border-left:5px solid ${color};">
-            <div style="text-align:center;margin-bottom:16px;">
-                <span style="font-size:28px;">🏆</span>
-                <h3 style="font-size:18px;font-weight:bold;color:${color};margin:8px 0 0 0;">${name} Top & Least Performers</h3>
+        <!-- Top/Least Performers Card - Stacked Vertically -->
+        <div style="background:white;border-radius:14px;padding:24px;margin-bottom:24px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:5px solid ${color};">
+            <div style="text-align:center;margin-bottom:20px;">
+                <span style="font-size:32px;">🏆</span>
+                <h3 style="font-size:18px;font-weight:bold;color:${color};margin:10px 0 0 0;">${name} Top & Least Performers</h3>
             </div>
             
             <!-- Top Performer -->
-            <div style="background:linear-gradient(135deg, #f0fdf4, #dcfce7);padding:16px 20px;border-radius:10px;margin-bottom:12px;border:1px solid #bbf7d0;">
-                <div style="display:flex;align-items:center;gap:16px;">
-                    <span style="font-size:36px;">🏅</span>
+            <div style="background:linear-gradient(135deg, #f0fdf4, #dcfce7);padding:18px 24px;border-radius:12px;margin-bottom:14px;border:2px solid #86efac;">
+                <div style="display:flex;align-items:center;gap:18px;">
+                    <span style="font-size:42px;">🏅</span>
                     <div style="flex:1;">
-                        <div style="font-size:11px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Top Performer</div>
-                        <div style="font-size:20px;font-weight:bold;color:#166534;margin-top:4px;">${top ? top.fullname : '-'}</div>
+                        <div style="font-size:12px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Top Performer</div>
+                        <div style="font-size:22px;font-weight:bold;color:#166534;margin-top:4px;">${top ? top.fullname : '-'}</div>
                     </div>
-                    <div style="background:#16a34a;padding:10px 20px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,0.3);">
-                        <span style="font-size:28px;font-weight:bold;color:white;">${top ? top.total : 0}</span>
-                        <span style="font-size:12px;color:rgba(255,255,255,0.8);margin-left:4px;">entries</span>
+                    <div style="background:#16a34a;padding:12px 24px;border-radius:14px;box-shadow:0 3px 10px rgba(22,163,74,0.35);">
+                        <span style="font-size:32px;font-weight:bold;color:white;">${top ? top.total : 0}</span>
+                        <span style="font-size:12px;color:rgba(255,255,255,0.85);margin-left:6px;">entries</span>
                     </div>
                 </div>
             </div>
             
             <!-- Least Performer -->
-            <div style="background:linear-gradient(135deg, #fef2f2, #fee2e2);padding:16px 20px;border-radius:10px;border:1px solid #fecaca;">
-                <div style="display:flex;align-items:center;gap:16px;">
-                    <span style="font-size:36px;">📉</span>
+            <div style="background:linear-gradient(135deg, #fef2f2, #fee2e2);padding:18px 24px;border-radius:12px;border:2px solid #fca5a5;">
+                <div style="display:flex;align-items:center;gap:18px;">
+                    <span style="font-size:42px;">📉</span>
                     <div style="flex:1;">
-                        <div style="font-size:11px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Least Performer</div>
-                        <div style="font-size:20px;font-weight:bold;color:#991b1b;margin-top:4px;">${least ? least.fullname : '-'}</div>
+                        <div style="font-size:12px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Least Performer</div>
+                        <div style="font-size:22px;font-weight:bold;color:#991b1b;margin-top:4px;">${least ? least.fullname : '-'}</div>
                     </div>
-                    <div style="background:#dc2626;padding:10px 20px;border-radius:12px;box-shadow:0 2px 8px rgba(220,38,38,0.3);">
-                        <span style="font-size:28px;font-weight:bold;color:white;">${least ? least.total : 0}</span>
-                        <span style="font-size:12px;color:rgba(255,255,255,0.8);margin-left:4px;">entries</span>
+                    <div style="background:#dc2626;padding:12px 24px;border-radius:14px;box-shadow:0 3px 10px rgba(220,38,38,0.35);">
+                        <span style="font-size:32px;font-weight:bold;color:white;">${least ? least.total : 0}</span>
+                        <span style="font-size:12px;color:rgba(255,255,255,0.85);margin-left:6px;">entries</span>
                     </div>
                 </div>
             </div>
         </div>
         
         <!-- Attendance Summary Cards -->
-        <div style="display:flex;gap:12px;margin-bottom:20px;">
-            <div style="flex:1;background:linear-gradient(135deg,#4ade80,#16a34a);border-radius:12px;padding:16px;color:white;text-align:center;box-shadow:0 4px 12px rgba(22,163,74,0.3);">
-                <div style="font-size:28px;margin-bottom:4px;">👥</div>
-                <div style="font-size:12px;opacity:0.9;font-weight:500;">Present</div>
-                <div style="font-size:32px;font-weight:bold;margin-top:4px;">${presentCount}</div>
+        <div style="display:flex;gap:14px;margin-bottom:24px;">
+            <div style="flex:1;background:linear-gradient(135deg,#4ade80,#16a34a);border-radius:14px;padding:20px;color:white;text-align:center;box-shadow:0 4px 14px rgba(22,163,74,0.35);">
+                <div style="font-size:32px;margin-bottom:6px;">👥</div>
+                <div style="font-size:13px;opacity:0.9;font-weight:500;">Present</div>
+                <div style="font-size:36px;font-weight:bold;margin-top:6px;">${presentCount}</div>
             </div>
-            <div style="flex:1;background:linear-gradient(135deg,#f87171,#dc2626);border-radius:12px;padding:16px;color:white;text-align:center;box-shadow:0 4px 12px rgba(220,38,38,0.3);">
-                <div style="font-size:28px;margin-bottom:4px;">🚫</div>
-                <div style="font-size:12px;opacity:0.9;font-weight:500;">Absent</div>
-                <div style="font-size:32px;font-weight:bold;margin-top:4px;">${absentCount}</div>
+            <div style="flex:1;background:linear-gradient(135deg,#f87171,#dc2626);border-radius:14px;padding:20px;color:white;text-align:center;box-shadow:0 4px 14px rgba(220,38,38,0.35);">
+                <div style="font-size:32px;margin-bottom:6px;">🚫</div>
+                <div style="font-size:13px;opacity:0.9;font-weight:500;">Absent</div>
+                <div style="font-size:36px;font-weight:bold;margin-top:6px;">${absentCount}</div>
             </div>
-            <div style="flex:1;background:linear-gradient(135deg,#818cf8,#4f46e5);border-radius:12px;padding:16px;color:white;text-align:center;box-shadow:0 4px 12px rgba(79,70,229,0.3);">
-                <div style="font-size:28px;margin-bottom:4px;">📝</div>
-                <div style="font-size:12px;opacity:0.9;font-weight:500;">Excused</div>
-                <div style="font-size:32px;font-weight:bold;margin-top:4px;">${excusedCount}</div>
+            <div style="flex:1;background:linear-gradient(135deg,#818cf8,#4f46e5);border-radius:14px;padding:20px;color:white;text-align:center;box-shadow:0 4px 14px rgba(79,70,229,0.35);">
+                <div style="font-size:32px;margin-bottom:6px;">📝</div>
+                <div style="font-size:13px;opacity:0.9;font-weight:500;">Excused</div>
+                <div style="font-size:36px;font-weight:bold;margin-top:6px;">${excusedCount}</div>
             </div>
-            <div style="flex:1;background:linear-gradient(135deg,#facc15,#ca8a04);border-radius:12px;padding:16px;color:white;text-align:center;box-shadow:0 4px 12px rgba(202,138,4,0.3);">
-                <div style="font-size:28px;margin-bottom:4px;">🤒</div>
-                <div style="font-size:12px;opacity:0.9;font-weight:500;">Sick</div>
-                <div style="font-size:32px;font-weight:bold;margin-top:4px;">${sickCount}</div>
+            <div style="flex:1;background:linear-gradient(135deg,#facc15,#ca8a04);border-radius:14px;padding:20px;color:white;text-align:center;box-shadow:0 4px 14px rgba(202,138,4,0.35);">
+                <div style="font-size:32px;margin-bottom:6px;">🤒</div>
+                <div style="font-size:13px;opacity:0.9;font-weight:500;">Sick</div>
+                <div style="font-size:36px;font-weight:bold;margin-top:6px;">${sickCount}</div>
             </div>
         </div>
         
         <!-- Team Table -->
-        <div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-            <h3 style="font-size:16px;font-weight:bold;margin:0 0 16px 0;display:flex;align-items:center;gap:10px;">
-                <span style="width:28px;height:28px;background:${color};color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;">${name.charAt(0)}</span>
+        <div style="background:white;border-radius:14px;padding:24px;margin-bottom:24px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+            <h3 style="font-size:18px;font-weight:bold;margin:0 0 18px 0;display:flex;align-items:center;gap:12px;">
+                <span style="width:32px;height:32px;background:${color};color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;">${name.charAt(0)}</span>
                 ${name} Enumerators Report
             </h3>
             <table style="width:100%;border-collapse:collapse;">
                 <thead>
                     <tr style="background:${bgColor};">
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">S/N</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:left;font-weight:700;">Full Name</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">DT/DSS</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">HT Pole</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">Customer</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">LT Pole</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">Issues</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;background:${color}20;">Total</th>
-                        <th style="border:1px solid #d1d5db;padding:12px;font-size:12px;text-align:center;font-weight:700;">Status</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">S/N</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:left;font-weight:700;">Full Name</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">DT/DSS</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">HT Pole</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">Customer</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">LT Pole</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">Issues</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;background:${color}20;">Total</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">Status</th>
                     </tr>
                 </thead>
                 <tbody>${tableRows}</tbody>
                 <tfoot>
-                    <tr style="background:${color}15;font-weight:bold;">
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:13px;" colspan="2">TOTAL (${(results.results || []).length} enumerators)</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:14px;text-align:center;font-weight:bold;">${totals.dss || 0}</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:14px;text-align:center;font-weight:bold;">${totals.ht || 0}</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:14px;text-align:center;font-weight:bold;">${totals.cust || 0}</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:14px;text-align:center;font-weight:bold;">${totals.lt || 0}</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:14px;text-align:center;font-weight:bold;">${totals.issues || 0}</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;font-size:16px;text-align:center;font-weight:bold;background:${color};color:white;">${totals.total || 0}</td>
-                        <td style="border:1px solid #d1d5db;padding:12px;"></td>
+                    <tr style="background:${color}20;font-weight:bold;">
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:14px;" colspan="2">TOTAL (${(results.results || []).length} enumerators)</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:15px;text-align:center;font-weight:bold;">${totals.dss || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:15px;text-align:center;font-weight:bold;">${totals.ht || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:15px;text-align:center;font-weight:bold;">${totals.cust || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:15px;text-align:center;font-weight:bold;">${totals.lt || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:15px;text-align:center;font-weight:bold;">${totals.issues || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:16px;text-align:center;font-weight:bold;background:${color};color:white;">${totals.total || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;"></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
         
-        <!-- Grand Total Banner -->
-        <div style="background:linear-gradient(135deg, ${color}, ${color}cc);border-radius:12px;padding:20px;box-shadow:0 4px 15px ${color}40;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-                <div style="display:flex;align-items:center;gap:12px;color:white;">
-                    <span style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:20px;">Σ</span>
-                    <div>
-                        <div style="font-size:14px;opacity:0.9;">Grand Total</div>
-                        <div style="font-size:18px;font-weight:bold;">${name} Team Performance</div>
-                    </div>
-                </div>
-                <div style="background:white;padding:12px 28px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-                    <span style="font-size:36px;font-weight:bold;color:${color};">${totals.total || 0}</span>
-                    <span style="font-size:14px;color:#6b7280;margin-left:6px;">total entries</span>
-                </div>
-            </div>
+        <!-- Grand Total Summary Table - All Groups -->
+        <div style="background:white;border-radius:14px;padding:24px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+            <h3 style="font-size:18px;font-weight:bold;margin:0 0 18px 0;display:flex;align-items:center;gap:12px;">
+                <span style="width:32px;height:32px;background:linear-gradient(135deg,#a855f7,#7c3aed);color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;">Σ</span>
+                Grand Total Summary
+            </h3>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#faf5ff;">
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:left;font-weight:700;">Group</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">DT/DSS</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">HT Pole</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">Customer</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">LT Pole</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;">Issues</th>
+                        <th style="border:1px solid #d1d5db;padding:14px;font-size:12px;text-align:center;font-weight:700;background:#e9d5ff;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background:#eff6ff;">
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:13px;font-weight:600;">
+                            <span style="display:inline-flex;align-items:center;gap:8px;">
+                                <span style="width:12px;height:12px;background:#3b82f6;border-radius:50%;"></span>
+                                AEDC Enumerators
+                            </span>
+                        </td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${aedcTotals.dss || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${aedcTotals.ht || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${aedcTotals.cust || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${aedcTotals.lt || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${aedcTotals.issues || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:15px;text-align:center;font-weight:bold;background:#dbeafe;">${aedcTotals.total || 0}</td>
+                    </tr>
+                    <tr style="background:#f0fdf4;">
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:13px;font-weight:600;">
+                            <span style="display:inline-flex;align-items:center;gap:8px;">
+                                <span style="width:12px;height:12px;background:#22c55e;border-radius:50%;"></span>
+                                BSS Enumerators
+                            </span>
+                        </td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${bssTotals.dss || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${bssTotals.ht || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${bssTotals.cust || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${bssTotals.lt || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${bssTotals.issues || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:15px;text-align:center;font-weight:bold;background:#dcfce7;">${bssTotals.total || 0}</td>
+                    </tr>
+                    <tr style="background:#fff7ed;">
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:13px;font-weight:600;">
+                            <span style="display:inline-flex;align-items:center;gap:8px;">
+                                <span style="width:12px;height:12px;background:#f97316;border-radius:50%;"></span>
+                                NYSC Enumerators
+                            </span>
+                        </td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${nyscTotals.dss || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${nyscTotals.ht || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${nyscTotals.cust || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${nyscTotals.lt || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:14px;text-align:center;">${nyscTotals.issues || 0}</td>
+                        <td style="border:1px solid #d1d5db;padding:12px 14px;font-size:15px;text-align:center;font-weight:bold;background:#ffedd5;">${nyscTotals.total || 0}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr style="background:linear-gradient(135deg,#e9d5ff,#d8b4fe);font-weight:bold;">
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:15px;font-weight:bold;">
+                            <span style="display:inline-flex;align-items:center;gap:8px;">
+                                <span style="width:14px;height:14px;background:#a855f7;border-radius:50%;"></span>
+                                GRAND TOTAL
+                            </span>
+                        </td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:16px;text-align:center;font-weight:bold;">${grandTotals.dss}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:16px;text-align:center;font-weight:bold;">${grandTotals.ht}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:16px;text-align:center;font-weight:bold;">${grandTotals.cust}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:16px;text-align:center;font-weight:bold;">${grandTotals.lt}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:16px;text-align:center;font-weight:bold;">${grandTotals.issues}</td>
+                        <td style="border:1px solid #d1d5db;padding:14px;font-size:18px;text-align:center;font-weight:bold;background:#a855f7;color:white;">${grandTotals.total}</td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
         
         <!-- Footer -->
-        <div style="text-align:center;margin-top:16px;padding-top:12px;border-top:2px dashed #d1d5db;">
-            <div style="font-size:11px;color:#9ca3af;">📊 Report generated on ${new Date().toLocaleString()} | ${name} Enumeration Dashboard</div>
+        <div style="text-align:center;padding-top:16px;border-top:2px dashed #d1d5db;">
+            <div style="font-size:12px;color:#6b7280;">📊 ${name} Performance Report | Generated on ${new Date().toLocaleString()}</div>
         </div>
     `;
 }
