@@ -1270,14 +1270,17 @@
             const tfoot = document.getElementById(`paired${capType}Foot`);
             const borderColor = type === 'aedcNysc' ? '#bfdbfe' : '#bbf7d0';
             const bgColor1 = type === 'aedcNysc' ? '#eff6ff' : '#f0fdf4';
-            const teamBg = type === 'aedcNysc' ? '#dbeafe' : '#dcfce7';
-            const teamColor = type === 'aedcNysc' ? '#1e40af' : '#166534';
             const statusColors = { present:{bg:'#dcfce7',color:'#166534'}, absent:{bg:'#fee2e2',color:'#991b1b'}, sick:{bg:'#fef3c7',color:'#92400e'}, excused:{bg:'#e0e7ff',color:'#3730a3'} };
 
             let totals = { dss:0,ht:0,cust:0,lt:0,issues:0,total:0 };
             let html = '';
 
             teams.forEach((team, ti) => {
+                // Dynamic team cell colors based on team type (A = blue shades, B = green shades)
+                const isTeamA = type === 'aedcNysc';
+                const teamCellBg = isTeamA ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #22c55e, #16a34a)';
+                const teamCellColor = '#ffffff';
+
                 [team.staff, team.nysc].forEach((person, pi) => {
                     const sc = statusColors[person.status] || statusColors.present;
                     const statusLabel = person.status === 'present' ? `${person.total} ✓` : person.status.charAt(0).toUpperCase()+person.status.slice(1);
@@ -1296,7 +1299,7 @@
                     }
 
                     const rowBg = ti % 2 === 0 ? bgColor1 : '#fff';
-                    const teamCell = pi === 0 ? `<td rowspan="2" style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;vertical-align:middle;background:${teamBg};color:${teamColor};font-weight:700;font-size:12px;">${team.teamName}</td>` : '';
+                    const teamCell = pi === 0 ? `<td rowspan="2" style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;vertical-align:middle;background:${teamCellBg};color:${teamCellColor};font-weight:700;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${team.teamName}</td>` : '';
                     const roleTag = pi === 0 ? (type === 'aedcNysc' ? '<span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;margin-left:4px;">AEDC</span>' : '<span style="background:#22c55e;color:white;padding:1px 4px;border-radius:3px;font-size:8px;margin-left:4px;">BSS</span>') : '<span style="background:#f97316;color:white;padding:1px 4px;border-radius:3px;font-size:8px;margin-left:4px;">NYSC</span>';
 
                     html += `<tr style="background:${rowBg};">${teamCell}<td style="border:1px solid ${borderColor};padding:4px 8px;">${escapeHtml(person.fullname)}${roleTag}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${person.dss||'-'}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${person.ht||'-'}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${person.cust||'-'}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${person.lt||'-'}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${person.issues||'-'}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;font-weight:600;">${person.total}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${statusDisplay}</td></tr>`;
@@ -1440,34 +1443,85 @@
         async function exportPairedTeamToPNG(teamConfig) {
             const { key, name, color, bgColor } = teamConfig;
             const teams = buildTeamData(key);
+            const aedcNyscTeams = buildTeamData('aedcNysc');
+            const bssNyscTeams = buildTeamData('bssNysc');
             const dateDisplay = reportResults.formattedDate || reportResults.dateKey || 'Report';
             const cleanDate = dateDisplay.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,' ').trim();
             const filename = `${name} Teams Performance for ${cleanDate}.png`;
             const borderColor = '#d1d5db';
-            const teamBg = key === 'aedcNysc' ? '#dbeafe' : '#dcfce7';
-            const teamColor = key === 'aedcNysc' ? '#1e40af' : '#166534';
-            const statusLabels = { present:'<span style="padding:3px 8px;background:#dcfce7;color:#166534;border-radius:6px;font-size:10px;">Present</span>', absent:'<span style="padding:3px 8px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:10px;">Absent</span>', sick:'<span style="padding:3px 8px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:10px;">Sick</span>', excused:'<span style="padding:3px 8px;background:#e0e7ff;color:#3730a3;border-radius:6px;font-size:10px;">Excused</span>' };
+            // Dynamic team cell colors matching the dashboard
+            const isTeamA = key === 'aedcNysc';
+            const teamCellBg = isTeamA ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #22c55e, #16a34a)';
+            const teamCellColor = '#ffffff';
+            const statusLabels = { present:'<span style="padding:2px 5px;background:#dcfce7;color:#166534;border-radius:4px;font-size:9px;">Present</span>', absent:'<span style="padding:2px 5px;background:#fee2e2;color:#991b1b;border-radius:4px;font-size:9px;">Absent</span>', sick:'<span style="padding:2px 5px;background:#fef3c7;color:#92400e;border-radius:4px;font-size:9px;">Sick</span>', excused:'<span style="padding:2px 5px;background:#e0e7ff;color:#3730a3;border-radius:4px;font-size:9px;">Excused</span>' };
 
             let totals = { dss:0,ht:0,cust:0,lt:0,issues:0,total:0 };
             let tableRows = '';
-            const staffTag = key === 'aedcNysc' ? '<span style="background:#3b82f6;color:white;padding:1px 4px;border-radius:3px;font-size:8px;margin-left:4px;">AEDC</span>' : '<span style="background:#22c55e;color:white;padding:1px 4px;border-radius:3px;font-size:8px;margin-left:4px;">BSS</span>';
+            const staffTag = key === 'aedcNysc' ? '<span style="background:#3b82f6;color:white;padding:1px 3px;border-radius:2px;font-size:7px;margin-left:3px;">AEDC</span>' : '<span style="background:#22c55e;color:white;padding:1px 3px;border-radius:2px;font-size:7px;margin-left:3px;">BSS</span>';
 
             teams.forEach((team, ti) => {
                 [team.staff, team.nysc].forEach((p, pi) => {
                     const rowBg = ti % 2 === 0 ? bgColor : '#fff';
-                    const tc = pi === 0 ? `<td rowspan="2" style="border:1px solid ${borderColor};padding:8px;text-align:center;vertical-align:middle;background:${teamBg};color:${teamColor};font-weight:700;font-size:13px;">${team.teamName}</td>` : '';
-                    const tag = pi === 0 ? staffTag : '<span style="background:#f97316;color:white;padding:1px 4px;border-radius:3px;font-size:8px;margin-left:4px;">NYSC</span>';
+                    const tc = pi === 0 ? `<td rowspan="2" style="border:1px solid ${borderColor};padding:3px 5px;text-align:center;vertical-align:middle;background:${teamCellBg};color:${teamCellColor};font-weight:700;font-size:10px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${team.teamName}</td>` : '';
+                    const tag = pi === 0 ? staffTag : '<span style="background:#f97316;color:white;padding:1px 3px;border-radius:2px;font-size:7px;margin-left:3px;">NYSC</span>';
                     const sl = p.status === 'present' ? `${p.total} ✓` : p.status;
-                    tableRows += `<tr style="background:${rowBg};">${tc}<td style="border:1px solid ${borderColor};padding:8px 12px;font-size:13px;">${escapeHtml(p.fullname)}${tag}</td><td style="border:1px solid ${borderColor};padding:8px;text-align:center;font-size:13px;">${p.dss||'-'}</td><td style="border:1px solid ${borderColor};padding:8px;text-align:center;font-size:13px;">${p.ht||'-'}</td><td style="border:1px solid ${borderColor};padding:8px;text-align:center;font-size:13px;">${p.cust||'-'}</td><td style="border:1px solid ${borderColor};padding:8px;text-align:center;font-size:13px;">${p.lt||'-'}</td><td style="border:1px solid ${borderColor};padding:8px;text-align:center;font-size:13px;">${p.issues||'-'}</td><td style="border:1px solid ${borderColor};padding:8px;text-align:center;font-size:14px;font-weight:bold;">${p.total}</td><td style="border:1px solid ${borderColor};padding:6px;text-align:center;">${statusLabels[p.status]||statusLabels.present}</td></tr>`;
+                    tableRows += `<tr style="background:${rowBg};">${tc}<td style="border:1px solid ${borderColor};padding:3px 5px;font-size:10px;">${escapeHtml(p.fullname)}${tag}</td><td style="border:1px solid ${borderColor};padding:2px 4px;text-align:center;font-size:10px;">${p.dss||'-'}</td><td style="border:1px solid ${borderColor};padding:2px 4px;text-align:center;font-size:10px;">${p.ht||'-'}</td><td style="border:1px solid ${borderColor};padding:2px 4px;text-align:center;font-size:10px;">${p.cust||'-'}</td><td style="border:1px solid ${borderColor};padding:2px 4px;text-align:center;font-size:10px;">${p.lt||'-'}</td><td style="border:1px solid ${borderColor};padding:2px 4px;text-align:center;font-size:10px;">${p.issues||'-'}</td><td style="border:1px solid ${borderColor};padding:2px 4px;text-align:center;font-size:11px;font-weight:bold;">${p.total}</td><td style="border:1px solid ${borderColor};padding:2px 3px;text-align:center;">${statusLabels[p.status]||statusLabels.present}</td></tr>`;
                     totals.dss+=p.dss||0; totals.ht+=p.ht||0; totals.cust+=p.cust||0; totals.lt+=p.lt||0; totals.issues+=p.issues||0; totals.total+=p.total||0;
                 });
             });
 
-            // Top/Least by team total
-            const activeTeams = teams.filter(t=>t.teamTotal>0).sort((a,b)=>b.teamTotal-a.teamTotal);
-            const topTeam = activeTeams[0], leastTeam = activeTeams[activeTeams.length-1];
+            // Calculate Top/Least for BOTH groups
+            const aedcNyscActive = aedcNyscTeams.filter(t=>t.teamTotal>0).sort((a,b)=>b.teamTotal-a.teamTotal);
+            const bssNyscActive = bssNyscTeams.filter(t=>t.teamTotal>0).sort((a,b)=>b.teamTotal-a.teamTotal);
+            const aedcNyscTop = aedcNyscActive[0], aedcNyscLeast = aedcNyscActive[aedcNyscActive.length-1];
+            const bssNyscTop = bssNyscActive[0], bssNyscLeast = bssNyscActive[bssNyscActive.length-1];
+            const aedcNyscTotal = aedcNyscTeams.reduce((s,t)=>s+t.teamTotal,0);
+            const bssNyscTotal = bssNyscTeams.reduce((s,t)=>s+t.teamTotal,0);
 
-            const exportHTML = `<div style="background:linear-gradient(135deg,${color},${color}dd);border-radius:14px;padding:28px;margin-bottom:24px;color:white;text-align:center;"><div style="font-size:14px;opacity:0.9;">${dateDisplay}</div><h1 style="font-size:28px;font-weight:bold;margin:0;">${name} Teams Performance Report</h1></div><div style="display:flex;gap:14px;margin-bottom:24px;"><div style="flex:1;background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:18px;border-radius:12px;border:2px solid #86efac;"><div style="font-size:12px;color:#16a34a;font-weight:700;">🏅 TOP TEAM</div><div style="font-size:20px;font-weight:bold;color:#166534;margin-top:4px;">${topTeam?topTeam.teamName+' ('+topTeam.teamTotal+')':'-'}</div></div><div style="flex:1;background:linear-gradient(135deg,#fef2f2,#fee2e2);padding:18px;border-radius:12px;border:2px solid #fca5a5;"><div style="font-size:12px;color:#dc2626;font-weight:700;">📉 LEAST TEAM</div><div style="font-size:20px;font-weight:bold;color:#991b1b;margin-top:4px;">${leastTeam?leastTeam.teamName+' ('+leastTeam.teamTotal+')':'-'}</div></div></div><div style="background:white;border-radius:14px;padding:24px;margin-bottom:24px;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:${bgColor};"><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Team</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:left;">Full Name</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">DT/DSS</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">HT</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Cust</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">LT</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Issues</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Total</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Status</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr style="background:${color}20;font-weight:bold;"><td style="border:1px solid ${borderColor};padding:12px;" colspan="2">TOTAL (${teams.length} teams)</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.dss}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.ht}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.cust}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.lt}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.issues}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;background:${color};color:white;">${totals.total}</td><td style="border:1px solid ${borderColor};padding:12px;"></td></tr></tfoot></table></div><div style="text-align:center;padding-top:16px;border-top:2px dashed #d1d5db;"><div style="font-size:12px;color:#6b7280;">📊 ${name} Teams Report | ${new Date().toLocaleString()}</div></div>`;
+            // Calculate Grand Totals for both groups
+            const calcGroupTotals = (teams) => {
+                const t = { dss:0,ht:0,cust:0,lt:0,issues:0,total:0 };
+                teams.forEach(team => { [team.staff,team.nysc].forEach(p => { t.dss+=p.dss||0; t.ht+=p.ht||0; t.cust+=p.cust||0; t.lt+=p.lt||0; t.issues+=p.issues||0; t.total+=p.total||0; }); });
+                return t;
+            };
+            const aNTotals = calcGroupTotals(aedcNyscTeams);
+            const bNTotals = calcGroupTotals(bssNyscTeams);
+            const grandTotals = { dss:aNTotals.dss+bNTotals.dss, ht:aNTotals.ht+bNTotals.ht, cust:aNTotals.cust+bNTotals.cust, lt:aNTotals.lt+bNTotals.lt, issues:aNTotals.issues+bNTotals.issues, total:aNTotals.total+bNTotals.total };
+
+            // Build performance cards for BOTH groups
+            const performerCardsHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div style="background:white;border-radius:8px;padding:8px 10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-top:3px solid #3b82f6;">
+                    <div style="font-weight:700;color:#3b82f6;font-size:11px;margin-bottom:4px;text-align:center;">🏆 AEDC/NYSC Teams</div>
+                    <div style="display:flex;gap:6px;">
+                        <div style="flex:1;background:#eff6ff;padding:4px 6px;border-radius:4px;"><div style="font-size:8px;color:#3b82f6;font-weight:600;">🏅 Top</div><div style="font-size:9px;font-weight:600;color:#1e40af;line-height:1.2;">${aedcNyscTop?aedcNyscTop.teamName+' ('+aedcNyscTop.teamTotal+')':'-'}</div></div>
+                        <div style="flex:1;background:#fef2f2;padding:4px 6px;border-radius:4px;"><div style="font-size:8px;color:#dc2626;font-weight:600;">📉 Least</div><div style="font-size:9px;font-weight:600;color:#991b1b;line-height:1.2;">${aedcNyscLeast?aedcNyscLeast.teamName+' ('+aedcNyscLeast.teamTotal+')':'-'}</div></div>
+                    </div>
+                    <div style="text-align:center;margin-top:4px;font-size:9px;color:#6b7280;">Total: <span style="font-weight:700;color:#3b82f6;">${aedcNyscTotal}</span></div>
+                </div>
+                <div style="background:white;border-radius:8px;padding:8px 10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-top:3px solid #22c55e;">
+                    <div style="font-weight:700;color:#22c55e;font-size:11px;margin-bottom:4px;text-align:center;">🏆 BSS/NYSC Teams</div>
+                    <div style="display:flex;gap:6px;">
+                        <div style="flex:1;background:#f0fdf4;padding:4px 6px;border-radius:4px;"><div style="font-size:8px;color:#22c55e;font-weight:600;">🏅 Top</div><div style="font-size:9px;font-weight:600;color:#166534;line-height:1.2;">${bssNyscTop?bssNyscTop.teamName+' ('+bssNyscTop.teamTotal+')':'-'}</div></div>
+                        <div style="flex:1;background:#fef2f2;padding:4px 6px;border-radius:4px;"><div style="font-size:8px;color:#dc2626;font-weight:600;">📉 Least</div><div style="font-size:9px;font-weight:600;color:#991b1b;line-height:1.2;">${bssNyscLeast?bssNyscLeast.teamName+' ('+bssNyscLeast.teamTotal+')':'-'}</div></div>
+                    </div>
+                    <div style="text-align:center;margin-top:4px;font-size:9px;color:#6b7280;">Total: <span style="font-weight:700;color:#22c55e;">${bssNyscTotal}</span></div>
+                </div>
+            </div>`;
+
+            // Grand Total Summary Table
+            const grandTotalHTML = `<div style="background:white;border-radius:8px;padding:10px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                <h4 style="font-size:11px;font-weight:700;margin:0 0 6px 0;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#a855f7;border-radius:50%;"></span>Grand Total Summary</h4>
+                <table style="width:100%;border-collapse:collapse;font-size:10px;">
+                    <thead><tr style="background:#faf5ff;"><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:left;">Group</th><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">DT/DSS</th><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">HT Pole</th><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">Customer</th><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">LT Pole</th><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">Issues</th><th style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">Total</th></tr></thead>
+                    <tbody>
+                        <tr style="background:#faf5ff;"><td style="border:1px solid #e9d5ff;padding:4px 6px;"><span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;background:#3b82f6;border-radius:50%;"></span>AEDC/NYSC Enumerators</span></td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${aNTotals.dss}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${aNTotals.ht}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${aNTotals.cust}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${aNTotals.lt}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${aNTotals.issues}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;font-weight:600;">${aNTotals.total}</td></tr>
+                        <tr style="background:#fff;"><td style="border:1px solid #e9d5ff;padding:4px 6px;"><span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></span>BSS/NYSC Enumerators</span></td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${bNTotals.dss}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${bNTotals.ht}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${bNTotals.cust}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${bNTotals.lt}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${bNTotals.issues}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;font-weight:600;">${bNTotals.total}</td></tr>
+                    </tbody>
+                    <tfoot><tr style="background:#e9d5ff;font-weight:700;"><td style="border:1px solid #e9d5ff;padding:4px 6px;">GRAND TOTAL</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${grandTotals.dss}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${grandTotals.ht}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${grandTotals.cust}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${grandTotals.lt}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${grandTotals.issues}</td><td style="border:1px solid #e9d5ff;padding:4px 6px;text-align:center;">${grandTotals.total}</td></tr></tfoot>
+                </table>
+            </div>`;
+
+            const exportHTML = `<div style="background:linear-gradient(135deg,${color},${color}dd);border-radius:10px;padding:14px;margin-bottom:12px;color:white;text-align:center;"><div style="font-size:11px;opacity:0.9;">${dateDisplay}</div><h1 style="font-size:20px;font-weight:bold;margin:0;">${name} Teams Performance Report</h1></div>${performerCardsHTML}<div style="background:white;border-radius:10px;padding:10px;margin-bottom:10px;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:${bgColor};"><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">Team</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:left;">Full Name</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">DT/DSS</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">HT</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">Cust</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">LT</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">Issues</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">Total</th><th style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">Status</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr style="background:${color}20;font-weight:bold;"><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;" colspan="2">TOTAL (${teams.length} teams)</td><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">${totals.dss}</td><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">${totals.ht}</td><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">${totals.cust}</td><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">${totals.lt}</td><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;">${totals.issues}</td><td style="border:1px solid ${borderColor};padding:5px;font-size:10px;text-align:center;background:${color};color:white;">${totals.total}</td><td style="border:1px solid ${borderColor};padding:5px;"></td></tr></tfoot></table></div>${grandTotalHTML}<div style="text-align:center;padding-top:8px;border-top:2px dashed #d1d5db;margin-top:8px;"><div style="font-size:9px;color:#6b7280;">📊 ${name} Teams Report | ${new Date().toLocaleString()}</div></div>`;order:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Total</th><th style="border:1px solid ${borderColor};padding:12px;font-size:12px;text-align:center;">Status</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr style="background:${color}20;font-weight:bold;"><td style="border:1px solid ${borderColor};padding:12px;" colspan="2">TOTAL (${teams.length} teams)</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.dss}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.ht}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.cust}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.lt}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;">${totals.issues}</td><td style="border:1px solid ${borderColor};padding:12px;text-align:center;background:${color};color:white;">${totals.total}</td><td style="border:1px solid ${borderColor};padding:12px;"></td></tr></tfoot></table></div><div style="text-align:center;padding-top:16px;border-top:2px dashed #d1d5db;"><div style="font-size:12px;color:#6b7280;">📊 ${name} Teams Report | ${new Date().toLocaleString()}</div></div>`;
             await renderAndDownloadPNG(exportHTML, filename);
         }
 
