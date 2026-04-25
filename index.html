@@ -171,6 +171,74 @@
         </div>
     </div>
 
+    <!-- Bulk Excuse/Absent Modal -->
+    <div id="bulkExcuseModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4 fade-in" style="max-height:90vh;overflow-y:auto;">
+            <div class="text-center mb-4">
+                <div class="text-4xl mb-2">📋</div>
+                <h2 class="text-xl font-bold text-gray-800">Bulk Attendance Update</h2>
+                <p class="text-gray-600 text-sm mt-1">Select enumerators with no submission and apply status in bulk</p>
+            </div>
+            <!-- Group filter tabs -->
+            <div class="flex gap-2 mb-4 border-b">
+                <button id="bulkTab-all" onclick="filterBulkList('all')" class="px-3 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600">All</button>
+                <button id="bulkTab-aedc" onclick="filterBulkList('aedc')" class="px-3 py-2 text-sm font-semibold text-gray-500 hover:text-blue-600">AEDC</button>
+                <button id="bulkTab-bss" onclick="filterBulkList('bss')" class="px-3 py-2 text-sm font-semibold text-gray-500 hover:text-blue-600">BSS</button>
+                <button id="bulkTab-nysc" onclick="filterBulkList('nysc')" class="px-3 py-2 text-sm font-semibold text-gray-500 hover:text-blue-600">NYSC</button>
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+                <label class="flex items-center gap-2 text-sm font-medium cursor-pointer"><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll(this.checked)"> Select All</label>
+                <span class="text-xs text-gray-500" id="bulkSelectedCount">0 selected</span>
+            </div>
+            <div id="bulkPersonList" class="space-y-1 max-h-64 overflow-y-auto mb-4 border rounded-lg p-2 bg-gray-50"></div>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Apply Status</label>
+                    <select id="bulkStatusSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="absent">🚫 Absent</option>
+                        <option value="excused">📝 Excused</option>
+                        <option value="sick">🤒 Sick</option>
+                    </select>
+                </div>
+                <div id="bulkExcuseReasonDiv">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Excuse Reason</label>
+                    <input type="text" id="bulkExcuseReason" placeholder="e.g. Field access denied" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div id="bulkApprovalDiv">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Approval Status</label>
+                    <select id="bulkApprovalStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="pending">⏳ Pending</option>
+                        <option value="approved">✅ Approved</option>
+                        <option value="rejected">❌ Not Approved</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeBulkExcuseModal()" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all">Cancel</button>
+                <button onclick="applyBulkStatus()" class="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-lg transition-all">✅ Apply to Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feeder Edit Modal (Admin) -->
+    <div id="feederEditModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 fade-in">
+            <div class="text-center mb-4">
+                <div class="text-3xl mb-2">⚡</div>
+                <h2 class="text-xl font-bold text-gray-800">Edit Feeder for Enumerator</h2>
+                <p class="text-gray-600 text-sm mt-1" id="feederEditPersonName"></p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Feeder Name</label>
+                <input type="text" id="feederEditInput" placeholder="e.g. Gwagwalada 11kV Feeder" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 text-sm">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeFeederEditModal()" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg">Cancel</button>
+                <button onclick="saveFeederEdit()" class="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg shadow-lg">💾 Save Feeder</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Zero Remark Modal -->
     <div id="zeroRemarkModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 fade-in">
@@ -264,11 +332,13 @@
                             <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-lt" onclick="document.getElementById('file-lt').click()"><input type="file" id="file-lt" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'lt')"><div class="text-3xl mb-2">💡</div><div class="font-medium text-gray-700">LT Pole</div><div class="text-sm text-gray-500" id="status-lt">Click or drag to upload</div></div>
                             <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-cust" onclick="document.getElementById('file-cust').click()"><input type="file" id="file-cust" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'cust')"><div class="text-3xl mb-2">👥</div><div class="font-medium text-gray-700">Customer Enumeration</div><div class="text-sm text-gray-500" id="status-cust">Click or drag to upload</div></div>
                             <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-issues" onclick="document.getElementById('file-issues').click()"><input type="file" id="file-issues" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'issues')"><div class="text-3xl mb-2">⚠️</div><div class="font-medium text-gray-700">Issue Log</div><div class="text-sm text-gray-500" id="status-issues">Click or drag to upload</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-feeder-lookup" onclick="document.getElementById('file-feeder-lookup').click()"><input type="file" id="file-feeder-lookup" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFeederLookupUpload(this)"><div class="text-3xl mb-2">⚡</div><div class="font-medium text-gray-700">Feeder Lookup (Code → Name)</div><div class="text-sm text-gray-500" id="status-feeder-lookup">Upload feeder code lookup table (code, feeder_name)</div></div>
                         </div>
                     </div>
                     <div class="flex gap-4 flex-wrap">
                         <button onclick="generateReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>📊</span> Generate Report</button>
                         <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>📥</span> Export Excel</button>
+                        <button onclick="openBulkExcuseModal()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>📋</span> Bulk Update</button>
                         <button onclick="clearAll()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">Clear All</button>
                     </div>
                 </div>
@@ -279,6 +349,7 @@
                         <div class="p-4 bg-gray-50 rounded-lg"><div class="text-sm text-gray-600">Total Records</div><div class="text-2xl font-bold text-blue-600" id="totalRecords">0</div></div>
                         <div class="p-4 bg-gray-50 rounded-lg"><div class="text-sm text-gray-600">Mapped Enumerators</div><div class="text-2xl font-bold text-green-600" id="mappedCount">0</div></div>
                         <div class="p-4 bg-gray-50 rounded-lg"><div class="text-sm text-gray-600">Saved Dashboards</div><div class="text-2xl font-bold text-purple-600" id="savedDashboardsCount">0</div></div>
+                        <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200"><div class="text-sm text-yellow-700 font-medium">Last FID (per asset)</div><div id="lastFidDisplay" class="mt-1 text-xs text-gray-700 space-y-1"><span class="text-gray-400 italic">Upload files to see Last FID</span></div></div>
                     </div>
                     <button onclick="saveToCloud()" class="mt-4 w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>☁️</span> Save to Cloud</button>
                 </div>
@@ -440,9 +511,9 @@
                             <div style="background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h4 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 8px 0;">Group Distribution</h4><div style="height: 280px;"><canvas id="pieChart"></canvas></div></div>
                             <div style="background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h4 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 8px 0;">Asset Distribution</h4><div style="height: 280px;"><canvas id="barChart"></canvas></div></div>
                         </div>
-                        <div id="sectionAedc" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #3b82f6; border-radius: 50%;"></span>AEDC Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardAedcTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #eff6ff;"><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardAedcBody"></tbody><tfoot id="dashboardAedcFoot" style="background: #dbeafe; font-weight: 600;"></tfoot></table></div></div>
-                        <div id="sectionBss" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%;"></span>BSS Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardBssTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #f0fdf4;"><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardBssBody"></tbody><tfoot id="dashboardBssFoot" style="background: #dcfce7; font-weight: 600;"></tfoot></table></div></div>
-                        <div id="sectionNysc" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #f97316; border-radius: 50%;"></span>NYSC Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #fff7ed;"><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardNyscBody"></tbody><tfoot id="dashboardNyscFoot" style="background: #ffedd5; font-weight: 600;"></tfoot></table></div></div>
+                        <div id="sectionAedc" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #3b82f6; border-radius: 50%;"></span>AEDC Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardAedcTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #eff6ff;"><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardAedcBody"></tbody><tfoot id="dashboardAedcFoot" style="background: #dbeafe; font-weight: 600;"></tfoot></table></div></div>
+                        <div id="sectionBss" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%;"></span>BSS Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardBssTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #f0fdf4;"><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardBssBody"></tbody><tfoot id="dashboardBssFoot" style="background: #dcfce7; font-weight: 600;"></tfoot></table></div></div>
+                        <div id="sectionNysc" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #f97316; border-radius: 50%;"></span>NYSC Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #fff7ed;"><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardNyscBody"></tbody><tfoot id="dashboardNyscFoot" style="background: #ffedd5; font-weight: 600;"></tfoot></table></div></div>
                         <div id="sectionGrandTotal" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #a855f7; border-radius: 50%;"></span>Grand Total Summary</h3><div style="overflow-x: auto;"><table id="grandTotalTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #faf5ff;"><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: left;">Group</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">HT Pole</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">Customer</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">LT Pole</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">Total</th></tr></thead><tbody id="grandTotalBody"></tbody><tfoot id="grandTotalFoot" style="background: #e9d5ff; font-weight: 700;"></tfoot></table></div></div>
                         <!-- Absent/Sick/Excused Legacy -->
                         <div id="sectionAbsentSick" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
@@ -483,11 +554,11 @@
                         </div>
                         <div id="sectionAedcNyscPaired" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #3b82f6; border-radius: 50%;"></span>AEDC / NYSC Enumerators</h3>
-                            <div style="overflow-x: auto;"><table id="pairedAedcNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #eff6ff;"><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Team</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="pairedAedcNyscBody"></tbody><tfoot id="pairedAedcNyscFoot" style="background: #dbeafe; font-weight: 600;"></tfoot></table></div>
+                            <div style="overflow-x: auto;"><table id="pairedAedcNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #eff6ff;"><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Team</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #bfdbfe; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="pairedAedcNyscBody"></tbody><tfoot id="pairedAedcNyscFoot" style="background: #dbeafe; font-weight: 600;"></tfoot></table></div>
                         </div>
                         <div id="sectionBssNyscPaired" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%;"></span>BSS / NYSC Enumerators</h3>
-                            <div style="overflow-x: auto;"><table id="pairedBssNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #f0fdf4;"><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Team</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="pairedBssNyscBody"></tbody><tfoot id="pairedBssNyscFoot" style="background: #dcfce7; font-weight: 600;"></tfoot></table></div>
+                            <div style="overflow-x: auto;"><table id="pairedBssNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #f0fdf4;"><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Team</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="pairedBssNyscBody"></tbody><tfoot id="pairedBssNyscFoot" style="background: #dcfce7; font-weight: 600;"></tfoot></table></div>
                         </div>
                         <div id="sectionGrandTotalPaired" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #a855f7; border-radius: 50%;"></span>Grand Total Summary</h3>
@@ -557,6 +628,24 @@
 
     // Remarks storage: key = username, value = { excuseRemark, excuseApproval, zeroRemark }
     let remarksData = {};
+
+    // Feeder lookup: code -> feeder name (persisted to Firebase)
+    let feederLookup = {};
+
+    // Feeder data per user from uploaded files: username -> { feederName: count, ... }
+    let userFeederData = {};
+
+    // Last FID per asset type
+    let lastFidData = { dss: null, ht: null, lt: null, cust: null, issues: null };
+
+    // Admin feeder overrides: username -> feeder name
+    let feederOverrides = {};
+
+    // Bulk modal filter
+    let bulkListFilter = 'all';
+
+    // Feeder edit modal context
+    let feederEditContext = null;
 
     let pieChart=null, barChart=null, pairedPieChart=null, pairedBarChart=null;
     let savedDashboards = {}, deleteAction = null;
@@ -651,7 +740,7 @@
             document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
             ['data','mapping','dashboard'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
             switchTab('data');
-            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards()]).then(() => renderSavedDatesList());
+            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud()]).then(() => renderSavedDatesList());
             showStatus('Logged in as Admin','success');
         } catch(e) { errorDiv.textContent=e.message||'Invalid credentials'; errorDiv.classList.remove('hidden'); }
         finally { loginBtn.disabled=false; loginBtn.textContent='Login as Admin'; }
@@ -665,7 +754,7 @@
         document.getElementById('accessBadge').className='px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800';
         ['data','mapping','dashboard'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
         switchTab('dashboard');
-        Promise.all([loadPairingsFromCloud(), loadSavedDashboards()]).then(() => loadLatestDashboard());
+        Promise.all([loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud()]).then(() => loadLatestDashboard());
     }
 
     function switchAccessMode() {
@@ -733,10 +822,118 @@
                 const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:false,dateNF:'yyyy-mm-dd'});
                 uploadedData[type]=json; zone.classList.add('has-file');
                 status.innerHTML=`<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${json.length} rows</span>`;
+                // Extract Last FID
+                extractLastFid(json, type);
+                // Extract feeder data
+                extractFeederData(json, type);
                 updateStats(); showStatus(`Loaded ${json.length} rows from ${file.name}`,'success');
             } catch(err){status.textContent='Error loading file';showStatus('Error: '+err.message,'error');}
         };
         reader.readAsArrayBuffer(file);
+    }
+
+    function handleFeederLookupUpload(input) {
+        const file=input.files[0]; if(!file)return;
+        const status=document.getElementById('status-feeder-lookup');
+        const zone=document.getElementById('zone-feeder-lookup');
+        status.textContent='Processing...';
+        const reader=new FileReader();
+        reader.onload=e=>{
+            try {
+                const data=new Uint8Array(e.target.result);
+                const wb=XLSX.read(data,{type:'array'});
+                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                feederLookup={};
+                json.forEach(row=>{
+                    const cols=Object.keys(row);
+                    // Expect first col = code, second col = feeder name
+                    const code=row[cols[0]]?.toString().trim();
+                    const name=row[cols[1]]?.toString().trim();
+                    if(code&&name) feederLookup[code]=name;
+                });
+                zone.classList.add('has-file');
+                const count=Object.keys(feederLookup).length;
+                status.innerHTML=`<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${count} feeder mappings</span>`;
+                // Save to Firebase
+                if(firebaseInitialized&&currentUser){
+                    database.ref('feederLookup').set(feederLookup).catch(e=>console.error(e));
+                }
+                showStatus(`Loaded ${count} feeder lookups`,'success');
+            } catch(err){status.textContent='Error loading file';showStatus('Error: '+err.message,'error');}
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function extractLastFid(json, type) {
+        if(!json||!json.length)return;
+        const cols=Object.keys(json[0]||{});
+        const fidCol=cols.find(c=>c.toUpperCase()==='FID'||c.toLowerCase()==='fid');
+        if(!fidCol)return;
+        let maxFid=null;
+        json.forEach(row=>{
+            const val=parseInt(row[fidCol]);
+            if(!isNaN(val)&&(maxFid===null||val>maxFid))maxFid=val;
+        });
+        if(maxFid!==null){
+            lastFidData[type]=maxFid;
+            updateLastFidDisplay();
+            // Save to Firebase
+            if(firebaseInitialized&&currentUser){
+                database.ref(`lastFid/${type}`).set(maxFid).catch(e=>console.error(e));
+            }
+        }
+    }
+
+    function updateLastFidDisplay() {
+        const el=document.getElementById('lastFidDisplay');
+        if(!el)return;
+        const labels={dss:'DT/Substation',ht:'HT Pole',lt:'LT Pole',cust:'Customer',issues:'Issue Log'};
+        const colors={dss:'#3b82f6',ht:'#f97316',lt:'#22c55e',cust:'#eab308',issues:'#ef4444'};
+        const entries=Object.entries(lastFidData).filter(([,v])=>v!==null);
+        if(!entries.length){el.innerHTML='<span class="text-gray-400 italic text-xs">No FID data yet</span>';return;}
+        el.innerHTML=entries.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #f3f4f6;"><span style="color:${colors[k]};font-weight:600;font-size:11px;">${labels[k]}</span><span style="background:${colors[k]}20;color:${colors[k]};font-weight:700;padding:1px 7px;border-radius:10px;font-size:12px;">FID: ${v}</span></div>`).join('');
+    }
+
+    function extractFeederData(json, type) {
+        if(!json||!json.length)return;
+        const cols=Object.keys(json[0]||{});
+        let feederCol=null;
+        // For HT and DSS: look for _11kv_feeder or _33kv_feeder
+        if(type==='ht'||type==='dss'){
+            feederCol=cols.find(c=>c.toLowerCase().includes('_11kv_feeder')||c.toLowerCase().includes('_33kv_feeder'));
+        }
+        // For lt, cust, issues: look for generic 'feeder' column
+        if(!feederCol){
+            feederCol=cols.find(c=>c.toLowerCase()==='feeder'||c.toLowerCase()==='feeder_code'||c.toLowerCase()==='feedercode');
+        }
+        if(!feederCol)return;
+        const userCol=cols.find(c=>c.toLowerCase().includes('username')||c.toLowerCase()==='user');
+        if(!userCol)return;
+        json.forEach(row=>{
+            const username=(row[userCol]||'').toString().trim().toLowerCase();
+            if(!username)return;
+            let feederVal=(row[feederCol]||'').toString().trim();
+            if(!feederVal)return;
+            // Translate via lookup if available
+            const translated=feederLookup[feederVal];
+            if(translated)feederVal=translated;
+            if(!userFeederData[username])userFeederData[username]={};
+            userFeederData[username][feederVal]=(userFeederData[username][feederVal]||0)+1;
+        });
+    }
+
+    function getTopFeeder(username) {
+        // Admin override first
+        if(feederOverrides[username])return feederOverrides[username];
+        const data=userFeederData[username];
+        if(!data||!Object.keys(data).length)return null;
+        return Object.entries(data).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+
+    function getAllFeeders(username) {
+        const data=userFeederData[username];
+        if(!data||!Object.keys(data).length)return [];
+        return Object.entries(data).sort((a,b)=>b[1]-a[1]).map(([f])=>f);
     }
 
     function updateStats() {
@@ -939,12 +1136,19 @@
                 const dss=dssCounts.get(username)||0, ht=htCounts.get(username)||0, cust=custCounts.get(username)||0, lt=ltCounts.get(username)||0, issues=issueCounts.get(username)||0;
                 const total=dss+ht+cust+lt+issues;
                 let status='present';
-                if(total===0&&group==='nysc'&&shouldBeExcused(fullname,startDateStr))status='excused';
-                // Carry over existing remarks
+                let autoExcuseRemark='', autoExcuseApproval='pending';
+                if(total===0&&group==='nysc'&&shouldBeExcused(fullname,startDateStr)){
+                    status='excused';
+                    autoExcuseRemark='On CDS';
+                    autoExcuseApproval='approved';
+                }
+                // Carry over existing remarks (but auto-excuse overrides blank ones)
                 const existingRemark = remarksData[username] || {};
+                const finalRemark = status==='excused'&&autoExcuseRemark ? autoExcuseRemark : (existingRemark.excuseRemark||'');
+                const finalApproval = status==='excused'&&autoExcuseRemark ? autoExcuseApproval : (existingRemark.excuseApproval||'pending');
                 results.push({username,fullname,dss,ht,cust,lt,issues,total,status,
-                    excuseRemark: existingRemark.excuseRemark||'',
-                    excuseApproval: existingRemark.excuseApproval||'pending',
+                    excuseRemark: finalRemark,
+                    excuseApproval: finalApproval,
                     zeroRemark: existingRemark.zeroRemark||''
                 });
                 totals.dss+=dss;totals.ht+=ht;totals.cust+=cust;totals.lt+=lt;totals.issues+=issues;totals.total+=total;
@@ -1201,10 +1405,12 @@
             let statusDisplay='';
             if(isDateRange&&r.statusBreakdown){
                 const parts=[];
-                if(r.statusBreakdown.present>0)parts.push(`<span style="color:#166534;">P(${r.statusBreakdown.present})</span>`);
-                if(r.statusBreakdown.absent>0)parts.push(`<span style="color:#991b1b;">A(${r.statusBreakdown.absent})</span>`);
-                if(r.statusBreakdown.sick>0)parts.push(`<span style="color:#92400e;">S(${r.statusBreakdown.sick})</span>`);
-                if(r.statusBreakdown.excused>0)parts.push(`<span style="color:#3730a3;">E(${r.statusBreakdown.excused})</span>`);
+                // Weekend-excluded counts (weekend absences excluded, but present/working on weekends still count)
+                const bd = r.statusBreakdownWeekdayOnly || r.statusBreakdown;
+                if(bd.present>0)parts.push(`<span style="color:#166634;">P(${bd.present})</span>`);
+                if(bd.absent>0)parts.push(`<span style="color:#991b1b;">A(${bd.absent})</span>`);
+                if(bd.sick>0)parts.push(`<span style="color:#92400e;">S(${bd.sick})</span>`);
+                if(bd.excused>0)parts.push(`<span style="color:#3730a3;">E(${bd.excused})</span>`);
                 statusDisplay=`<span style="font-size:9px;display:flex;gap:3px;flex-wrap:wrap;justify-content:center;">${parts.join(' ')}</span>`;
             } else {
                 const sc=statusColors[r.status]||statusColors.present;
@@ -1215,13 +1421,16 @@
                     statusDisplay=`<span style="background:${sc.bg};color:${sc.color};padding:2px 6px;border-radius:4px;font-size:10px;">${label}</span>`;
                 }
             }
+            // Feeder cell
+            const feeder = isDateRange ? (getAllFeeders(r.username).join(', ')||'—') : (getTopFeeder(r.username)||'—');
+            const feederCell = buildFeederCell(r.username, feeder, group, i, colors[group].border);
             // Remark cell
             let remarkCell = buildRemarkCell(r, group, i, colors[group].border);
-            return `<tr style="background:${i%2===0?colors[group].bg:'#fff'};"><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${i+1}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${escapeHtml(r.fullname)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.dss,group,i,'dss',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.ht,group,i,'ht',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.cust,group,i,'cust',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.lt,group,i,'lt',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.issues,group,i,'issues',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;font-weight:600;">${r.total}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:120px;">${remarkCell}</td></tr>`;
+            return `<tr style="background:${i%2===0?colors[group].bg:'#fff'};"><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${i+1}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${escapeHtml(r.fullname)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.dss,group,i,'dss',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.ht,group,i,'ht',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.cust,group,i,'cust',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.lt,group,i,'lt',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.issues,group,i,'issues',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;font-weight:600;">${r.total}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;max-width:120px;font-size:10px;">${feederCell}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:120px;">${remarkCell}</td></tr>`;
         }).join('');
 
         const t=totals||{};
-        tfoot.innerHTML=`<tr><td style="border:1px solid ${colors[group].border};padding:6px 8px;" colspan="2">TOTAL (${(results||[]).length})</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.dss||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.ht||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.cust||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.lt||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.issues||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.total||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td></tr>`;
+        tfoot.innerHTML=`<tr><td style="border:1px solid ${colors[group].border};padding:6px 8px;" colspan="2">TOTAL (${(results||[]).length})</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.dss||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.ht||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.cust||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.lt||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.issues||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.total||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td></tr>`;
     }
 
     // Build remark cell for a result row
@@ -1367,13 +1576,15 @@
                 const issuesCell = makeEditableCell(person.issues,grp,resultIdx,'issues',borderColor);
                 // Remark cell
                 let remarkCell = buildRemarkCell(person, grp, resultIdx, borderColor);
-                html+=`<tr style="background:${rowBg};">${teamCell}<td style="border:1px solid ${borderColor};padding:4px 8px;">${escapeHtml(person.fullname)}${roleTag}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${dssCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${htCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${custCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${ltCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${issuesCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;font-weight:600;">${person.total}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;min-width:110px;">${remarkCell}</td></tr>`;
+                const feeder = getTopFeeder(person.username)||'—';
+                const feederCell = buildFeederCell(person.username, feeder, grp, resultIdx, borderColor);
+                html+=`<tr style="background:${rowBg};">${teamCell}<td style="border:1px solid ${borderColor};padding:4px 8px;">${escapeHtml(person.fullname)}${roleTag}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${dssCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${htCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${custCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${ltCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${issuesCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;font-weight:600;">${person.total}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;max-width:110px;font-size:10px;">${feederCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;min-width:110px;">${remarkCell}</td></tr>`;
                 totals.dss+=person.dss||0;totals.ht+=person.ht||0;totals.cust+=person.cust||0;totals.lt+=person.lt||0;totals.issues+=person.issues||0;totals.total+=person.total||0;
             });
         });
 
         tbody.innerHTML=html;
-        tfoot.innerHTML=`<tr><td style="border:1px solid ${borderColor};padding:6px 8px;" colspan="2">TOTAL (${teams.length} teams / ${teams.length*2} members)</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.dss}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.ht}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.cust}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.lt}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.issues}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.total}</td><td style="border:1px solid ${borderColor};padding:6px 8px;"></td><td style="border:1px solid ${borderColor};padding:6px 8px;"></td></tr>`;
+        tfoot.innerHTML=`<tr><td style="border:1px solid ${borderColor};padding:6px 8px;" colspan="2">TOTAL (${teams.length} teams / ${teams.length*2} members)</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.dss}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.ht}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.cust}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.lt}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.issues}</td><td style="border:1px solid ${borderColor};padding:6px 8px;text-align:center;">${totals.total}</td><td style="border:1px solid ${borderColor};padding:6px 8px;"></td><td style="border:1px solid ${borderColor};padding:6px 8px;"></td><td style="border:1px solid ${borderColor};padding:6px 8px;"></td></tr>`;
     }
 
     function updatePairedGrandTotal(aedcNyscTeams, bssNyscTeams) {
@@ -1542,21 +1753,60 @@
 
     function exportDashboardToExcel() {
         const wb=XLSX.utils.book_new();
+        const isDateRange = reportResults.isDateRange||false;
         const shouldUsePaired = isPairedMode(reportResults.dateKey) && currentViewMode === 'paired';
-        if(shouldUsePaired){
-            const t1=document.getElementById('pairedAedcNyscTable'); if(t1)XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(t1),'AEDC-NYSC Teams');
-            const t2=document.getElementById('pairedBssNyscTable'); if(t2)XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(t2),'BSS-NYSC Teams');
-            const aedcData=(reportResults.aedc.results||[]).map((r,i)=>({'S/N':i+1,'Username':r.username,'Full Name':r.fullname,'DT/DSS':r.dss,'HT Pole':r.ht,'Customer':r.cust,'LT Pole':r.lt,'Issues':r.issues,'Total':r.total,'Status':r.status,'Excuse Reason':r.excuseRemark||'','Approval':r.excuseApproval||'','Zero Remark':r.zeroRemark||''}));
-            if(aedcData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(aedcData),'All AEDC');
-            const bssData=(reportResults.bss.results||[]).map((r,i)=>({'S/N':i+1,'Username':r.username,'Full Name':r.fullname,'DT/DSS':r.dss,'HT Pole':r.ht,'Customer':r.cust,'LT Pole':r.lt,'Issues':r.issues,'Total':r.total,'Status':r.status,'Excuse Reason':r.excuseRemark||'','Approval':r.excuseApproval||'','Zero Remark':r.zeroRemark||''}));
-            if(bssData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bssData),'All BSS');
-            const nyscData=(reportResults.nysc.results||[]).map((r,i)=>({'S/N':i+1,'Username':r.username,'Full Name':r.fullname,'DT/DSS':r.dss,'HT Pole':r.ht,'Customer':r.cust,'LT Pole':r.lt,'Issues':r.issues,'Total':r.total,'Status':r.status,'Excuse Reason':r.excuseRemark||'','Approval':r.excuseApproval||'','Zero Remark':r.zeroRemark||''}));
-            if(nyscData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nyscData),'All NYSC');
-            const gtTable=document.getElementById('pairedGrandTotalTable'); if(gtTable)XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(gtTable),'Grand Total');
-        } else {
-            ['Aedc','Bss','Nysc'].forEach(g=>{const t=document.getElementById(`dashboard${g}Table`);if(t)XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(t),g.toUpperCase());});
-            const gt=document.getElementById('grandTotalTable'); if(gt)XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(gt),'Grand Total');
+
+        function getStatusStr(r) {
+            if(isDateRange&&r.statusBreakdown){
+                const bd = r.statusBreakdownWeekdayOnly || r.statusBreakdown;
+                let s='';
+                if(bd.present>0)s+=`P(${bd.present})`;
+                if(bd.absent>0)s+=` A(${bd.absent})`;
+                if(bd.sick>0)s+=` S(${bd.sick})`;
+                if(bd.excused>0)s+=` E(${bd.excused})`;
+                return s.trim();
+            }
+            return r.status||'present';
         }
+
+        const buildSheet = (results) => (results||[]).map((r,i)=>({
+            'S/N':i+1,
+            'Username':r.username,
+            'Full Name':r.fullname,
+            'DT/DSS':r.dss||0,
+            'HT Pole':r.ht||0,
+            'Customer':r.cust||0,
+            'LT Pole':r.lt||0,
+            'Issues':r.issues||0,
+            'Total':r.total||0,
+            'Status':getStatusStr(r),
+            'Feeder': isDateRange ? (getAllFeeders(r.username).join('; ')||'') : (getTopFeeder(r.username)||''),
+            'Excuse Reason':r.excuseRemark||'',
+            'Approval':r.excuseApproval||'',
+            'Zero Remark':r.zeroRemark||''
+        }));
+
+        if(shouldUsePaired){
+            const aedcData=buildSheet(reportResults.aedc.results);
+            if(aedcData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(aedcData),'AEDC');
+            const bssData=buildSheet(reportResults.bss.results);
+            if(bssData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bssData),'BSS');
+            const nyscData=buildSheet(reportResults.nysc.results);
+            if(nyscData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nyscData),'NYSC');
+        } else {
+            ['aedc','bss','nysc'].forEach(g=>{
+                const d=buildSheet(reportResults[g].results);
+                if(d.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),g.toUpperCase());
+            });
+        }
+        // Grand total sheet
+        const gtRows=[
+            {Group:'AEDC',...(reportResults.aedc.totals||{})},
+            {Group:'BSS',...(reportResults.bss.totals||{})},
+            {Group:'NYSC',...(reportResults.nysc.totals||{})},
+        ];
+        XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(gtRows),'Grand Total');
+
         XLSX.writeFile(wb,`Dashboard_${reportResults.dateKey||'export'}.xlsx`);
         showStatus('Dashboard exported to Excel','success');
     }
@@ -1595,7 +1845,7 @@
         if(!reportResults.dateKey){showStatus('Generate a report first','error');return;}
         updateFirebaseStatus('syncing');
         try {
-            const dashData={...reportResults,savedAt:Date.now(),savedBy:currentUser.email,remarksData};
+            const dashData={...reportResults,savedAt:Date.now(),savedBy:currentUser.email,remarksData,feederOverrides};
             if(isPairedMode(reportResults.dateKey)){collectPairings();dashData.pairings={aedcNysc:teamPairings.aedcNysc,bssNysc:teamPairings.bssNysc};dashData.isPairedMode=true;}
             await database.ref(`dashboards/${reportResults.dateKey}`).set(dashData);
             updateFirebaseStatus('connected');loadSavedDashboards();
@@ -1632,8 +1882,8 @@
         if(savedDashboards[dateKey]){
             reportResults=savedDashboards[dateKey];
             remarksData = reportResults.remarksData || {};
+            if(reportResults.feederOverrides) feederOverrides = {...feederOverrides, ...reportResults.feederOverrides};
             if(reportResults.pairings){teamPairings.aedcNysc=reportResults.pairings.aedcNysc||[];teamPairings.bssNysc=reportResults.pairings.bssNysc||[];}
-            // Reset view mode to paired if it's a paired date
             if (isPairedMode(dateKey)) { currentViewMode = 'paired'; }
             updateDashboard();
             setTimeout(()=>initCharts(),100);
@@ -1668,11 +1918,27 @@
                             if(!personData[g][key])personData[g][key]={username:r.username,fullname:r.fullname,dss:0,ht:0,cust:0,lt:0,issues:0,total:0,statusCounts:{present:0,absent:0,sick:0,excused:0},excuseRemark:r.excuseRemark||'',excuseApproval:r.excuseApproval||'pending',zeroRemark:r.zeroRemark||''};
                             personData[g][key].dss+=r.dss||0;personData[g][key].ht+=r.ht||0;personData[g][key].cust+=r.cust||0;personData[g][key].lt+=r.lt||0;personData[g][key].issues+=r.issues||0;personData[g][key].total+=r.total||0;
                             personData[g][key].statusCounts[r.status||'present']++;
+                            // Track weekend status separately: weekend days where person was absent are not counted
+                            const dayOfWeek = new Date(dk).getDay(); // 0=Sun, 6=Sat
+                            const isWeekend = (dayOfWeek===0||dayOfWeek===6);
+                            const status = r.status||'present';
+                            // For weekday-only: count present/excused/sick regardless of weekend, but absent only on weekdays
+                            // Exception: if they have entries (total>0) on a weekend, count as present
+                            if(!isWeekend) {
+                                if(!personData[g][key].weekdayStatusCounts)personData[g][key].weekdayStatusCounts={present:0,absent:0,sick:0,excused:0};
+                                personData[g][key].weekdayStatusCounts[status]++;
+                            } else {
+                                // Weekend: if present with entries, still count present
+                                if(status==='present'&&(r.total||0)>0){
+                                    if(!personData[g][key].weekdayStatusCounts)personData[g][key].weekdayStatusCounts={present:0,absent:0,sick:0,excused:0};
+                                    personData[g][key].weekdayStatusCounts.present++;
+                                }
+                            }
                         });
                     });
                 }
             }
-            ['aedc','bss','nysc'].forEach(g=>{aggregated[g].results=Object.values(personData[g]).map(p=>({...p,status:'present',statusBreakdown:p.statusCounts}));aggregated[g].results.sort((a,b)=>b.total-a.total);});
+            ['aedc','bss','nysc'].forEach(g=>{aggregated[g].results=Object.values(personData[g]).map(p=>({...p,status:'present',statusBreakdown:p.statusCounts,statusBreakdownWeekdayOnly:p.weekdayStatusCounts||p.statusCounts}));aggregated[g].results.sort((a,b)=>b.total-a.total);});
             if(latestPairings)aggregated.pairings=latestPairings;
             if(loaded>0){reportResults=aggregated;if(isPairedMode(aggregated.dateKey))currentViewMode='paired';updateDashboard();setTimeout(()=>initCharts(),100);showStatus(`Loaded ${loaded} of ${totalDays} days`,'success');}
             else showStatus('No saved dashboards in range','warning');
@@ -1684,6 +1950,198 @@
 
     function refreshDashboard(){Promise.all([loadSavedDashboards(),loadPairingsFromCloud()]).then(()=>loadLatestDashboard());}
     function updateAndSaveDashboard(){saveDashboardToCloud();}
+
+    // ============================================
+    // FEEDER LOOKUP CLOUD LOAD
+    // ============================================
+    async function loadFeederLookupFromCloud() {
+        if(!firebaseInitialized)return;
+        try {
+            const snap=await database.ref('feederLookup').once('value');
+            const data=snap.val();
+            if(data){
+                feederLookup=data;
+                const count=Object.keys(feederLookup).length;
+                if(count>0){
+                    const status=document.getElementById('status-feeder-lookup');
+                    const zone=document.getElementById('zone-feeder-lookup');
+                    if(status)status.innerHTML=`<span class="text-green-600">✓ ${count} mappings from cloud</span>`;
+                    if(zone)zone.classList.add('has-file');
+                }
+            }
+        } catch(e){console.error('Feeder lookup load error:',e);}
+    }
+
+    async function loadLastFidFromCloud() {
+        if(!firebaseInitialized)return;
+        try {
+            const snap=await database.ref('lastFid').once('value');
+            const data=snap.val();
+            if(data){
+                Object.keys(lastFidData).forEach(k=>{ if(data[k]!==undefined)lastFidData[k]=data[k]; });
+                updateLastFidDisplay();
+            }
+        } catch(e){console.error('Last FID load error:',e);}
+    }
+
+    // ============================================
+    // FEEDER CELL & EDIT MODAL
+    // ============================================
+    function buildFeederCell(username, feeder, group, index, borderColor) {
+        const display = feeder&&feeder!=='—' ? `<span style="background:#fef9c3;color:#854d0e;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(feeder)}">⚡ ${escapeHtml(feeder)}</span>` : '<span style="color:#9ca3af;font-size:9px;">—</span>';
+        if(isAdminMode&&index>=0){
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">${display}<button onclick="openFeederEditModal('${username}','${escapeHtml(feeder||'')}','${group}',${index})" style="font-size:8px;padding:1px 4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:3px;cursor:pointer;margin-top:1px;">✏️ Edit</button></div>`;
+        }
+        return display;
+    }
+
+    function openFeederEditModal(username, currentFeeder, group, index) {
+        feederEditContext = {username, group, index};
+        document.getElementById('feederEditPersonName').textContent = username;
+        document.getElementById('feederEditInput').value = currentFeeder==='—'?'':currentFeeder;
+        document.getElementById('feederEditModal').classList.remove('hidden');
+    }
+
+    function closeFeederEditModal() {
+        document.getElementById('feederEditModal').classList.add('hidden');
+        feederEditContext = null;
+    }
+
+    function saveFeederEdit() {
+        if(!feederEditContext)return;
+        const {username} = feederEditContext;
+        const newFeeder = document.getElementById('feederEditInput').value.trim();
+        if(newFeeder){
+            feederOverrides[username] = newFeeder;
+        } else {
+            delete feederOverrides[username];
+        }
+        // Save override to Firebase
+        if(firebaseInitialized&&currentUser){
+            database.ref(`feederOverrides/${username}`).set(newFeeder||null).catch(e=>console.error(e));
+        }
+        closeFeederEditModal();
+        updateDashboard();
+        showStatus('Feeder updated','success');
+    }
+
+    // Load feeder overrides from Firebase on startup
+    async function loadFeederOverridesFromCloud() {
+        if(!firebaseInitialized)return;
+        try {
+            const snap=await database.ref('feederOverrides').once('value');
+            const data=snap.val();
+            if(data) feederOverrides={...feederOverrides,...data};
+        } catch(e){console.error(e);}
+    }
+
+    // ============================================
+    // BULK EXCUSE / ABSENT MODAL
+    // ============================================
+    function openBulkExcuseModal() {
+        if(!(reportResults.aedc.results.length||reportResults.bss.results.length||reportResults.nysc.results.length)){
+            showStatus('Generate a report first','warning'); return;
+        }
+        bulkListFilter='all';
+        document.getElementById('bulkStatusSelect').value='absent';
+        document.getElementById('bulkExcuseReason').value='';
+        document.getElementById('bulkApprovalStatus').value='pending';
+        updateBulkExcuseVisibility();
+        renderBulkPersonList();
+        document.getElementById('bulkExcuseModal').classList.remove('hidden');
+        // update selected count
+        document.getElementById('bulkStatusSelect').onchange=updateBulkExcuseVisibility;
+    }
+
+    function closeBulkExcuseModal() {
+        document.getElementById('bulkExcuseModal').classList.add('hidden');
+    }
+
+    function updateBulkExcuseVisibility() {
+        const status=document.getElementById('bulkStatusSelect').value;
+        const reasonDiv=document.getElementById('bulkExcuseReasonDiv');
+        const approvalDiv=document.getElementById('bulkApprovalDiv');
+        if(status==='excused'){
+            reasonDiv.style.display='block';
+            approvalDiv.style.display='block';
+        } else {
+            reasonDiv.style.display='none';
+            approvalDiv.style.display='none';
+        }
+    }
+
+    function filterBulkList(filter) {
+        bulkListFilter=filter;
+        ['all','aedc','bss','nysc'].forEach(f=>{
+            const btn=document.getElementById(`bulkTab-${f}`);
+            if(btn){
+                btn.classList.toggle('text-blue-600',f===filter);
+                btn.classList.toggle('border-b-2',f===filter);
+                btn.classList.toggle('border-blue-600',f===filter);
+                btn.classList.toggle('text-gray-500',f!==filter);
+            }
+        });
+        renderBulkPersonList();
+    }
+
+    function renderBulkPersonList() {
+        const container=document.getElementById('bulkPersonList');
+        const groups = bulkListFilter==='all' ? ['aedc','bss','nysc'] : [bulkListFilter];
+        const groupColors={aedc:'#3b82f6',bss:'#22c55e',nysc:'#f97316'};
+        let html='';
+        let count=0;
+        groups.forEach(g=>{
+            const zeroResults=(reportResults[g].results||[]).filter(r=>r.total===0&&r.status==='present');
+            if(!zeroResults.length)return;
+            zeroResults.forEach(r=>{
+                count++;
+                html+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;background:#f9fafb;margin-bottom:2px;" class="bulk-person-row">
+                    <input type="checkbox" class="bulk-check" data-group="${g}" data-username="${r.username}" style="width:16px;height:16px;cursor:pointer;" onchange="updateBulkCount()">
+                    <span style="background:${groupColors[g]};color:white;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">${g.toUpperCase()}</span>
+                    <span style="font-size:12px;font-weight:500;">${escapeHtml(r.fullname)}</span>
+                    <span style="font-size:10px;color:#9ca3af;">(${r.username})</span>
+                </label>`;
+            });
+        });
+        if(!html) html='<div style="color:#9ca3af;font-style:italic;text-align:center;padding:16px;">No enumerators with zero submissions found</div>';
+        container.innerHTML=html;
+        document.getElementById('bulkSelectAll').checked=false;
+        updateBulkCount();
+    }
+
+    function toggleBulkSelectAll(checked) {
+        document.querySelectorAll('.bulk-check').forEach(cb=>cb.checked=checked);
+        updateBulkCount();
+    }
+
+    function updateBulkCount() {
+        const n=document.querySelectorAll('.bulk-check:checked').length;
+        document.getElementById('bulkSelectedCount').textContent=`${n} selected`;
+    }
+
+    function applyBulkStatus() {
+        const checked=document.querySelectorAll('.bulk-check:checked');
+        if(!checked.length){showStatus('No enumerators selected','warning');return;}
+        const status=document.getElementById('bulkStatusSelect').value;
+        const reason=document.getElementById('bulkExcuseReason').value.trim();
+        const approval=document.getElementById('bulkApprovalStatus').value;
+        checked.forEach(cb=>{
+            const group=cb.dataset.group;
+            const username=cb.dataset.username;
+            const idx=(reportResults[group].results||[]).findIndex(r=>r.username===username);
+            if(idx<0)return;
+            const r=reportResults[group].results[idx];
+            r.status=status;
+            if(status==='excused'){
+                r.excuseRemark=reason||r.excuseRemark||'';
+                r.excuseApproval=approval;
+                remarksData[username]={excuseRemark:r.excuseRemark,excuseApproval:r.excuseApproval,zeroRemark:r.zeroRemark||''};
+            }
+        });
+        closeBulkExcuseModal();
+        updateDashboard();
+        showStatus(`Applied "${status}" to ${checked.length} enumerator(s)`,'success');
+    }
 
     // ============================================
     // DELETE
@@ -1708,6 +2166,9 @@
     // ============================================
     function clearAll(){
         Object.keys(uploadedData).forEach(k=>{uploadedData[k]=null;const z=document.getElementById(`zone-${k}`),s=document.getElementById(`status-${k}`),f=document.getElementById(`file-${k}`);if(z)z.classList.remove('has-file');if(s)s.textContent='Click or drag to upload';if(f)f.value='';});
+        userFeederData={};
+        lastFidData={dss:null,ht:null,lt:null,cust:null,issues:null};
+        updateLastFidDisplay();
         reportResults={aedc:{results:[],totals:{}},bss:{results:[],totals:{}},nysc:{results:[],totals:{}},dateRange:'',formattedDate:'',dateKey:''};
         remarksData={};
         document.getElementById('resultsSection').style.display='none';
