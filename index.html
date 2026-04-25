@@ -897,43 +897,99 @@
     function extractFeederData(json, type) {
         if(!json||!json.length)return;
         const cols=Object.keys(json[0]||{});
-        let feederCol=null;
-        // For HT and DSS: look for _11kv_feeder or _33kv_feeder
-        if(type==='ht'||type==='dss'){
-            feederCol=cols.find(c=>c.toLowerCase().includes('_11kv_feeder')||c.toLowerCase().includes('_33kv_feeder'));
-        }
-        // For lt, cust, issues: look for generic 'feeder' column
-        if(!feederCol){
-            feederCol=cols.find(c=>c.toLowerCase()==='feeder'||c.toLowerCase()==='feeder_code'||c.toLowerCase()==='feedercode');
-        }
-        if(!feederCol)return;
-        const userCol=cols.find(c=>c.toLowerCase().includes('username')||c.toLowerCase()==='user');
-        if(!userCol)return;
+
+        // Find ALL feeder columns — search every asset file for all three column variants
+        const feederCols = cols.filter(c=>{
+            const cl = c.toLowerCase();
+            return cl.includes('_11kv_feeder') || cl.includes('_33kv_feeder') || cl==='feeder' || cl==='feeder_code' || cl==='feedercode';
+        });
+        if(!feederCols.length) return;
+
+        // Find username and date columns
+        const userCol = cols.find(c=>c.toLowerCase().includes('username')||c.toLowerCase()==='user');
+        const timeCol = cols.find(c=>c.toLowerCase().includes('time')||c.toLowerCase().includes('date'));
+        if(!userCol) return;
+
         json.forEach(row=>{
-            const username=(row[userCol]||'').toString().trim().toLowerCase();
-            if(!username)return;
-            let feederVal=(row[feederCol]||'').toString().trim();
-            if(!feederVal)return;
-            // Translate via lookup if available
-            const translated=feederLookup[feederVal];
-            if(translated)feederVal=translated;
-            if(!userFeederData[username])userFeederData[username]={};
-            userFeederData[username][feederVal]=(userFeederData[username][feederVal]||0)+1;
+            const username = (row[userCol]||'').toString().trim().toLowerCase();
+            if(!username) return;
+
+            // Determine the date key for this row (YYYY-MM-DD)
+            let dateKey = 'unknown';
+            if(timeCol){
+                const parsed = parseDate(row[timeCol]);
+                if(parsed){
+                    const y = parsed.getFullYear();
+                    const m = String(parsed.getMonth()+1).padStart(2,'0');
+                    const d = String(parsed.getDate()).padStart(2,'0');
+                    dateKey = `${y}-${m}-${d}`;
+                }
+            }
+
+            // Collect feeder values from ALL matching columns in this row
+            feederCols.forEach(fc=>{
+                let feederVal = (row[fc]||'').toString().trim();
+                if(!feederVal) return;
+                // Translate code → name via lookup
+                const translated = feederLookup[feederVal];
+                if(translated) feederVal = translated;
+
+                // Store: userFeederData[username][dateKey][feederName] = count
+                if(!userFeederData[username]) userFeederData[username] = {};
+                if(!userFeederData[username][dateKey]) userFeederData[username][dateKey] = {};
+                userFeederData[username][dateKey][feederVal] = (userFeederData[username][dateKey][feederVal]||0)+1;
+            });
         });
     }
 
-    function getTopFeeder(username) {
-        // Admin override first
-        if(feederOverrides[username])return feederOverrides[username];
-        const data=userFeederData[username];
-        if(!data||!Object.keys(data).length)return null;
-        return Object.entries(data).sort((a,b)=>b[1]-a[1])[0][0];
+    // Get the top feeder for a user for a specific date (or date range)
+    function getTopFeeder(username, startDateStr, endDateStr) {
+        // Admin override always wins
+        if(feederOverrides[username]) return feederOverrides[username];
+        const data = userFeederData[username];
+        if(!data) return null;
+
+        const fromDate = startDateStr ? new Date(startDateStr) : null;
+        const toDate = endDateStr ? new Date(endDateStr) : (fromDate ? new Date(startDateStr) : null);
+
+        // Merge counts across all relevant dates
+        const merged = {};
+        Object.entries(data).forEach(([dk, feeders])=>{
+            if(fromDate && toDate && dk !== 'unknown'){
+                const d = new Date(dk);
+                if(d < fromDate || d > toDate) return; // outside range
+            }
+            Object.entries(feeders).forEach(([f,c])=>{
+                merged[f] = (merged[f]||0) + c;
+            });
+        });
+
+        const entries = Object.entries(merged);
+        if(!entries.length) return null;
+        return entries.sort((a,b)=>b[1]-a[1])[0][0];
     }
 
-    function getAllFeeders(username) {
-        const data=userFeederData[username];
-        if(!data||!Object.keys(data).length)return [];
-        return Object.entries(data).sort((a,b)=>b[1]-a[1]).map(([f])=>f);
+    // Get all feeders for a user across a date range, sorted by frequency
+    function getAllFeeders(username, startDateStr, endDateStr) {
+        if(feederOverrides[username]) return [feederOverrides[username]];
+        const data = userFeederData[username];
+        if(!data) return [];
+
+        const fromDate = startDateStr ? new Date(startDateStr) : null;
+        const toDate = endDateStr ? new Date(endDateStr) : (fromDate ? new Date(startDateStr) : null);
+
+        const merged = {};
+        Object.entries(data).forEach(([dk, feeders])=>{
+            if(fromDate && toDate && dk !== 'unknown'){
+                const d = new Date(dk);
+                if(d < fromDate || d > toDate) return;
+            }
+            Object.entries(feeders).forEach(([f,c])=>{
+                merged[f] = (merged[f]||0) + c;
+            });
+        });
+
+        return Object.entries(merged).sort((a,b)=>b[1]-a[1]).map(([f])=>f);
     }
 
     function updateStats() {
@@ -1160,6 +1216,7 @@
         reportResults.dateRange=startDateStr===endDateStr?`(${startDateStr})`:`(${startDateStr} to ${endDateStr})`;
         reportResults.formattedDate=formatDateFull(startDateStr);
         reportResults.dateKey=startDateStr;
+        reportResults.endDateKey=endDateStr;
 
         renderResultsTable('aedc'); renderResultsTable('bss'); renderResultsTable('nysc');
         document.getElementById('resultsSection').style.display='block';
@@ -1423,7 +1480,13 @@
             }
             // Feeder cell — blank if zero submissions or non-present status
             const hasWork = (r.total||0) > 0 && r.status === 'present';
-            const feeder = hasWork ? (isDateRange ? (getAllFeeders(r.username).join(', ')||'—') : (getTopFeeder(r.username)||'—')) : null;
+            const rStartDate = reportResults.dateKey || null;
+            const rEndDate = reportResults.endDateKey || rStartDate;
+            const feeder = hasWork
+                ? (isDateRange
+                    ? (getAllFeeders(r.username, rStartDate, rEndDate).join(', ')||'—')
+                    : (getTopFeeder(r.username, rStartDate, rEndDate)||'—'))
+                : null;
             const feederCell = buildFeederCell(r.username, feeder, group, i, colors[group].border);
             // Remark cell
             let remarkCell = buildRemarkCell(r, group, i, colors[group].border);
@@ -1583,7 +1646,9 @@
                 const issuesCell = makeEditableCell(person.issues,grp,resultIdx,'issues',borderColor);
                 // Remark cell
                 let remarkCell = buildRemarkCell(person, grp, resultIdx, borderColor);
-                const feeder = ((person.total||0) > 0 && person.status === 'present') ? (getTopFeeder(person.username)||'—') : null;
+                const rStartDate = reportResults.dateKey || null;
+                const rEndDate = reportResults.endDateKey || rStartDate;
+                const feeder = ((person.total||0) > 0 && person.status === 'present') ? (getTopFeeder(person.username, rStartDate, rEndDate)||'—') : null;
                 const feederCell = buildFeederCell(person.username, feeder, grp, resultIdx, borderColor);
                 html+=`<tr style="background:${rowBg};">${teamCell}<td style="border:1px solid ${borderColor};padding:4px 8px;">${escapeHtml(person.fullname)}${roleTag}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${dssCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${htCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${custCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${ltCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${issuesCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;font-weight:600;">${person.total}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;max-width:110px;font-size:10px;">${feederCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;min-width:110px;">${remarkCell}</td></tr>`;
                 totals.dss+=person.dss||0;totals.ht+=person.ht||0;totals.cust+=person.cust||0;totals.lt+=person.lt||0;totals.issues+=person.issues||0;totals.total+=person.total||0;
@@ -1776,6 +1841,9 @@
             return r.status||'present';
         }
 
+        const rStartDate = reportResults.dateKey || null;
+        const rEndDate = reportResults.endDateKey || rStartDate;
+
         const buildSheet = (results) => (results||[]).map((r,i)=>({
             'S/N':i+1,
             'Username':r.username,
@@ -1787,7 +1855,9 @@
             'Issues':r.issues||0,
             'Total':r.total||0,
             'Status':getStatusStr(r),
-            'Feeder': isDateRange ? (getAllFeeders(r.username).join('; ')||'') : (getTopFeeder(r.username)||''),
+            'Feeder': (r.total>0 && r.status==='present')
+                ? (isDateRange ? (getAllFeeders(r.username, rStartDate, rEndDate).join('; ')||'') : (getTopFeeder(r.username, rStartDate, rEndDate)||''))
+                : '',
             'Excuse Reason':r.excuseRemark||'',
             'Approval':r.excuseApproval||'',
             'Zero Remark':r.zeroRemark||''
@@ -2180,7 +2250,7 @@
     // ============================================
     function clearAll(){
         Object.keys(uploadedData).forEach(k=>{uploadedData[k]=null;const z=document.getElementById(`zone-${k}`),s=document.getElementById(`status-${k}`),f=document.getElementById(`file-${k}`);if(z)z.classList.remove('has-file');if(s)s.textContent='Click or drag to upload';if(f)f.value='';});
-        userFeederData={};
+        userFeederData = {};  // reset date-keyed feeder data
         lastFidData={dss:null,ht:null,lt:null,cust:null,issues:null};
         updateLastFidDisplay();
         reportResults={aedc:{results:[],totals:{}},bss:{results:[],totals:{}},nysc:{results:[],totals:{}},dateRange:'',formattedDate:'',dateKey:''};
