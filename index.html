@@ -651,7 +651,7 @@
     let savedDashboards = {}, deleteAction = null;
 
     // Current view mode for paired dates: 'paired' or 'legacy'
-    let currentViewMode = 'paired';
+    let currentViewMode = 'legacy';
 
     // Temp for excuse/zero remark modals
     let excuseModalContext = null;
@@ -898,17 +898,37 @@
         if(!json||!json.length)return;
         const cols=Object.keys(json[0]||{});
 
-        // Find ALL feeder columns — search every asset file for all three column variants
+        // Find ALL feeder columns — broad search across all naming conventions
         const feederCols = cols.filter(c=>{
             const cl = c.toLowerCase();
-            return cl.includes('_11kv_feeder') || cl.includes('_33kv_feeder') || cl==='feeder' || cl==='feeder_code' || cl==='feedercode';
+            return cl.includes('_11kv_feeder') ||
+                   cl.includes('_33kv_feeder') ||
+                   cl.includes('_11kv feeder') ||
+                   cl.includes('_33kv feeder') ||
+                   cl === 'feeder' ||
+                   cl === 'feeder_code' ||
+                   cl === 'feedercode' ||
+                   cl === 'feeder_name' ||
+                   cl.startsWith('feeder');
         });
         if(!feederCols.length) return;
 
-        // Find username and date columns
-        const userCol = cols.find(c=>c.toLowerCase().includes('username')||c.toLowerCase()==='user');
-        const timeCol = cols.find(c=>c.toLowerCase().includes('time')||c.toLowerCase().includes('date'));
+        // Find username column — broad search
+        const userCol = cols.find(c=>{
+            const cl = c.toLowerCase();
+            return cl === 'username' || cl === 'user' || cl === 'user_name' ||
+                   cl.includes('username') || cl === 'enumerator';
+        });
         if(!userCol) return;
+
+        // Find date/time column — broad search
+        const timeCol = cols.find(c=>{
+            const cl = c.toLowerCase();
+            return cl.includes('time') || cl.includes('date') ||
+                   cl === 'created_at' || cl === 'submitted_at' ||
+                   cl === 'submission_date' || cl === 'created' ||
+                   cl === 'timestamp' || cl === 'today';
+        });
 
         json.forEach(row=>{
             const username = (row[userCol]||'').toString().trim().toLowerCase();
@@ -916,9 +936,10 @@
 
             // Determine the date key for this row (YYYY-MM-DD)
             let dateKey = 'unknown';
-            if(timeCol){
+            if(timeCol && row[timeCol]){
                 const parsed = parseDate(row[timeCol]);
-                if(parsed){
+                if(parsed && !isNaN(parsed.getTime())){
+                    // Normalize to local date string to avoid UTC offset issues
                     const y = parsed.getFullYear();
                     const m = String(parsed.getMonth()+1).padStart(2,'0');
                     const d = String(parsed.getDate()).padStart(2,'0');
@@ -929,8 +950,8 @@
             // Collect feeder values from ALL matching columns in this row
             feederCols.forEach(fc=>{
                 let feederVal = (row[fc]||'').toString().trim();
-                if(!feederVal) return;
-                // Translate code → name via lookup
+                if(!feederVal || feederVal === '0' || feederVal.toLowerCase() === 'null') return;
+                // Translate code → name via lookup if available
                 const translated = feederLookup[feederVal];
                 if(translated) feederVal = translated;
 
@@ -949,21 +970,7 @@
         const data = userFeederData[username];
         if(!data) return null;
 
-        const fromDate = startDateStr ? new Date(startDateStr) : null;
-        const toDate = endDateStr ? new Date(endDateStr) : (fromDate ? new Date(startDateStr) : null);
-
-        // Merge counts across all relevant dates
-        const merged = {};
-        Object.entries(data).forEach(([dk, feeders])=>{
-            if(fromDate && toDate && dk !== 'unknown'){
-                const d = new Date(dk);
-                if(d < fromDate || d > toDate) return; // outside range
-            }
-            Object.entries(feeders).forEach(([f,c])=>{
-                merged[f] = (merged[f]||0) + c;
-            });
-        });
-
+        const merged = mergeFeederCounts(data, startDateStr, endDateStr);
         const entries = Object.entries(merged);
         if(!entries.length) return null;
         return entries.sort((a,b)=>b[1]-a[1])[0][0];
@@ -974,22 +981,28 @@
         if(feederOverrides[username]) return [feederOverrides[username]];
         const data = userFeederData[username];
         if(!data) return [];
+        const merged = mergeFeederCounts(data, startDateStr, endDateStr);
+        return Object.entries(merged).sort((a,b)=>b[1]-a[1]).map(([f])=>f);
+    }
 
-        const fromDate = startDateStr ? new Date(startDateStr) : null;
-        const toDate = endDateStr ? new Date(endDateStr) : (fromDate ? new Date(startDateStr) : null);
-
+    // Helper: merge feeder counts across dates within range
+    function mergeFeederCounts(data, startDateStr, endDateStr) {
         const merged = {};
+        // Normalise comparison dates to YYYY-MM-DD strings for safe comparison
+        const fromStr = startDateStr ? startDateStr.substring(0,10) : null;
+        const toStr = endDateStr ? endDateStr.substring(0,10) : fromStr;
+
         Object.entries(data).forEach(([dk, feeders])=>{
-            if(fromDate && toDate && dk !== 'unknown'){
-                const d = new Date(dk);
-                if(d < fromDate || d > toDate) return;
+            // Always include 'unknown' dated rows (no date column in file)
+            // Include rows within range if dates are known
+            if(dk !== 'unknown' && fromStr && toStr){
+                if(dk < fromStr || dk > toStr) return; // outside range, skip
             }
             Object.entries(feeders).forEach(([f,c])=>{
                 merged[f] = (merged[f]||0) + c;
             });
         });
-
-        return Object.entries(merged).sort((a,b)=>b[1]-a[1]).map(([f])=>f);
+        return merged;
     }
 
     function updateStats() {
@@ -1341,6 +1354,11 @@
         const toggleBar = document.getElementById('viewToggleBar');
         if (isDatePaired) {
             toggleBar.classList.remove('hidden');
+            // Always start on legacy (Individual) view — user can switch to paired
+            if(currentViewMode !== 'paired') {
+                document.getElementById('btnViewPaired').classList.remove('active');
+                document.getElementById('btnViewLegacy').classList.add('active');
+            }
         } else {
             toggleBar.classList.add('hidden');
             currentViewMode = 'legacy'; // Reset for non-paired dates
@@ -1479,18 +1497,21 @@
                 }
             }
             // Feeder cell — blank if zero submissions or non-present status
+            // But always show Edit button in admin mode for users with work (so admin can manually add feeder)
             const hasWork = (r.total||0) > 0 && r.status === 'present';
             const rStartDate = reportResults.dateKey || null;
             const rEndDate = reportResults.endDateKey || rStartDate;
             const feeder = hasWork
                 ? (isDateRange
-                    ? (getAllFeeders(r.username, rStartDate, rEndDate).join(', ')||'—')
-                    : (getTopFeeder(r.username, rStartDate, rEndDate)||'—'))
+                    ? (getAllFeeders(r.username, rStartDate, rEndDate).join(', ')||null)
+                    : (getTopFeeder(r.username, rStartDate, rEndDate)||null))
                 : null;
-            const feederCell = buildFeederCell(r.username, feeder, group, i, colors[group].border);
+            // Pass real index when has work (so Edit button shows), -2 when no work (hides Edit)
+            const feederIdx = hasWork ? i : -2;
+            const feederCell = buildFeederCell(r.username, feeder||'—', group, feederIdx, colors[group].border);
             // Remark cell
             let remarkCell = buildRemarkCell(r, group, i, colors[group].border);
-            return `<tr style="background:${i%2===0?colors[group].bg:'#fff'};"><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${i+1}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${escapeHtml(r.fullname)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.dss,group,i,'dss',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.ht,group,i,'ht',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.cust,group,i,'cust',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.lt,group,i,'lt',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.issues,group,i,'issues',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;font-weight:600;">${r.total}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;max-width:120px;font-size:10px;">${feederCell}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:120px;">${remarkCell}</td></tr>`;
+            return `<tr style="background:${i%2===0?colors[group].bg:'#fff'};"><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${i+1}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${escapeHtml(r.fullname)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.dss,group,i,'dss',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.ht,group,i,'ht',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.cust,group,i,'cust',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.lt,group,i,'lt',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.issues,group,i,'issues',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;font-weight:600;">${r.total}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:100px;max-width:160px;word-break:break-word;">${feederCell}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:120px;">${remarkCell}</td></tr>`;
         }).join('');
 
         const t=totals||{};
@@ -1648,8 +1669,10 @@
                 let remarkCell = buildRemarkCell(person, grp, resultIdx, borderColor);
                 const rStartDate = reportResults.dateKey || null;
                 const rEndDate = reportResults.endDateKey || rStartDate;
-                const feeder = ((person.total||0) > 0 && person.status === 'present') ? (getTopFeeder(person.username, rStartDate, rEndDate)||'—') : null;
-                const feederCell = buildFeederCell(person.username, feeder, grp, resultIdx, borderColor);
+                const hasPersonWork = (person.total||0) > 0 && person.status === 'present';
+                const feeder = hasPersonWork ? (getTopFeeder(person.username, rStartDate, rEndDate)||null) : null;
+                const feederIdx = hasPersonWork ? resultIdx : -2;
+                const feederCell = buildFeederCell(person.username, feeder||'—', grp, feederIdx, borderColor);
                 html+=`<tr style="background:${rowBg};">${teamCell}<td style="border:1px solid ${borderColor};padding:4px 8px;">${escapeHtml(person.fullname)}${roleTag}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${dssCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${htCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${custCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${ltCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${issuesCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;font-weight:600;">${person.total}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;max-width:110px;font-size:10px;">${feederCell}</td><td style="border:1px solid ${borderColor};padding:4px 8px;text-align:center;min-width:110px;">${remarkCell}</td></tr>`;
                 totals.dss+=person.dss||0;totals.ht+=person.ht||0;totals.cust+=person.cust||0;totals.lt+=person.lt||0;totals.issues+=person.issues||0;totals.total+=person.total||0;
             });
@@ -1961,7 +1984,8 @@
             remarksData = reportResults.remarksData || {};
             if(reportResults.feederOverrides) feederOverrides = {...feederOverrides, ...reportResults.feederOverrides};
             if(reportResults.pairings){teamPairings.aedcNysc=reportResults.pairings.aedcNysc||[];teamPairings.bssNysc=reportResults.pairings.bssNysc||[];}
-            if (isPairedMode(dateKey)) { currentViewMode = 'paired'; }
+            // Always default to individual/legacy view; user can switch to paired if needed
+            currentViewMode = 'legacy';
             updateDashboard();
             setTimeout(()=>initCharts(),100);
             showStatus(`Loaded dashboard for ${formatDateFull(dateKey)}`,'success');
@@ -2017,7 +2041,7 @@
             }
             ['aedc','bss','nysc'].forEach(g=>{aggregated[g].results=Object.values(personData[g]).map(p=>({...p,status:'present',statusBreakdown:p.statusCounts,statusBreakdownWeekdayOnly:p.weekdayStatusCounts||p.statusCounts}));aggregated[g].results.sort((a,b)=>b.total-a.total);});
             if(latestPairings)aggregated.pairings=latestPairings;
-            if(loaded>0){reportResults=aggregated;if(isPairedMode(aggregated.dateKey))currentViewMode='paired';updateDashboard();setTimeout(()=>initCharts(),100);showStatus(`Loaded ${loaded} of ${totalDays} days`,'success');}
+            if(loaded>0){reportResults=aggregated;currentViewMode='legacy';updateDashboard();setTimeout(()=>initCharts(),100);showStatus(`Loaded ${loaded} of ${totalDays} days`,'success');}
             else showStatus('No saved dashboards in range','warning');
         } else {
             if(savedDashboards[startDate])await loadDashboardByDate(startDate);
@@ -2066,19 +2090,26 @@
     // ============================================
     function buildFeederCell(username, feeder, group, index, borderColor) {
         const hasFeeder = feeder && feeder !== '—';
+        // Full text, word-wrap, no truncation
         const display = hasFeeder
-            ? `<span style="background:#fef9c3;color:#854d0e;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(feeder)}">⚡ ${escapeHtml(feeder)}</span>`
+            ? `<span style="background:#fef9c3;color:#854d0e;padding:2px 6px;border-radius:6px;font-size:9px;font-weight:600;display:inline-block;white-space:normal;word-break:break-word;line-height:1.3;">⚡ ${escapeHtml(feeder)}</span>`
             : '<span style="color:#d1d5db;font-size:9px;">—</span>';
-        if(isAdminMode && index >= 0 && hasFeeder){
-            return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">${display}<button onclick="openFeederEditModal('${username}','${escapeHtml(feeder||'')}','${group}',${index})" style="font-size:8px;padding:1px 4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:3px;cursor:pointer;margin-top:1px;">✏️ Edit</button></div>`;
+        // index >= 0 means user has work — show Edit/Add button in admin mode
+        // index === -2 means zero work — no button shown
+        if(isAdminMode && index >= 0){
+            const btnLabel = hasFeeder ? '✏️ Edit Feeder' : '➕ Add Feeder';
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">${display}<button onclick="openFeederEditModal('${username}','${escapeHtml(hasFeeder?feeder:'')}','${group}',${index})" style="font-size:8px;padding:1px 5px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:3px;cursor:pointer;margin-top:1px;">${btnLabel}</button></div>`;
         }
         return display;
     }
 
     function openFeederEditModal(username, currentFeeder, group, index) {
         feederEditContext = {username, group, index};
-        document.getElementById('feederEditPersonName').textContent = username;
-        document.getElementById('feederEditInput').value = currentFeeder==='—'?'':currentFeeder;
+        // Try to get full name from report results
+        const r = (reportResults[group]?.results||[]).find(x=>x.username===username);
+        const label = r ? `${r.fullname} (${username})` : username;
+        document.getElementById('feederEditPersonName').textContent = label;
+        document.getElementById('feederEditInput').value = currentFeeder || '';
         document.getElementById('feederEditModal').classList.remove('hidden');
     }
 
@@ -2096,13 +2127,15 @@
         } else {
             delete feederOverrides[username];
         }
-        // Save override to Firebase
-        if(firebaseInitialized&&currentUser){
-            database.ref(`feederOverrides/${username}`).set(newFeeder||null).catch(e=>console.error(e));
+        // Persist to Firebase — use remove() to truly clear, set() to write
+        if(firebaseInitialized && currentUser){
+            const ref = database.ref(`feederOverrides/${username}`);
+            if(newFeeder){ ref.set(newFeeder).catch(e=>console.error(e)); }
+            else { ref.remove().catch(e=>console.error(e)); }
         }
         closeFeederEditModal();
         updateDashboard();
-        showStatus('Feeder updated','success');
+        showStatus(newFeeder ? `Feeder set to "${newFeeder}"` : 'Feeder cleared', 'success');
     }
 
     // Load feeder overrides from Firebase on startup
