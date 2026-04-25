@@ -898,18 +898,10 @@
         if(!json||!json.length)return;
         const cols=Object.keys(json[0]||{});
 
-        // Find ALL feeder columns — broad search across all naming conventions
+        // Find ALL feeder columns — exact matches only: _33kv_feeder, _11kv_feeder, feeder
         const feederCols = cols.filter(c=>{
-            const cl = c.toLowerCase();
-            return cl.includes('_11kv_feeder') ||
-                   cl.includes('_33kv_feeder') ||
-                   cl.includes('_11kv feeder') ||
-                   cl.includes('_33kv feeder') ||
-                   cl === 'feeder' ||
-                   cl === 'feeder_code' ||
-                   cl === 'feedercode' ||
-                   cl === 'feeder_name' ||
-                   cl.startsWith('feeder');
+            const cl = c.toLowerCase().trim();
+            return cl === '_33kv_feeder' || cl === '_11kv_feeder' || cl === 'feeder';
         });
         if(!feederCols.length) return;
 
