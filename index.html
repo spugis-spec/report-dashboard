@@ -463,6 +463,7 @@
                         <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="showBss" checked onchange="toggleSection('bss')"><span>BSS Table</span></label>
                         <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="showNysc" checked onchange="toggleSection('nysc')"><span>NYSC Table</span></label>
                         <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="showGrandTotal" checked onchange="toggleSection('grandTotal')"><span>Grand Total</span></label>
+                        <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="showFeederSummary" checked onchange="toggleSection('feederSummary')"><span>Feeder Summary</span></label>
                         <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="showAbsentSick" checked onchange="toggleSection('absentSick')"><span>Absent/Sick/Excused</span></label>
                         <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="showCharts" checked onchange="toggleSection('charts')"><span>Charts</span></label>
                         <div class="flex gap-2 ml-auto">
@@ -515,6 +516,18 @@
                         <div id="sectionBss" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%;"></span>BSS Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardBssTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #f0fdf4;"><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #bbf7d0; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardBssBody"></tbody><tfoot id="dashboardBssFoot" style="background: #dcfce7; font-weight: 600;"></tfoot></table></div></div>
                         <div id="sectionNysc" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #f97316; border-radius: 50%;"></span>NYSC Enumerators</h3><div style="overflow-x: auto;"><table id="dashboardNyscTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #fff7ed;"><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: left;">S/N</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: left;">Full Name</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">HT</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Cust</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">LT</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Total</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Status</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Feeder</th><th style="border: 1px solid #fed7aa; padding: 6px 8px; text-align: center;">Remark</th></tr></thead><tbody id="dashboardNyscBody"></tbody><tfoot id="dashboardNyscFoot" style="background: #ffedd5; font-weight: 600;"></tfoot></table></div></div>
                         <div id="sectionGrandTotal" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #a855f7; border-radius: 50%;"></span>Grand Total Summary</h3><div style="overflow-x: auto;"><table id="grandTotalTable" style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background: #faf5ff;"><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: left;">Group</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">DT/DSS</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">HT Pole</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">Customer</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">LT Pole</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">Issues</th><th style="border: 1px solid #e9d5ff; padding: 6px 8px; text-align: center;">Total</th></tr></thead><tbody id="grandTotalBody"></tbody><tfoot id="grandTotalFoot" style="background: #e9d5ff; font-weight: 700;"></tfoot></table></div></div>
+                        <div id="sectionFeederSummary" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #f59e0b; border-radius: 50%;"></span>⚡ Feeder Allocation Summary</h3>
+                            <div style="overflow-x: auto;"><table id="feederSummaryTable" style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                                <thead><tr style="background: #fffbeb;">
+                                    <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: left;">Feeder Name</th>
+                                    <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: left;">Enumerators</th>
+                                    <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: center;">Total Submissions</th>
+                                </tr></thead>
+                                <tbody id="feederSummaryBody"></tbody>
+                                <tfoot id="feederSummaryFoot" style="background: #fef3c7; font-weight: 700;"></tfoot>
+                            </table></div>
+                        </div>
                         <!-- Absent/Sick/Excused Legacy -->
                         <div id="sectionAbsentSick" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                             <div style="background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #ef4444; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h4 style="font-size: 0.8rem; font-weight: 600; color: #dc2626; margin: 0 0 6px 0;">🚫 Absent</h4><div id="absentList" style="font-size: 0.7rem;"></div></div>
@@ -926,17 +939,24 @@
             const username = (row[userCol]||'').toString().trim().toLowerCase();
             if(!username) return;
 
-            // Determine the date key for this row (YYYY-MM-DD)
-            let dateKey = 'unknown';
+            // Determine the date key for this row (YYYY-MM-DD) — use LOCAL date to match processDataSheet
+            let dateKey = null;
             if(timeCol && row[timeCol]){
                 const parsed = parseDate(row[timeCol]);
                 if(parsed && !isNaN(parsed.getTime())){
-                    // Normalize to local date string to avoid UTC offset issues
-                    const y = parsed.getFullYear();
-                    const m = String(parsed.getMonth()+1).padStart(2,'0');
-                    const d = String(parsed.getDate()).padStart(2,'0');
+                    // Use LOCAL date components (same as processDataSheet) to avoid UTC shift
+                    const tmp = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+                    const y = tmp.getFullYear();
+                    const m = String(tmp.getMonth()+1).padStart(2,'0');
+                    const d = String(tmp.getDate()).padStart(2,'0');
                     dateKey = `${y}-${m}-${d}`;
                 }
+            }
+            // If date column exists but failed to parse, skip this row entirely — don't pollute 'unknown'
+            // Only store under 'unknown' if the file has NO date column at all
+            if(!dateKey){
+                if(timeCol) return; // date col exists but unparseable — skip
+                dateKey = 'unknown'; // no date col in file — store under unknown
             }
 
             // Collect feeder values from ALL matching columns in this row
@@ -1549,6 +1569,63 @@
         groups.forEach(g=>{Object.keys(gt).forEach(k=>gt[k]+=g.data[k]||0);});
         document.getElementById('grandTotalBody').innerHTML=groups.map((g,i)=>`<tr style="background:${i%2===0?'#faf5ff':'#fff'};"><td style="border:1px solid #e9d5ff;padding:6px 8px;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;background:${g.color};border-radius:50%;"></span>${g.name}</span></td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${g.data.dss||0}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${g.data.ht||0}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${g.data.cust||0}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${g.data.lt||0}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${g.data.issues||0}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;font-weight:600;">${g.data.total||0}</td></tr>`).join('');
         document.getElementById('grandTotalFoot').innerHTML=`<tr><td style="border:1px solid #e9d5ff;padding:6px 8px;">GRAND TOTAL</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${gt.dss}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${gt.ht}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${gt.cust}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${gt.lt}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${gt.issues}</td><td style="border:1px solid #e9d5ff;padding:6px 8px;text-align:center;">${gt.total}</td></tr>`;
+        renderFeederSummary();
+    }
+
+    function renderFeederSummary() {
+        const tbody = document.getElementById('feederSummaryBody');
+        const tfoot = document.getElementById('feederSummaryFoot');
+        if(!tbody || !tfoot) return;
+
+        const rStartDate = reportResults.dateKey || null;
+        const rEndDate = reportResults.endDateKey || rStartDate;
+
+        // Build feeder → { names: [], total: 0 } map from all groups
+        const feederMap = {}; // feederName -> { names: Set, total: 0 }
+
+        ['aedc','bss','nysc'].forEach(g=>{
+            (reportResults[g].results||[]).forEach(r=>{
+                if((r.total||0) === 0 || r.status !== 'present') return;
+                // Get feeder for this user for this date
+                const feeder = feederOverrides[r.username] || getTopFeeder(r.username, rStartDate, rEndDate);
+                if(!feeder) return;
+                if(!feederMap[feeder]) feederMap[feeder] = { names: new Set(), total: 0 };
+                feederMap[feeder].names.add(r.fullname);
+                feederMap[feeder].total += (r.total || 0);
+            });
+        });
+
+        const entries = Object.entries(feederMap).sort((a,b)=>b[1].total - a[1].total);
+
+        if(!entries.length){
+            tbody.innerHTML = `<tr><td colspan="3" style="border:1px solid #fde68a;padding:10px;text-align:center;color:#9ca3af;font-style:italic;">No feeder data available for this report</td></tr>`;
+            tfoot.innerHTML = '';
+            return;
+        }
+
+        let grandTotal = 0;
+        tbody.innerHTML = entries.map(([feeder, data], i)=>{
+            grandTotal += data.total;
+            const namesList = [...data.names].join(', ');
+            const rowBg = i % 2 === 0 ? '#fffbeb' : '#fff';
+            return `<tr style="background:${rowBg};">
+                <td style="border:1px solid #fde68a;padding:6px 10px;font-weight:600;color:#92400e;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;">⚡ ${escapeHtml(feeder)}</span>
+                </td>
+                <td style="border:1px solid #fde68a;padding:6px 10px;color:#374151;font-size:10px;word-break:break-word;">
+                    ${escapeHtml(namesList)}
+                </td>
+                <td style="border:1px solid #fde68a;padding:6px 10px;text-align:center;font-weight:700;color:#b45309;">
+                    ${data.total}
+                </td>
+            </tr>`;
+        }).join('');
+
+        tfoot.innerHTML = `<tr>
+            <td style="border:1px solid #fde68a;padding:6px 10px;">TOTAL (${entries.length} feeder${entries.length!==1?'s':''})</td>
+            <td style="border:1px solid #fde68a;padding:6px 10px;"></td>
+            <td style="border:1px solid #fde68a;padding:6px 10px;text-align:center;">${grandTotal}</td>
+        </tr>`;
     }
 
     // ============================================
@@ -2296,14 +2373,14 @@
     // VISIBILITY TOGGLES
     // ============================================
     function toggleSection(section){
-        const map={aedc:'sectionAedc',bss:'sectionBss',nysc:'sectionNysc',grandTotal:'sectionGrandTotal',absentSick:'sectionAbsentSick',charts:'sectionCharts',aedcNyscPaired:'sectionAedcNyscPaired',bssNyscPaired:'sectionBssNyscPaired',grandTotalPaired:'sectionGrandTotalPaired',absentSickPaired:'sectionAbsentSickPaired',chartsPaired:'sectionChartsPaired'};
-        const cbMap={aedc:'showAedc',bss:'showBss',nysc:'showNysc',grandTotal:'showGrandTotal',absentSick:'showAbsentSick',charts:'showCharts',aedcNyscPaired:'showAedcNysc',bssNyscPaired:'showBssNysc',grandTotalPaired:'showGrandTotalPaired',absentSickPaired:'showAbsentSickPaired',chartsPaired:'showChartsPaired'};
+        const map={aedc:'sectionAedc',bss:'sectionBss',nysc:'sectionNysc',grandTotal:'sectionGrandTotal',feederSummary:'sectionFeederSummary',absentSick:'sectionAbsentSick',charts:'sectionCharts',aedcNyscPaired:'sectionAedcNyscPaired',bssNyscPaired:'sectionBssNyscPaired',grandTotalPaired:'sectionGrandTotalPaired',absentSickPaired:'sectionAbsentSickPaired',chartsPaired:'sectionChartsPaired'};
+        const cbMap={aedc:'showAedc',bss:'showBss',nysc:'showNysc',grandTotal:'showGrandTotal',feederSummary:'showFeederSummary',absentSick:'showAbsentSick',charts:'showCharts',aedcNyscPaired:'showAedcNysc',bssNyscPaired:'showBssNysc',grandTotalPaired:'showGrandTotalPaired',absentSickPaired:'showAbsentSickPaired',chartsPaired:'showChartsPaired'};
         const gridSections=['charts','absentSick','chartsPaired','absentSickPaired'];
         const el=document.getElementById(map[section]),cb=document.getElementById(cbMap[section]);
         if(el&&cb)el.style.display=cb.checked?(gridSections.includes(section)?'grid':'block'):'none';
     }
 
-    function showAllSections(){['aedc','bss','nysc','grandTotal','absentSick','charts'].forEach(s=>{const cbId={aedc:'showAedc',bss:'showBss',nysc:'showNysc',grandTotal:'showGrandTotal',absentSick:'showAbsentSick',charts:'showCharts'}[s];const cb=document.getElementById(cbId);if(cb){cb.checked=true;toggleSection(s);}});}
+    function showAllSections(){['aedc','bss','nysc','grandTotal','feederSummary','absentSick','charts'].forEach(s=>{const cbId={aedc:'showAedc',bss:'showBss',nysc:'showNysc',grandTotal:'showGrandTotal',feederSummary:'showFeederSummary',absentSick:'showAbsentSick',charts:'showCharts'}[s];const cb=document.getElementById(cbId);if(cb){cb.checked=true;toggleSection(s);}});}
     function showOnlyAedc(){setVisibility({aedc:true,bss:false,nysc:false,grandTotal:true,absentSick:true,charts:true});}
     function showOnlyBss(){setVisibility({aedc:false,bss:true,nysc:false,grandTotal:true,absentSick:true,charts:true});}
     function showOnlyNysc(){setVisibility({aedc:false,bss:false,nysc:true,grandTotal:true,absentSick:true,charts:true});}
