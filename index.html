@@ -939,24 +939,16 @@
             const username = (row[userCol]||'').toString().trim().toLowerCase();
             if(!username) return;
 
-            // Determine the date key for this row (YYYY-MM-DD) — use LOCAL date to match processDataSheet
+            // Determine the date key using the robust toLocalDateKey helper
             let dateKey = null;
             if(timeCol && row[timeCol]){
-                const parsed = parseDate(row[timeCol]);
-                if(parsed && !isNaN(parsed.getTime())){
-                    // Use LOCAL date components (same as processDataSheet) to avoid UTC shift
-                    const tmp = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-                    const y = tmp.getFullYear();
-                    const m = String(tmp.getMonth()+1).padStart(2,'0');
-                    const d = String(tmp.getDate()).padStart(2,'0');
-                    dateKey = `${y}-${m}-${d}`;
-                }
+                dateKey = toLocalDateKey(row[timeCol]);
             }
-            // If date column exists but failed to parse, skip this row entirely — don't pollute 'unknown'
-            // Only store under 'unknown' if the file has NO date column at all
+            // If date col exists but parse failed → skip row (don't pollute other dates)
+            // If no date col at all → store under 'unknown' (included in all reports)
             if(!dateKey){
-                if(timeCol) return; // date col exists but unparseable — skip
-                dateKey = 'unknown'; // no date col in file — store under unknown
+                if(timeCol) return;
+                dateKey = 'unknown';
             }
 
             // Collect feeder values from ALL matching columns in this row
@@ -1146,12 +1138,51 @@
     // DATE PARSING
     // ============================================
     function parseDate(value) {
-        if(!value)return null;
-        if(value instanceof Date)return value;
-        const parsed=new Date(value);
-        if(!isNaN(parsed.getTime()))return parsed;
-        if(typeof value==='number')return new Date(new Date(1899,11,30).getTime()+value*86400000);
-        return null;
+        if(!value) return null;
+        // Already a Date object
+        if(value instanceof Date) return isNaN(value.getTime()) ? null : value;
+        // Excel numeric serial (e.g. 45123)
+        if(typeof value === 'number') return new Date(new Date(1899,11,30).getTime() + value * 86400000);
+
+        const str = value.toString().trim();
+
+        // Format: M/D/YYYY H:MM:SS AM/PM  e.g. "4/27/2026 3:07:32 PM"
+        // or M/D/YYYY H:MM AM/PM  e.g. "4/27/2026 3:07 PM"
+        const mdyAmPm = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if(mdyAmPm){
+            let [,mo,dy,yr,hr,mn,,ampm] = mdyAmPm;
+            hr = parseInt(hr); mn = parseInt(mn);
+            if(ampm){ if(ampm.toUpperCase()==='PM' && hr!==12) hr+=12; if(ampm.toUpperCase()==='AM' && hr===12) hr=0; }
+            return new Date(parseInt(yr), parseInt(mo)-1, parseInt(dy), hr, mn, 0);
+        }
+
+        // Format: M/D/YYYY  e.g. "4/27/2026"
+        const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(mdy){
+            const [,mo,dy,yr] = mdy;
+            return new Date(parseInt(yr), parseInt(mo)-1, parseInt(dy));
+        }
+
+        // Format: YYYY-MM-DD (with optional time)
+        const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if(iso){
+            const [,yr,mo,dy] = iso;
+            return new Date(parseInt(yr), parseInt(mo)-1, parseInt(dy));
+        }
+
+        // Fallback: let browser try
+        const fallback = new Date(str);
+        return isNaN(fallback.getTime()) ? null : fallback;
+    }
+
+    // Extract YYYY-MM-DD local date string from any date value
+    function toLocalDateKey(value) {
+        const d = parseDate(value);
+        if(!d || isNaN(d.getTime())) return null;
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const dy = String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${dy}`;
     }
 
     function formatDateFull(dateStr) {
@@ -1173,11 +1204,10 @@
         if(!timeCol||!userCol)return counts;
         data.forEach(row=>{
             const username=(row[userCol]||'').toString().trim().toLowerCase(); if(!username)return;
-            const rowDate=parseDate(row[timeCol]); if(!rowDate)return;
-            const rd=new Date(rowDate.getFullYear(),rowDate.getMonth(),rowDate.getDate());
-            const sd=new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
-            const ed=new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
-            if(rd>=sd&&rd<=ed)counts.set(username,(counts.get(username)||0)+1);
+            const rowDk = toLocalDateKey(row[timeCol]); if(!rowDk) return;
+            const sdStr = toLocalDateKey(startDate) || startDate.toISOString().substring(0,10);
+            const edStr = toLocalDateKey(endDate) || endDate.toISOString().substring(0,10);
+            if(rowDk >= sdStr && rowDk <= edStr) counts.set(username,(counts.get(username)||0)+1);
         });
         return counts;
     }
