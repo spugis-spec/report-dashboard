@@ -911,9 +911,10 @@
         if(!json||!json.length)return;
         const cols=Object.keys(json[0]||{});
 
-        // Find ALL feeder columns — exact matches only: _33kv_feeder, _11kv_feeder, feeder
+        // Find ALL feeder columns — case-insensitive, space/underscore-agnostic
+        // Valid names: _33kv_feeder, _11kv_feeder, feeder  (and variants with spaces or caps)
         const feederCols = cols.filter(c=>{
-            const cl = c.toLowerCase().trim();
+            const cl = c.toLowerCase().replace(/\s+/g,'_').trim();
             return cl === '_33kv_feeder' || cl === '_11kv_feeder' || cl === 'feeder';
         });
         if(!feederCols.length) return;
