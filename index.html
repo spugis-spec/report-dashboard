@@ -2126,7 +2126,7 @@
         if(!reportResults.dateKey){showStatus('Generate a report first','error');return;}
         updateFirebaseStatus('syncing');
         try {
-            const dashData={...reportResults,savedAt:Date.now(),savedBy:currentUser.email,remarksData,feederOverrides};
+            const dashData={...reportResults,savedAt:Date.now(),savedBy:currentUser.email,remarksData,feederOverrides,feederCompletionStatus};
             if(isPairedMode(reportResults.dateKey)){collectPairings();dashData.pairings={aedcNysc:teamPairings.aedcNysc,bssNysc:teamPairings.bssNysc};dashData.isPairedMode=true;}
             await database.ref(`dashboards/${reportResults.dateKey}`).set(dashData);
             updateFirebaseStatus('connected');loadSavedDashboards();
@@ -2163,7 +2163,17 @@
         if(savedDashboards[dateKey]){
             reportResults=savedDashboards[dateKey];
             remarksData = reportResults.remarksData || {};
-            if(reportResults.feederOverrides) feederOverrides = {...feederOverrides, ...reportResults.feederOverrides};
+
+            // *** FIX: Replace feederOverrides cleanly for this date — do NOT merge on top of
+            // a previous date's overrides. Cross-date bleed was causing feeders to show blank
+            // when switching between saved dashboards.
+            feederOverrides = reportResults.feederOverrides ? {...reportResults.feederOverrides} : {};
+
+            // Restore feeder completion status saved with this dashboard
+            if(reportResults.feederCompletionStatus) {
+                feederCompletionStatus = {...reportResults.feederCompletionStatus};
+            }
+
             if(reportResults.pairings){teamPairings.aedcNysc=reportResults.pairings.aedcNysc||[];teamPairings.bssNysc=reportResults.pairings.bssNysc||[];}
             // Always default to individual/legacy view; user can switch to paired if needed
             currentViewMode = 'legacy';
