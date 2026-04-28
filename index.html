@@ -523,7 +523,7 @@
                                     <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: left;">Feeder Name</th>
                                     <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: left;">Enumerators</th>
                                     <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: center;">Total Submissions</th>
-                                    <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: center;">Completion Status</th>
+                                    <th style="border: 1px solid #fde68a; padding: 6px 10px; text-align: center; min-width:140px;">Completion Status</th>
                                 </tr></thead>
                                 <tbody id="feederSummaryBody"></tbody>
                                 <tfoot id="feederSummaryFoot" style="background: #fef3c7; font-weight: 700;"></tfoot>
@@ -655,6 +655,9 @@
     // Admin feeder overrides: username -> feeder name
     let feederOverrides = {};
 
+    // Feeder completion status: feeder name -> status string
+    let feederCompletionStatus = {};
+
     // Bulk modal filter
     let bulkListFilter = 'all';
 
@@ -754,7 +757,7 @@
             document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
             ['data','mapping','dashboard'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
             switchTab('data');
-            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud()]).then(() => renderSavedDatesList());
+            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => renderSavedDatesList());
             showStatus('Logged in as Admin','success');
         } catch(e) { errorDiv.textContent=e.message||'Invalid credentials'; errorDiv.classList.remove('hidden'); }
         finally { loginBtn.disabled=false; loginBtn.textContent='Login as Admin'; }
@@ -768,7 +771,7 @@
         document.getElementById('accessBadge').className='px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800';
         ['data','mapping','dashboard'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
         switchTab('dashboard');
-        Promise.all([loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud()]).then(() => loadLatestDashboard());
+        Promise.all([loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => loadLatestDashboard());
     }
 
     function switchAccessMode() {
@@ -1604,6 +1607,7 @@
         renderFeederSummary();
     }
 
+
     function renderFeederSummary() {
         const tbody = document.getElementById('feederSummaryBody');
         const tfoot = document.getElementById('feederSummaryFoot');
@@ -1612,13 +1616,11 @@
         const rStartDate = reportResults.dateKey || null;
         const rEndDate = reportResults.endDateKey || rStartDate;
 
-        // Build feeder → { names: [], total: 0 } map from all groups
-        const feederMap = {}; // feederName -> { names: Set, total: 0 }
-
+        // Build feeder → { names: Set, total: 0 } map from all groups
+        const feederMap = {};
         ['aedc','bss','nysc'].forEach(g=>{
             (reportResults[g].results||[]).forEach(r=>{
                 if((r.total||0) === 0 || r.status !== 'present') return;
-                // Get feeder for this user for this date
                 const feeder = feederOverrides[r.username] || getTopFeeder(r.username, rStartDate, rEndDate);
                 if(!feeder) return;
                 if(!feederMap[feeder]) feederMap[feeder] = { names: new Set(), total: 0 };
@@ -1635,31 +1637,28 @@
             return;
         }
 
-        // Load saved completion statuses from sessionStorage
-        const statusKey = 'feederCompletionStatus_' + (reportResults.dateKey || 'default');
-        let savedStatuses = {};
-        try { savedStatuses = JSON.parse(sessionStorage.getItem(statusKey) || '{}'); } catch(e) {}
-
-        function getStatusStyle(val) {
-            if(!val) return 'background:#f3f4f6;color:#6b7280;';
-            const v = val.toLowerCase();
-            if(v.includes('complet')) return 'background:#dcfce7;color:#166534;font-weight:700;';
-            if(v.includes('ongoing') || v.includes('progress')) return 'background:#dbeafe;color:#1e40af;font-weight:700;';
-            if(v.includes('suspend') || v.includes('halt') || v.includes('stop')) return 'background:#fee2e2;color:#991b1b;font-weight:700;';
-            if(v.includes('pending') || v.includes('not start')) return 'background:#fef3c7;color:#92400e;font-weight:700;';
-            return 'background:#f5f3ff;color:#5b21b6;font-weight:700;';
-        }
+        const statusColors = {
+            'Completed':   { bg:'#dcfce7', color:'#166534' },
+            'Ongoing':     { bg:'#dbeafe', color:'#1e40af' },
+            'Suspended':   { bg:'#fee2e2', color:'#991b1b' },
+            'Pending':     { bg:'#fef3c7', color:'#92400e' },
+        };
 
         let grandTotal = 0;
         tbody.innerHTML = entries.map(([feeder, data], i)=>{
             grandTotal += data.total;
             const namesList = [...data.names].join(', ');
             const rowBg = i % 2 === 0 ? '#fffbeb' : '#fff';
-            const feederKey = feeder.replace(/[^a-zA-Z0-9]/g,'_');
-            const savedStatus = savedStatuses[feederKey] || '';
-            const statusStyle = getStatusStyle(savedStatus);
+            const savedStatus = feederCompletionStatus[feeder] || '';
+            const sc = statusColors[savedStatus] || { bg:'#f9fafb', color:'#374151' };
+            const statusBadge = savedStatus
+                ? `<span style="background:${sc.bg};color:${sc.color};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">${escapeHtml(savedStatus)}</span>`
+                : '';
+            const editBtn = isAdminMode
+                ? `<button onclick="editFeederStatus('${escapeHtml(feeder)}')" style="font-size:9px;padding:1px 6px;background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:4px;cursor:pointer;margin-left:4px;">✏️</button>`
+                : '';
             return `<tr style="background:${rowBg};">
-                <td style="border:1px solid #fde68a;padding:6px 10px;font-weight:600;color:#92400e;">
+                <td style="border:1px solid #fde68a;padding:6px 10px;font-weight:600;color:#92400e;word-break:break-word;">
                     <span style="display:inline-flex;align-items:center;gap:5px;">⚡ ${escapeHtml(feeder)}</span>
                 </td>
                 <td style="border:1px solid #fde68a;padding:6px 10px;color:#374151;font-size:10px;word-break:break-word;">
@@ -1668,48 +1667,58 @@
                 <td style="border:1px solid #fde68a;padding:6px 10px;text-align:center;font-weight:700;color:#b45309;">
                     ${data.total}
                 </td>
-                <td style="border:1px solid #fde68a;padding:4px 6px;text-align:center;">
-                    <input type="text"
-                        data-feeder-key="${escapeHtml(feederKey)}"
-                        data-status-key="${escapeHtml(statusKey)}"
-                        value="${escapeHtml(savedStatus)}"
-                        placeholder="e.g. Ongoing"
-                        title="Click to edit completion status"
-                        oninput="saveFeederStatus(this)"
-                        style="width:100%;min-width:110px;padding:4px 8px;border:1.5px dashed #a78bfa;border-radius:6px;font-size:11px;text-align:center;cursor:text;${statusStyle}outline:none;"
-                        onfocus="this.style.border='1.5px solid #7c3aed';this.style.background='white';this.style.color='#1f2937';"
-                        onblur="this.style.border='1.5px dashed #a78bfa';const s=getFeederStatusStyle(this.value);this.style.background=s.bg;this.style.color=s.color;"
-                    />
+                <td style="border:1px solid #fde68a;padding:6px 10px;text-align:center;">
+                    ${statusBadge}${editBtn}
+                    ${!savedStatus && isAdminMode ? `<button onclick="editFeederStatus('${escapeHtml(feeder)}')" style="font-size:9px;padding:2px 8px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:4px;cursor:pointer;">+ Set Status</button>` : ''}
+                    ${!savedStatus && !isAdminMode ? '<span style="color:#d1d5db;font-size:10px;">—</span>' : ''}
                 </td>
             </tr>`;
         }).join('');
 
         tfoot.innerHTML = `<tr>
-            <td style="border:1px solid #fde68a;padding:6px 10px;">TOTAL (${entries.length} feeder${entries.length!==1?'s':''})</td>
+            <td style="border:1px solid #fde68a;padding:6px 10px;font-weight:700;">TOTAL (${entries.length} feeder${entries.length!==1?'s':''})</td>
             <td style="border:1px solid #fde68a;padding:6px 10px;"></td>
-            <td style="border:1px solid #fde68a;padding:6px 10px;text-align:center;">${grandTotal}</td>
+            <td style="border:1px solid #fde68a;padding:6px 10px;text-align:center;font-weight:700;">${grandTotal}</td>
             <td style="border:1px solid #fde68a;padding:6px 10px;"></td>
         </tr>`;
     }
 
-    function saveFeederStatus(input) {
-        const feederKey = input.dataset.feederKey;
-        const statusKey = input.dataset.statusKey;
-        let statuses = {};
-        try { statuses = JSON.parse(sessionStorage.getItem(statusKey) || '{}'); } catch(e) {}
-        statuses[feederKey] = input.value;
-        sessionStorage.setItem(statusKey, JSON.stringify(statuses));
+    function editFeederStatus(feeder) {
+        const current = feederCompletionStatus[feeder] || '';
+        const val = prompt(`Completion status for:\n⚡ ${feeder}\n\nExamples: Ongoing, Completed, Suspended, Pending\nOr type any custom status:`, current);
+        if(val === null) return; // cancelled
+        const trimmed = val.trim();
+        if(trimmed){
+            feederCompletionStatus[feeder] = trimmed;
+        } else {
+            delete feederCompletionStatus[feeder];
+        }
+        // Persist to Firebase
+        if(firebaseInitialized && currentUser){
+            const key = feeder.replace(/[.#$/[\]]/g,'_');
+            const ref = database.ref(`feederCompletionStatus/${key}`);
+            if(trimmed){ ref.set({feeder, status: trimmed}).catch(e=>console.error(e)); }
+            else { ref.remove().catch(e=>console.error(e)); }
+        }
+        renderFeederSummary();
+        showStatus(trimmed ? `Status set to "${trimmed}"` : 'Status cleared', 'success');
     }
 
-    function getFeederStatusStyle(val) {
-        if(!val) return {bg:'#f3f4f6', color:'#6b7280'};
-        const v = val.toLowerCase();
-        if(v.includes('complet')) return {bg:'#dcfce7', color:'#166534'};
-        if(v.includes('ongoing') || v.includes('progress')) return {bg:'#dbeafe', color:'#1e40af'};
-        if(v.includes('suspend') || v.includes('halt') || v.includes('stop')) return {bg:'#fee2e2', color:'#991b1b'};
-        if(v.includes('pending') || v.includes('not start')) return {bg:'#fef3c7', color:'#92400e'};
-        return {bg:'#f5f3ff', color:'#5b21b6'};
+    async function loadFeederCompletionStatusFromCloud() {
+        if(!firebaseInitialized) return;
+        try {
+            const snap = await database.ref('feederCompletionStatus').once('value');
+            const data = snap.val();
+            if(data){
+                Object.values(data).forEach(entry=>{
+                    if(entry && entry.feeder && entry.status){
+                        feederCompletionStatus[entry.feeder] = entry.status;
+                    }
+                });
+            }
+        } catch(e){ console.error('Feeder completion status load error:', e); }
     }
+
 
     // ============================================
     // PAIRED DASHBOARD
