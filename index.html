@@ -1161,6 +1161,26 @@
             return new Date(parseInt(yr), parseInt(mo)-1, parseInt(dy), hr, mn, 0);
         }
 
+        // Format: M/D/YY H:MM  e.g. "4/28/26 13:10" or "4/28/26 1:10 PM"
+        // (2-digit year — XLSX.js renders cells with number_format "m/d/yy h:mm" this way)
+        const mdyy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if(mdyy){
+            let [,mo,dy,yr2,hr,mn,,ampm] = mdyy;
+            hr = parseInt(hr); mn = parseInt(mn);
+            // 2-digit year: 00-29 → 2000s, 30-99 → 1900s
+            const fullYr = parseInt(yr2) < 30 ? 2000 + parseInt(yr2) : 1900 + parseInt(yr2);
+            if(ampm){ if(ampm.toUpperCase()==='PM' && hr!==12) hr+=12; if(ampm.toUpperCase()==='AM' && hr===12) hr=0; }
+            return new Date(fullYr, parseInt(mo)-1, parseInt(dy), hr, mn, 0);
+        }
+
+        // Format: M/D/YY  e.g. "4/28/26" (date only, 2-digit year)
+        const mdyyDate = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+        if(mdyyDate){
+            const [,mo,dy,yr2] = mdyyDate;
+            const fullYr = parseInt(yr2) < 30 ? 2000 + parseInt(yr2) : 1900 + parseInt(yr2);
+            return new Date(fullYr, parseInt(mo)-1, parseInt(dy));
+        }
+
         // Format: M/D/YYYY  e.g. "4/27/2026"
         const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if(mdy){
