@@ -359,6 +359,77 @@
                 <div class="mb-6" id="bssSection"><h3 class="text-md font-semibold text-green-700 mb-2 flex items-center gap-2"><span class="w-3 h-3 bg-green-500 rounded-full"></span> BSS Enumerators</h3><div class="overflow-x-auto"><table class="w-full text-sm compact-table" id="bssTable"><thead><tr class="bg-green-50"><th class="px-3 py-2 text-left font-semibold text-gray-700 border">S/N</th><th class="px-3 py-2 text-left font-semibold text-gray-700 border">Username</th><th class="px-3 py-2 text-left font-semibold text-gray-700 border">Full Name</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">DT/DSS</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">HT Pole</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">Customer</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">LT Pole</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">Issues</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">Total/Status</th></tr></thead><tbody id="bssBody"></tbody><tfoot id="bssFoot" class="bg-green-100 font-semibold"></tfoot></table></div></div>
                 <div class="mb-6" id="nyscSection"><h3 class="text-md font-semibold text-orange-700 mb-2 flex items-center gap-2"><span class="w-3 h-3 bg-orange-500 rounded-full"></span> NYSC Enumerators</h3><div class="overflow-x-auto"><table class="w-full text-sm compact-table" id="nyscTable"><thead><tr class="bg-orange-50"><th class="px-3 py-2 text-left font-semibold text-gray-700 border">S/N</th><th class="px-3 py-2 text-left font-semibold text-gray-700 border">Username</th><th class="px-3 py-2 text-left font-semibold text-gray-700 border">Full Name</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">DT/DSS</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">HT Pole</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">Customer</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">LT Pole</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">Issues</th><th class="px-3 py-2 text-center font-semibold text-gray-700 border">Total/Status</th></tr></thead><tbody id="nyscBody"></tbody><tfoot id="nyscFoot" class="bg-orange-100 font-semibold"></tfoot></table></div></div>
             </div>
+
+            <!-- FEEDER VALIDATION PANEL -->
+            <div id="feederValidationPanel" style="display:none;" class="mt-6">
+                <div class="bg-amber-50 border-2 border-amber-300 rounded-xl shadow-md overflow-hidden">
+                    <div style="background:linear-gradient(135deg,#f59e0b,#ea580c);padding:14px 20px;" class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-white text-2xl">&#x26A1;</span>
+                            <div>
+                                <div class="text-white font-bold text-base leading-tight">Feeder Validation &amp; Check</div>
+                                <div class="text-amber-100 text-xs font-medium" id="fvPanelSubtitle">Live feeder data from uploaded files &#8212; independent of any saved dashboard</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="recalculateFeeders()" style="background:#fff;color:#b45309;border:1.5px solid #fde68a;" class="flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow hover:bg-amber-50 transition-colors text-sm">&#x1F504; Recalculate</button>
+                            <button onclick="applyValidatedFeeders()" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition-colors text-sm">&#x2705; Apply to Dashboard</button>
+                            <button onclick="toggleFeederPanel()" id="fvToggleBtn" class="flex items-center gap-2 px-3 py-2 font-bold rounded-lg shadow transition-colors text-sm" style="background:rgba(0,0,0,0.2);color:#fff;">&#x1F53C; Collapse</button>
+                        </div>
+                    </div>
+                    <div id="fvBody" class="px-5 pb-5">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex gap-3 items-start text-sm text-blue-800 mt-4 mb-3">
+                            <span class="text-lg flex-shrink-0">&#x2139;&#xFE0F;</span>
+                            <div><strong>How to use:</strong> This panel shows each enumerator's feeder(s) calculated <em>live from the files you just uploaded</em> for the selected date &#8212; completely ignoring anything previously saved to the dashboard. <strong>Recalculate</strong> re-scans the uploaded data. Correct any wrong entry using the override input, then click <strong>Apply to Dashboard</strong> to push validated feeders into the report.
+                            <span class="block mt-1 text-orange-700 font-semibold">&#x26A0; <span style="background:#fef9c3;padding:1px 5px;border-radius:3px;font-weight:700;">NO DATA</span> = no feeder column found for this user on this date. <span style="background:#fee2e2;padding:1px 5px;border-radius:3px;font-weight:700;">CONFLICT</span> = live data differs from what was previously saved.</span></div>
+                        </div>
+                        <div class="flex flex-wrap gap-3 mb-3" id="fvSummaryChips"></div>
+                        <div class="flex flex-wrap gap-3 mb-3 items-center">
+                            <input type="text" id="fvSearch" placeholder="Search username or feeder..." oninput="filterFeederValidation()" class="flex-1 min-w-[200px] px-3 py-2 border border-amber-300 rounded-lg text-sm focus:outline-none bg-white">
+                            <select id="fvGroupFilter" onchange="filterFeederValidation()" class="px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white focus:outline-none">
+                                <option value="all">All Groups</option>
+                                <option value="aedc">AEDC</option>
+                                <option value="bss">BSS</option>
+                                <option value="nysc">NYSC</option>
+                            </select>
+                            <select id="fvStatusFilter" onchange="filterFeederValidation()" class="px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white focus:outline-none">
+                                <option value="all">All Statuses</option>
+                                <option value="live">Has Live Data</option>
+                                <option value="nodata">No Data</option>
+                                <option value="overridden">Manually Set</option>
+                                <option value="conflict">Conflict</option>
+                            </select>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-amber-200">
+                            <table class="w-full text-sm" id="fvTable">
+                                <thead>
+                                    <tr style="background:#fef3c7;color:#92400e;">
+                                        <th class="px-2 py-2 text-left font-bold border-b border-amber-200 text-xs">#</th>
+                                        <th class="px-2 py-2 text-left font-bold border-b border-amber-200 text-xs">Username</th>
+                                        <th class="px-2 py-2 text-left font-bold border-b border-amber-200 text-xs">Full Name</th>
+                                        <th class="px-2 py-2 text-center font-bold border-b border-amber-200 text-xs">Group</th>
+                                        <th class="px-2 py-2 text-center font-bold border-b border-amber-200 text-xs">Total</th>
+                                        <th class="px-2 py-2 text-left font-bold border-b border-amber-200 text-xs" style="min-width:130px;">Top Feeder (Live)</th>
+                                        <th class="px-2 py-2 text-left font-bold border-b border-amber-200 text-xs">All Feeders Found</th>
+                                        <th class="px-2 py-2 text-left font-bold border-b border-amber-200 text-xs" style="min-width:170px;">Validated / Override</th>
+                                        <th class="px-2 py-2 text-center font-bold border-b border-amber-200 text-xs">Flag</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fvTableBody"></tbody>
+                                <tfoot id="fvTableFoot"></tfoot>
+                            </table>
+                        </div>
+                        <div class="flex flex-wrap gap-3 mt-4 items-center justify-between">
+                            <div class="text-xs text-gray-500 font-medium" id="fvFootNote"></div>
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="clearAllFeederOverrides()" class="px-4 py-2 bg-red-100 text-red-700 font-bold rounded-lg hover:bg-red-200 transition-colors text-xs border border-red-300">Clear All Overrides</button>
+                                <button onclick="applyValidatedFeeders()" class="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-sm shadow">Apply Validated Feeders to Dashboard</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- ==================== ENUMERATOR MAPPING TAB ==================== -->
@@ -1304,6 +1375,8 @@
         document.getElementById('dateRangeDisplay').textContent=reportResults.dateRange;
         updateDashboard();
         showStatus(`Report generated: ${reportResults.aedc.totals.total+reportResults.bss.totals.total+reportResults.nysc.totals.total} total entries`,'success');
+        // Auto-build feeder validation panel after every report generation
+        buildFeederValidationPanel();
     }
 
     function renderResultsTable(group) {
@@ -2517,6 +2590,311 @@
     function showOnlyAedcNysc(){setPairedVisibility({aedcNyscPaired:true,bssNyscPaired:false,grandTotalPaired:true,absentSickPaired:true,chartsPaired:true});}
     function showOnlyBssNysc(){setPairedVisibility({aedcNyscPaired:false,bssNyscPaired:true,grandTotalPaired:true,absentSickPaired:true,chartsPaired:true});}
     function setPairedVisibility(v){const m={aedcNyscPaired:'showAedcNysc',bssNyscPaired:'showBssNysc',grandTotalPaired:'showGrandTotalPaired',absentSickPaired:'showAbsentSickPaired',chartsPaired:'showChartsPaired'};Object.keys(v).forEach(s=>{const cb=document.getElementById(m[s]);if(cb){cb.checked=v[s];toggleSection(s);}});}
+
+    // ============================================================
+    // FEEDER VALIDATION PANEL
+    // ============================================================
+
+    // fvRows holds the full computed data for every enumerator after recalculate
+    let fvRows = [];
+    let fvPanelOpen = true;
+
+    // Called automatically after generateReport() — builds the panel from live userFeederData
+    function buildFeederValidationPanel() {
+        const startDateStr = document.getElementById('startDate').value;
+        let endDateStr = document.getElementById('endDate').value;
+        const isRange = document.querySelector('input[name="dateMode"]:checked').value === 'range';
+        if (!isRange) endDateStr = startDateStr;
+
+        fvRows = [];
+        ['aedc','bss','nysc'].forEach(group => {
+            if (!reportResults[group]) return;
+            reportResults[group].results.forEach(r => {
+                // Live feeder: read directly from userFeederData for this date ONLY
+                // Do NOT use feederOverrides here — we want the raw live calculation
+                const rawData = userFeederData[r.username];
+                const merged = rawData ? mergeFeederCounts(rawData, startDateStr, endDateStr) : {};
+                const entries = Object.entries(merged).sort((a,b) => b[1]-a[1]);
+                const liveTopFeeder = entries.length ? entries[0][0] : null;
+                const allFeeders = entries.map(([f,c]) => ({feeder:f, count:c}));
+
+                // What is currently set as override (manually set by admin)
+                const override = feederOverrides[r.username] || null;
+
+                // What was saved in the dashboard previously (r.savedFeeder)
+                const savedFeeder = r.savedFeeder || null;
+
+                // Determine status flag
+                let flag = 'nodata';
+                if (override) flag = 'overridden';
+                else if (liveTopFeeder) flag = 'live';
+
+                // Conflict: live feeder exists AND doesn't match what was saved
+                if (liveTopFeeder && savedFeeder && liveTopFeeder !== savedFeeder && !override) {
+                    flag = 'conflict';
+                }
+
+                fvRows.push({
+                    username: r.username,
+                    fullname: r.fullname,
+                    group,
+                    total: r.total,
+                    liveTopFeeder,
+                    allFeeders,
+                    override,
+                    savedFeeder,
+                    flag
+                });
+            });
+        });
+
+        renderFeederValidationTable();
+        updateFVSummaryChips();
+
+        // Update subtitle
+        const sd = document.getElementById('fvPanelSubtitle');
+        if (sd) {
+            const lbl = startDateStr === endDateStr ? startDateStr : startDateStr + ' to ' + endDateStr;
+            sd.textContent = 'Live feeder data from uploaded files for ' + lbl + ' — independent of saved dashboard';
+        }
+
+        document.getElementById('feederValidationPanel').style.display = 'block';
+
+        // Scroll panel into view gently
+        setTimeout(() => {
+            document.getElementById('feederValidationPanel').scrollIntoView({behavior:'smooth', block:'nearest'});
+        }, 200);
+    }
+
+    function recalculateFeeders() {
+        buildFeederValidationPanel();
+        showStatus('Feeder validation recalculated from uploaded data', 'success');
+    }
+
+    function toggleFeederPanel() {
+        fvPanelOpen = !fvPanelOpen;
+        const body = document.getElementById('fvBody');
+        const btn  = document.getElementById('fvToggleBtn');
+        if (body) body.style.display = fvPanelOpen ? '' : 'none';
+        if (btn)  btn.textContent = fvPanelOpen ? '🔼 Collapse' : '🔽 Expand';
+    }
+
+    function renderFeederValidationTable() {
+        const tbody = document.getElementById('fvTableBody');
+        const tfoot = document.getElementById('fvTableFoot');
+        const search = (document.getElementById('fvSearch')?.value || '').toLowerCase().trim();
+        const groupF = document.getElementById('fvGroupFilter')?.value || 'all';
+        const statusF = document.getElementById('fvStatusFilter')?.value || 'all';
+
+        const filtered = fvRows.filter(r => {
+            if (groupF !== 'all' && r.group !== groupF) return false;
+            if (statusF !== 'all' && r.flag !== statusF) return false;
+            if (search) {
+                const hay = (r.username + ' ' + r.fullname + ' ' + (r.liveTopFeeder||'') + ' ' + (r.override||'')).toLowerCase();
+                if (!hay.includes(search)) return false;
+            }
+            return true;
+        });
+
+        const flagBadge = {
+            live:       '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;">LIVE</span>',
+            nodata:     '<span style="background:#fef9c3;color:#92400e;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;">NO DATA</span>',
+            overridden: '<span style="background:#e0e7ff;color:#3730a3;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;">OVERRIDE</span>',
+            conflict:   '<span style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;">CONFLICT</span>'
+        };
+
+        const groupBadge = {
+            aedc: '<span style="background:#dbeafe;color:#1e40af;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">AEDC</span>',
+            bss:  '<span style="background:#dcfce7;color:#166534;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">BSS</span>',
+            nysc: '<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">NYSC</span>'
+        };
+
+        tbody.innerHTML = filtered.map((r, i) => {
+            const rowBg = i % 2 === 0 ? '#fffbeb' : '#fff';
+            const currentVal = r.override || r.liveTopFeeder || '';
+
+            // Build all-feeders mini display
+            const allStr = r.allFeeders.length
+                ? r.allFeeders.map(f => `<span style="background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:10px;margin-right:2px;">${escapeHtml(f.feeder)} <em style="color:#6b7280;">(${f.count})</em></span>`).join('')
+                : '<span style="color:#94a3b8;font-size:10px;font-style:italic;">none found</span>';
+
+            // Conflict hint
+            const conflictHint = r.flag === 'conflict'
+                ? `<div style="font-size:9px;color:#dc2626;margin-top:2px;">Prev saved: <strong>${escapeHtml(r.savedFeeder||'')}</strong></div>`
+                : '';
+
+            return `<tr style="background:${rowBg};">
+                <td class="px-2 py-1.5 border-b border-amber-100 text-xs text-gray-500">${i+1}</td>
+                <td class="px-2 py-1.5 border-b border-amber-100"><span class="font-mono text-xs font-semibold text-gray-700">${escapeHtml(r.username)}</span></td>
+                <td class="px-2 py-1.5 border-b border-amber-100 text-sm font-medium text-gray-800">${escapeHtml(r.fullname)}</td>
+                <td class="px-2 py-1.5 border-b border-amber-100 text-center">${groupBadge[r.group]||r.group}</td>
+                <td class="px-2 py-1.5 border-b border-amber-100 text-center font-bold text-sm ${r.total>0?'text-blue-700':'text-gray-400'}">${r.total||'-'}</td>
+                <td class="px-2 py-1.5 border-b border-amber-100">
+                    ${r.liveTopFeeder
+                        ? `<span style="background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${escapeHtml(r.liveTopFeeder)}</span>`
+                        : '<span style="color:#94a3b8;font-size:11px;font-style:italic;">—</span>'}
+                    ${conflictHint}
+                </td>
+                <td class="px-2 py-1.5 border-b border-amber-100" style="max-width:180px;word-break:break-word;">${allStr}</td>
+                <td class="px-2 py-1.5 border-b border-amber-100">
+                    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+                        <input type="text"
+                            value="${escapeHtml(currentVal)}"
+                            placeholder="Type feeder name…"
+                            oninput="setFVOverride('${escapeHtml(r.username)}', this.value)"
+                            style="flex:1;min-width:110px;padding:4px 8px;border:1.5px solid #fde68a;border-radius:6px;font-size:11px;background:#fffbeb;outline:none;"
+                            onfocus="this.style.borderColor='#f59e0b';this.style.background='#fff';"
+                            onblur="this.style.borderColor='#fde68a';this.style.background='#fffbeb';">
+                        ${currentVal ? `<button onclick="clearFVOverride('${escapeHtml(r.username)}')" title="Clear override" style="background:#fee2e2;color:#dc2626;border:none;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer;">✕</button>` : ''}
+                    </div>
+                </td>
+                <td class="px-2 py-1.5 border-b border-amber-100 text-center">${flagBadge[r.flag]||r.flag}</td>
+            </tr>`;
+        }).join('');
+
+        // Footer
+        const liveCount = filtered.filter(r => r.flag === 'live' || r.flag === 'overridden').length;
+        const noDataCount = filtered.filter(r => r.flag === 'nodata').length;
+        const conflictCount = filtered.filter(r => r.flag === 'conflict').length;
+        const overrideCount = filtered.filter(r => r.flag === 'overridden').length;
+
+        tfoot.innerHTML = `<tr style="background:#fef3c7;font-weight:700;">
+            <td colspan="4" class="px-2 py-2 text-xs text-amber-800 border-t border-amber-200">Showing ${filtered.length} of ${fvRows.length} enumerators</td>
+            <td class="px-2 py-2 text-xs text-center text-amber-800 border-t border-amber-200">${filtered.reduce((s,r)=>s+r.total,0)}</td>
+            <td colspan="2" class="px-2 py-2 text-xs text-amber-800 border-t border-amber-200">
+                <span style="margin-right:8px;">&#x2705; ${liveCount} with feeders</span>
+                <span style="margin-right:8px;color:#92400e;">&#x26A0; ${noDataCount} no data</span>
+                <span style="color:#991b1b;">&#x1F534; ${conflictCount} conflicts</span>
+            </td>
+            <td class="px-2 py-2 text-xs text-center text-indigo-700 border-t border-amber-200">${overrideCount} manual</td>
+            <td class="px-2 py-2 border-t border-amber-200"></td>
+        </tr>`;
+
+        const note = document.getElementById('fvFootNote');
+        if (note) note.textContent = `Last recalculated: ${new Date().toLocaleTimeString()} · ${fvRows.length} enumerators across all groups`;
+    }
+
+    function filterFeederValidation() {
+        renderFeederValidationTable();
+    }
+
+    function updateFVSummaryChips() {
+        const chips = document.getElementById('fvSummaryChips');
+        if (!chips) return;
+        const total = fvRows.length;
+        const withData = fvRows.filter(r => r.liveTopFeeder).length;
+        const noData = fvRows.filter(r => !r.liveTopFeeder && !r.override).length;
+        const conflicts = fvRows.filter(r => r.flag === 'conflict').length;
+        const overrides = fvRows.filter(r => r.flag === 'overridden').length;
+
+        chips.innerHTML = [
+            { label: 'Total Enumerators', val: total, bg: '#f3f4f6', color: '#374151' },
+            { label: 'Have Live Feeders', val: withData, bg: '#dcfce7', color: '#166534' },
+            { label: 'No Feeder Data', val: noData, bg: '#fef9c3', color: '#92400e' },
+            { label: 'Conflicts', val: conflicts, bg: '#fee2e2', color: '#991b1b' },
+            { label: 'Manual Overrides', val: overrides, bg: '#e0e7ff', color: '#3730a3' },
+        ].map(c => `<div style="background:${c.bg};color:${c.color};border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+            <span style="font-size:17px;font-weight:800;">${c.val}</span> ${c.label}
+        </div>`).join('');
+    }
+
+    function setFVOverride(username, value) {
+        const trimmed = value.trim();
+        // Update in-memory fvRows immediately for live UI feedback
+        const row = fvRows.find(r => r.username === username);
+        if (row) {
+            if (trimmed) {
+                row.override = trimmed;
+                row.flag = 'overridden';
+            } else {
+                row.override = null;
+                // Recalculate flag
+                if (row.liveTopFeeder) {
+                    row.flag = (row.savedFeeder && row.liveTopFeeder !== row.savedFeeder) ? 'conflict' : 'live';
+                } else {
+                    row.flag = 'nodata';
+                }
+            }
+        }
+        // Also update the global feederOverrides so getTopFeeder picks it up
+        if (trimmed) {
+            feederOverrides[username] = trimmed;
+        } else {
+            delete feederOverrides[username];
+        }
+        updateFVSummaryChips();
+    }
+
+    function clearFVOverride(username) {
+        delete feederOverrides[username];
+        const row = fvRows.find(r => r.username === username);
+        if (row) {
+            row.override = null;
+            if (row.liveTopFeeder) {
+                row.flag = (row.savedFeeder && row.liveTopFeeder !== row.savedFeeder) ? 'conflict' : 'live';
+            } else {
+                row.flag = 'nodata';
+            }
+        }
+        renderFeederValidationTable();
+        updateFVSummaryChips();
+    }
+
+    function clearAllFeederOverrides() {
+        if (!confirm('Clear all manual feeder overrides? This will revert to live-calculated feeders.')) return;
+        fvRows.forEach(r => {
+            delete feederOverrides[r.username];
+            r.override = null;
+            if (r.liveTopFeeder) {
+                r.flag = (r.savedFeeder && r.liveTopFeeder !== r.savedFeeder) ? 'conflict' : 'live';
+            } else {
+                r.flag = 'nodata';
+            }
+        });
+        renderFeederValidationTable();
+        updateFVSummaryChips();
+        showStatus('All manual overrides cleared', 'success');
+    }
+
+    // Push validated feeders from the FV panel into savedFeeder on each reportResults record,
+    // then regenerate the dashboard — this is the "commit" step
+    function applyValidatedFeeders() {
+        let applied = 0;
+        fvRows.forEach(r => {
+            // Determine the validated feeder: override wins, then liveTopFeeder
+            const validated = r.override || r.liveTopFeeder || null;
+
+            // Update the feederOverride (if override set)
+            if (r.override) {
+                feederOverrides[r.username] = r.override;
+            }
+
+            // Push into the reportResults savedFeeder so it is persisted on next save
+            ['aedc','bss','nysc'].forEach(group => {
+                if (!reportResults[group]) return;
+                const rec = reportResults[group].results.find(x => x.username === r.username);
+                if (rec) {
+                    rec.savedFeeder = validated || '';
+                    if (validated) applied++;
+                }
+            });
+        });
+
+        // Re-render dashboard with fresh feeders
+        updateDashboard();
+        renderFeederSummary();
+        showStatus(`Validated feeders applied to dashboard (${applied} enumerators updated)`, 'success');
+
+        // Flash the panel header to confirm
+        const hdr = document.querySelector('#feederValidationPanel [style*="linear-gradient"]');
+        if (hdr) {
+            const orig = hdr.style.background;
+            hdr.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+            setTimeout(() => { hdr.style.background = orig; }, 900);
+        }
+    }
+
+    // END FEEDER VALIDATION PANEL
     </script>
 </body>
 </html>
