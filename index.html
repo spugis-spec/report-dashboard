@@ -2619,7 +2619,9 @@
                 const allFeeders = entries.map(([f,c]) => ({feeder:f, count:c}));
 
                 // What is currently set as override (manually set by admin)
-                const override = feederOverrides[r.username] || null;
+                // Only treat as a real override if it differs from the live top feeder
+                const rawOverride = feederOverrides[r.username] || null;
+                const override = (rawOverride && rawOverride !== liveTopFeeder) ? rawOverride : null;
 
                 // What was saved in the dashboard previously (r.savedFeeder)
                 const savedFeeder = r.savedFeeder || null;
@@ -2711,7 +2713,10 @@
 
         tbody.innerHTML = filtered.map((r, i) => {
             const rowBg = i % 2 === 0 ? '#fffbeb' : '#fff';
-            const currentVal = r.override || r.liveTopFeeder || '';
+            // Default the Validated/Override input to liveTopFeeder.
+            // Only use a manual override if it was explicitly set AND differs from the live feeder.
+            const isManualOverride = r.override && r.override !== r.liveTopFeeder;
+            const currentVal = isManualOverride ? r.override : (r.liveTopFeeder || '');
 
             // Build all-feeders mini display
             const allStr = r.allFeeders.length
@@ -2803,9 +2808,14 @@
         // Update in-memory fvRows immediately for live UI feedback
         const row = fvRows.find(r => r.username === username);
         if (row) {
-            if (trimmed) {
+            if (trimmed && trimmed !== row.liveTopFeeder) {
+                // Truly manual override — different from the live feeder
                 row.override = trimmed;
                 row.flag = 'overridden';
+            } else if (trimmed && trimmed === row.liveTopFeeder) {
+                // User typed the same value as live feeder — treat as live, not override
+                row.override = null;
+                row.flag = 'live';
             } else {
                 row.override = null;
                 // Recalculate flag
@@ -2817,7 +2827,7 @@
             }
         }
         // Also update the global feederOverrides so getTopFeeder picks it up
-        if (trimmed) {
+        if (trimmed && trimmed !== (row ? row.liveTopFeeder : null)) {
             feederOverrides[username] = trimmed;
         } else {
             delete feederOverrides[username];
