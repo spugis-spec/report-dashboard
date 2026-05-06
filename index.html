@@ -2597,6 +2597,9 @@
 
     // fvRows holds the full computed data for every enumerator after recalculate
     let fvRows = [];
+    // Session-only overrides set within the FV panel — reset each time the panel is rebuilt.
+    // This keeps previously-saved feederOverrides from bleeding into the Validated/Override column.
+    let fvSessionOverrides = {};
     let fvPanelOpen = true;
 
     // Called automatically after generateReport() — builds the panel from live userFeederData
@@ -2607,6 +2610,7 @@
         if (!isRange) endDateStr = startDateStr;
 
         fvRows = [];
+        fvSessionOverrides = {}; // reset session overrides — start fresh, ignore previously saved feederOverrides
         ['aedc','bss','nysc'].forEach(group => {
             if (!reportResults[group]) return;
             reportResults[group].results.forEach(r => {
@@ -2618,9 +2622,8 @@
                 const liveTopFeeder = entries.length ? entries[0][0] : null;
                 const allFeeders = entries.map(([f,c]) => ({feeder:f, count:c}));
 
-                // What is currently set as override (manually set by admin)
-                // Only treat as a real override if it differs from the live top feeder
-                const rawOverride = feederOverrides[r.username] || null;
+                // Only use overrides set manually within THIS FV session — never bleed in previously saved feederOverrides
+                const rawOverride = fvSessionOverrides[r.username] || null;
                 const override = (rawOverride && rawOverride !== liveTopFeeder) ? rawOverride : null;
 
                 // What was saved in the dashboard previously (r.savedFeeder)
@@ -2723,10 +2726,8 @@
                 ? r.allFeeders.map(f => `<span style="background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:10px;margin-right:2px;">${escapeHtml(f.feeder)} <em style="color:#6b7280;">(${f.count})</em></span>`).join('')
                 : '<span style="color:#94a3b8;font-size:10px;font-style:italic;">none found</span>';
 
-            // Conflict hint
-            const conflictHint = r.flag === 'conflict'
-                ? `<div style="font-size:9px;color:#dc2626;margin-top:2px;">Prev saved: <strong>${escapeHtml(r.savedFeeder||'')}</strong></div>`
-                : '';
+            // No conflict hint — prev saved feeder is intentionally not shown in the FV panel
+            const conflictHint = '';
 
             return `<tr style="background:${rowBg};">
                 <td class="px-2 py-1.5 border-b border-amber-100 text-xs text-gray-500">${i+1}</td>
@@ -2826,25 +2827,22 @@
                 }
             }
         }
-        // Also update the global feederOverrides so getTopFeeder picks it up
+        // Write to fvSessionOverrides (not feederOverrides) so session changes stay isolated
+        // until the admin clicks "Apply Validated Feeders"
         if (trimmed && trimmed !== (row ? row.liveTopFeeder : null)) {
-            feederOverrides[username] = trimmed;
+            fvSessionOverrides[username] = trimmed;
         } else {
-            delete feederOverrides[username];
+            delete fvSessionOverrides[username];
         }
         updateFVSummaryChips();
     }
 
     function clearFVOverride(username) {
-        delete feederOverrides[username];
+        delete fvSessionOverrides[username];
         const row = fvRows.find(r => r.username === username);
         if (row) {
             row.override = null;
-            if (row.liveTopFeeder) {
-                row.flag = (row.savedFeeder && row.liveTopFeeder !== row.savedFeeder) ? 'conflict' : 'live';
-            } else {
-                row.flag = 'nodata';
-            }
+            row.flag = row.liveTopFeeder ? 'live' : 'nodata';
         }
         renderFeederValidationTable();
         updateFVSummaryChips();
@@ -2852,14 +2850,10 @@
 
     function clearAllFeederOverrides() {
         if (!confirm('Clear all manual feeder overrides? This will revert to live-calculated feeders.')) return;
+        fvSessionOverrides = {};
         fvRows.forEach(r => {
-            delete feederOverrides[r.username];
             r.override = null;
-            if (r.liveTopFeeder) {
-                r.flag = (r.savedFeeder && r.liveTopFeeder !== r.savedFeeder) ? 'conflict' : 'live';
-            } else {
-                r.flag = 'nodata';
-            }
+            r.flag = r.liveTopFeeder ? 'live' : 'nodata';
         });
         renderFeederValidationTable();
         updateFVSummaryChips();
@@ -2870,14 +2864,13 @@
     // then regenerate the dashboard — this is the "commit" step
     function applyValidatedFeeders() {
         let applied = 0;
-        fvRows.forEach(r => {
-            // Determine the validated feeder: override wins, then liveTopFeeder
-            const validated = r.override || r.liveTopFeeder || null;
 
-            // Update the feederOverride (if override set)
-            if (r.override) {
-                feederOverrides[r.username] = r.override;
-            }
+        // Commit session overrides into the global feederOverrides at apply time
+        Object.assign(feederOverrides, fvSessionOverrides);
+
+        fvRows.forEach(r => {
+            // Validated feeder: session override wins, then liveTopFeeder (never the old savedFeeder)
+            const validated = fvSessionOverrides[r.username] || r.liveTopFeeder || null;
 
             // Push into the reportResults savedFeeder so it is persisted on next save
             ['aedc','bss','nysc'].forEach(group => {
