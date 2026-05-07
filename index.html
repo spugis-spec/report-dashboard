@@ -512,6 +512,7 @@
                     <button onclick="exportDashboardToExcel()" class="py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>📥</span> Export Excel</button>
                     <button onclick="openBulkExcuseModal()" class="admin-only py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>📋</span> Bulk Update</button>
                     <button onclick="updateAndSaveDashboard()" class="admin-only py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>💾</span> Update & Save</button>
+                    <button onclick="applyValidatedFeedersToDashboard()" id="applyFeedersBtn" class="admin-only py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm" title="Pull live validated feeders from Data Upload tab and apply to dashboard"><span>⚡</span> Apply Validated Feeders</button>
                     <button onclick="saveDashboardToCloud()" class="admin-only py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>☁️</span> Save to Cloud</button>
                     <button onclick="showClearAllModal()" class="admin-only py-2 px-4 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>🗑️</span> Clear All Dashboards</button>
                 </div>
@@ -1045,8 +1046,9 @@
 
     // Get the top feeder for a user for a specific date (or date range)
     function getTopFeeder(username, startDateStr, endDateStr) {
-        // Admin override always wins
-        if(feederOverrides[username]) return feederOverrides[username];
+        // NOTE: feederOverrides is intentionally NOT checked here anymore.
+        // The dashboard uses r.savedFeeder (committed) or fvSessionOverrides as its source of truth.
+        // feederOverrides is only still used by the inline feeder-edit modal (updateFeederForUser).
         const data = userFeederData[username];
         if(!data) return null;
 
@@ -1058,7 +1060,6 @@
 
     // Get all feeders for a user across a date range, sorted by frequency
     function getAllFeeders(username, startDateStr, endDateStr) {
-        if(feederOverrides[username]) return [feederOverrides[username]];
         const data = userFeederData[username];
         if(!data) return [];
         const merged = mergeFeederCounts(data, startDateStr, endDateStr);
@@ -1642,8 +1643,11 @@
             const hasWork = (r.total||0) > 0 && r.status === 'present';
             const rStartDate = reportResults.dateKey || null;
             const rEndDate = reportResults.endDateKey || rStartDate;
+            // Dashboard always shows r.savedFeeder when it exists (committed via Apply Validated Feeders).
+            // fvSessionOverrides also wins if an apply happened this session.
+            // Only falls back to live calculation if nothing has been committed yet.
             const feeder = hasWork
-                ? (feederOverrides[r.username] || getTopFeeder(r.username, rStartDate, rEndDate) || r.savedFeeder || null)
+                ? (fvSessionOverrides[r.username] || r.savedFeeder || getTopFeeder(r.username, rStartDate, rEndDate) || null)
                 : null;
             const feederIdx = hasWork ? i : -2;
             const feederCell = buildFeederCell(r.username, feeder||'—', group, feederIdx, colors[group].border);
@@ -1712,7 +1716,8 @@
         ['aedc','bss','nysc'].forEach(g=>{
             (reportResults[g].results||[]).forEach(r=>{
                 if((r.total||0) === 0 || r.status !== 'present') return;
-                const feeder = feederOverrides[r.username] || getTopFeeder(r.username, rStartDate, rEndDate) || r.savedFeeder;
+                // Use committed savedFeeder first, then session override, then live calc
+                const feeder = fvSessionOverrides[r.username] || r.savedFeeder || getTopFeeder(r.username, rStartDate, rEndDate);
                 if(!feeder) return;
                 if(!feederMap[feeder]) feederMap[feeder] = { names: new Set(), total: 0 };
                 feederMap[feeder].names.add(r.fullname);
@@ -1923,7 +1928,7 @@
                 const rEndDate = reportResults.endDateKey || rStartDate;
                 const hasPersonWork = (person.total||0) > 0 && person.status === 'present';
                 const feeder = hasPersonWork
-                    ? (feederOverrides[person.username] || getTopFeeder(person.username, rStartDate, rEndDate) || person.savedFeeder || null)
+                    ? (fvSessionOverrides[person.username] || person.savedFeeder || getTopFeeder(person.username, rStartDate, rEndDate) || null)
                     : null;
                 const feederIdx = hasPersonWork ? resultIdx : -2;
                 const feederCell = buildFeederCell(person.username, feeder||'—', grp, feederIdx, borderColor);
@@ -2894,6 +2899,78 @@
             const orig = hdr.style.background;
             hdr.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
             setTimeout(() => { hdr.style.background = orig; }, 900);
+        }
+    }
+
+    // ============================================
+    // APPLY VALIDATED FEEDERS FROM DASHBOARD TAB
+    // ============================================
+    // This mirrors applyValidatedFeeders() but is callable directly from the Dashboard tab.
+    // It uses fvRows (built by the FV panel) when available, otherwise falls back to
+    // live userFeederData, so it always pushes the best available live feeder into savedFeeder.
+    function applyValidatedFeedersToDashboard() {
+        if (!reportResults || (!reportResults.aedc && !reportResults.bss && !reportResults.nysc)) {
+            showStatus('No report loaded. Generate a report first in the Data Upload tab.', 'warning');
+            return;
+        }
+
+        const rStartDate = reportResults.dateKey || null;
+        const rEndDate = reportResults.endDateKey || rStartDate;
+
+        let applied = 0;
+        let noData = 0;
+
+        ['aedc', 'bss', 'nysc'].forEach(group => {
+            if (!reportResults[group]) return;
+            (reportResults[group].results || []).forEach(rec => {
+                if ((rec.total || 0) === 0 || rec.status !== 'present') return;
+
+                // Priority: fvSessionOverrides (manual override this session) → fvRows live feeder → live calc
+                let validated = null;
+
+                // Check if a session override was manually set in the FV panel
+                if (fvSessionOverrides[rec.username]) {
+                    validated = fvSessionOverrides[rec.username];
+                } else {
+                    // Check fvRows for the live-calculated top feeder
+                    const fvRow = fvRows.find(r => r.username === rec.username);
+                    if (fvRow && fvRow.liveTopFeeder) {
+                        validated = fvRow.liveTopFeeder;
+                    } else {
+                        // Final fallback: compute live from userFeederData directly
+                        validated = getTopFeeder(rec.username, rStartDate, rEndDate) || null;
+                    }
+                }
+
+                if (validated) {
+                    rec.savedFeeder = validated;
+                    applied++;
+                } else {
+                    noData++;
+                }
+            });
+        });
+
+        // Commit any session overrides into feederOverrides too
+        Object.assign(feederOverrides, fvSessionOverrides);
+
+        // Re-render dashboard
+        updateDashboard();
+        renderFeederSummary();
+
+        const msg = `Validated feeders applied to dashboard (${applied} updated${noData ? ', ' + noData + ' had no data' : ''})`;
+        showStatus(msg, 'success');
+
+        // Flash the button to confirm
+        const btn = document.getElementById('applyFeedersBtn');
+        if (btn) {
+            const orig = btn.style.background;
+            btn.style.background = '#16a34a';
+            btn.innerHTML = '<span>✅</span> Applied!';
+            setTimeout(() => {
+                btn.style.background = orig;
+                btn.innerHTML = '<span>⚡</span> Apply Validated Feeders';
+            }, 2000);
         }
     }
 
