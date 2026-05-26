@@ -2026,11 +2026,47 @@
         clone.querySelectorAll('button').forEach(b => b.remove());
 
         // ── 4. Build the full self-contained HTML document ─────────────────
-        const dateHeader = document.getElementById('dashboardDateHeader')?.textContent || 'GIS Enumeration Dashboard';
-        const dateSubheader = document.getElementById('dashboardDateSubheader')?.textContent || '';
+        const dateHeader =
+          document.getElementById('dashboardDateHeader')?.textContent ||
+          'GIS Enumeration Dashboard';
+
+        const dateSubheader =
+          document.getElementById('dashboardDateSubheader')?.textContent || '';
+
         const dateKey = reportResults.dateKey || '';
-        const cleanDate = dateKey.replace(/-/g, '');
-        const filename = `dashboard_${cleanDate || 'export'}.html`;
+
+        const date = new Date(dateKey);
+
+        const getOrdinal = (n) => {
+          if (n > 3 && n < 21) return 'th';
+
+          switch (n % 10) {
+            case 1:
+              return 'st';
+            case 2:
+              return 'nd';
+            case 3:
+              return 'rd';
+            default:
+              return 'th';
+          }
+        };
+
+        const weekday = date.toLocaleDateString('en-GB', {
+          weekday: 'long',
+        });
+
+        const month = date.toLocaleDateString('en-GB', {
+          month: 'long',
+        });
+
+        const year = date.getFullYear();
+
+        const day = `${date.getDate()}${getOrdinal(date.getDate())}`;
+
+        const formattedDate = `${weekday} ${day} ${month} ${year}`;
+
+        const filename = `${formattedDate} ${dateHeader}.html`;
 
         // Inline styles needed for the exported page (no Tailwind CDN needed — we embed critical CSS)
         const inlineCSS = `
