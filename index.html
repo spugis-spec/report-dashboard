@@ -2026,14 +2026,7 @@
         clone.querySelectorAll('button').forEach(b => b.remove());
 
         // ── 4. Build the full self-contained HTML document ─────────────────
-        const dateHeader =
-          document.getElementById('dashboardDateHeader')?.textContent ||
-          'GIS Enumeration Dashboard';
-
-        const dateSubheader =
-          document.getElementById('dashboardDateSubheader')?.textContent || '';
-
-        const dateKey = reportResults.dateKey || '';
+                const dateKey = reportResults.dateKey || '';
 
         const date = new Date(dateKey);
 
@@ -2066,8 +2059,7 @@
 
         const formattedDate = `${weekday} ${day} ${month} ${year}`;
 
-        const filename = `${formattedDate} ${dateHeader}.html`;
-
+        const filename = `${formattedDate} Teams Performance.html`;
         // Inline styles needed for the exported page (no Tailwind CDN needed — we embed critical CSS)
         const inlineCSS = `
             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
