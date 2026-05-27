@@ -727,12 +727,13 @@
         const dateKey = reportResults.dateKey || '';
         const shouldUsePaired = isPairedMode(dateKey) && currentViewMode === 'paired';
 
-        document.getElementById('legacyModeContent').style.display = shouldUsePaired ? 'none' : 'block';
-        document.getElementById('pairedModeContent').style.display = shouldUsePaired ? 'block' : 'none';
-        document.getElementById('legacyVisibilityControls').style.display = shouldUsePaired ? 'none' : 'flex';
-        document.getElementById('pairedVisibilityControls').style.display = shouldUsePaired ? 'flex' : 'none';
-        document.getElementById('pngLegacyOptions').style.display = shouldUsePaired ? 'none' : 'block';
-        document.getElementById('pngPairedOptions').style.display = shouldUsePaired ? 'block' : 'none';
+        const el = id => document.getElementById(id);
+        if(el('legacyModeContent'))        el('legacyModeContent').style.display        = shouldUsePaired ? 'none'  : 'block';
+        if(el('pairedModeContent'))        el('pairedModeContent').style.display        = shouldUsePaired ? 'block' : 'none';
+        if(el('legacyVisibilityControls')) el('legacyVisibilityControls').style.display = shouldUsePaired ? 'none'  : 'flex';
+        if(el('pairedVisibilityControls')) el('pairedVisibilityControls').style.display = shouldUsePaired ? 'flex'  : 'none';
+        if(el('pngLegacyOptions'))         el('pngLegacyOptions').style.display         = shouldUsePaired ? 'none'  : 'block';
+        if(el('pngPairedOptions'))         el('pngPairedOptions').style.display         = shouldUsePaired ? 'block' : 'none';
 
         if (shouldUsePaired) {
             updatePairedDashboard();
