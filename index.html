@@ -509,6 +509,7 @@
                 <button onclick="switchTab('data')" id="tab-data" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors tab-active admin-only">📁 Data Upload</button>
                 <button onclick="switchTab('mapping')" id="tab-mapping" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors admin-only">👥 Enumerator Mapping</button>
                 <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors">📊 Dashboard</button>
+                <button onclick="switchTab('monthly')" id="tab-monthly" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-blue-600 transition-colors">📅 Monthly Performance</button>
             </div>
         </div>
 
@@ -871,6 +872,245 @@
         </div>
     </div>
 
+        <!-- ==================== MONTHLY PERFORMANCE TAB ==================== -->
+        <div id="content-monthly" class="tab-content hidden">
+            <div class="p-6">
+                <!-- Header -->
+                <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed,#db2777);color:white;padding:20px 24px;border-radius:12px;margin-bottom:20px;position:relative;overflow:hidden;">
+                    <div style="position:absolute;inset:0;opacity:0.06;background:url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/svg%3E\");"></div>
+                    <h2 style="font-size:1.4rem;font-weight:700;margin:0 0 4px;">📅 Monthly Performance Dashboard</h2>
+                    <p style="font-size:0.85rem;opacity:0.9;margin:0;">Track monthly enumeration targets across AEDC, BSS &amp; NYSC teams</p>
+                </div>
+
+                <!-- Target Setting + Month Selector Row -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;" class="md-grid-cols-2">
+                    <!-- Target Card -->
+                    <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <h3 style="font-size:0.95rem;font-weight:700;color:#1e293b;margin:0 0 12px;display:flex;align-items:center;gap:6px;">🎯 Monthly Target Setting</h3>
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <div>
+                                <label style="font-size:0.75rem;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Points Target Per Person</label>
+                                <input type="number" id="mpTargetInput" value="600" min="1" step="1"
+                                    style="width:120px;padding:8px 12px;border:2px solid #c7d2fe;border-radius:8px;font-size:1rem;font-weight:700;color:#4f46e5;text-align:center;font-family:'DM Sans',sans-serif;"
+                                    oninput="mpCurrentTarget=parseInt(this.value)||600">
+                            </div>
+                            <div style="font-size:0.75rem;color:#64748b;max-width:200px;line-height:1.4;">
+                                Default is <strong>600</strong>. Change here before saving a new month. Previously saved months retain their original target.
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Month Navigator -->
+                    <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <h3 style="font-size:0.95rem;font-weight:700;color:#1e293b;margin:0 0 10px;display:flex;align-items:center;gap:6px;">🗓️ Saved Monthly Dashboards</h3>
+                        <div id="mpMonthSelector" style="display:flex;flex-wrap:wrap;gap:6px;max-height:80px;overflow-y:auto;">
+                            <span style="font-size:0.8rem;color:#94a3b8;font-style:italic;">No monthly dashboards saved yet</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Actions Row -->
+                <div class="admin-only" id="mpAdminActions" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:18px;">
+                    <h4 style="font-size:0.85rem;font-weight:700;color:#374151;margin:0 0 10px;">Admin Actions</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <button onclick="mpOpenCreateModal()" style="background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                            ✨ Create / Edit Monthly Dashboard
+                        </button>
+                        <button onclick="mpImportFromExcel()" style="background:#16a34a;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                            📤 Import from Excel Template
+                        </button>
+                        <input type="file" id="mpImportFile" accept=".xlsx,.xls" style="display:none" onchange="mpHandleImport(this)">
+                        <button onclick="mpExportSelectedMonth()" style="background:#0891b2;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                            📥 Export Current Month
+                        </button>
+                        <button onclick="mpExportMultipleMonths()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                            📦 Export Multiple Months
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Public Export Row (non-admin) -->
+                <div class="public-only" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="mpExportSelectedMonth()" style="background:#0891b2;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">📥 Export Current Month</button>
+                    <button onclick="mpExportMultipleMonths()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">📦 Export Multiple Months</button>
+                </div>
+
+                <!-- Currently Viewing Indicator -->
+                <div id="mpViewingBadge" style="display:none;margin-bottom:14px;padding:10px 16px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <span style="font-weight:700;color:#4f46e5;font-size:0.9rem;" id="mpViewingLabel">📅 —</span>
+                    <span style="font-size:0.75rem;color:#6366f1;" id="mpViewingMeta"></span>
+                </div>
+
+                <!-- Monthly Remark Section (Admin edit, public read) -->
+                <div id="mpRemarkSection" style="display:none;background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <h4 style="font-size:0.85rem;font-weight:700;color:#1e293b;margin:0 0 8px;">📝 Month Highlights / Remarks</h4>
+                    <div class="admin-only">
+                        <textarea id="mpRemarkEdit" rows="3" placeholder="Add major highlights for this month's performance…"
+                            style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;resize:vertical;"></textarea>
+                    </div>
+                    <div id="mpRemarkDisplay" style="font-size:0.85rem;color:#374151;white-space:pre-wrap;display:none;"></div>
+                </div>
+
+                <!-- The performance tables area -->
+                <div id="mpDashboardArea" style="display:none;">
+                    <!-- AEDC Section -->
+                    <div id="mpSectionAedc" style="background:white;border-radius:12px;border:1px solid #bfdbfe;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                            <h3 style="font-size:0.95rem;font-weight:700;color:#1e40af;margin:0;display:flex;align-items:center;gap:6px;">
+                                <span style="width:12px;height:12px;background:#3b82f6;border-radius:50%;display:inline-block;"></span>AEDC Enumerators
+                            </h3>
+                            <button onclick="mpToggleAssetCols()" id="mpToggleColsBtn" style="font-size:0.75rem;padding:4px 10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-weight:600;">
+                                👁 Show Asset Breakdown
+                            </button>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table id="mpAedcTable" style="width:100%;border-collapse:collapse;font-size:11px;">
+                                <thead id="mpAedcHead"></thead>
+                                <tbody id="mpAedcBody"></tbody>
+                                <tfoot id="mpAedcFoot" style="background:#dbeafe;font-weight:600;"></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- BSS Section -->
+                    <div id="mpSectionBss" style="background:white;border-radius:12px;border:1px solid #bbf7d0;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <h3 style="font-size:0.95rem;font-weight:700;color:#166534;margin:0 0 10px;display:flex;align-items:center;gap:6px;">
+                            <span style="width:12px;height:12px;background:#22c55e;border-radius:50%;display:inline-block;"></span>BSS Enumerators
+                        </h3>
+                        <div style="overflow-x:auto;">
+                            <table id="mpBssTable" style="width:100%;border-collapse:collapse;font-size:11px;">
+                                <thead id="mpBssHead"></thead>
+                                <tbody id="mpBssBody"></tbody>
+                                <tfoot id="mpBssFoot" style="background:#dcfce7;font-weight:600;"></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- NYSC Section -->
+                    <div id="mpSectionNysc" style="background:white;border-radius:12px;border:1px solid #fed7aa;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <h3 style="font-size:0.95rem;font-weight:700;color:#c2410c;margin:0 0 10px;display:flex;align-items:center;gap:6px;">
+                            <span style="width:12px;height:12px;background:#f97316;border-radius:50%;display:inline-block;"></span>NYSC Enumerators
+                        </h3>
+                        <div style="overflow-x:auto;">
+                            <table id="mpNyscTable" style="width:100%;border-collapse:collapse;font-size:11px;">
+                                <thead id="mpNyscHead"></thead>
+                                <tbody id="mpNyscBody"></tbody>
+                                <tfoot id="mpNyscFoot" style="background:#ffedd5;font-weight:600;"></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div id="mpEmptyState" style="text-align:center;padding:60px 20px;color:#94a3b8;">
+                    <div style="font-size:3rem;margin-bottom:12px;">📅</div>
+                    <div style="font-size:1rem;font-weight:600;margin-bottom:6px;">No monthly dashboard selected</div>
+                    <div style="font-size:0.85rem;">Select a saved month above or create a new monthly dashboard from the Admin Actions panel.</div>
+                </div>
+            </div>
+        </div>
+
+    <!-- ===== MONTHLY CREATE/EDIT MODAL ===== -->
+    <div id="mpCreateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
+        <div class="bg-white rounded-2xl shadow-2xl mx-4 fade-in" style="max-width:900px;width:100%;max-height:90vh;overflow-y:auto;">
+            <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:white;padding:18px 24px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <h2 style="font-size:1.1rem;font-weight:700;margin:0;">📅 Create / Edit Monthly Performance Dashboard</h2>
+                    <p style="font-size:0.8rem;opacity:0.85;margin:2px 0 0;" id="mpModalSubtitle">New Dashboard</p>
+                </div>
+                <button onclick="mpCloseCreateModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;">×</button>
+            </div>
+            <div style="padding:20px;">
+                <!-- Month selector + source -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Month</label>
+                        <input type="month" id="mpModalMonth" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:'DM Sans',sans-serif;" onchange="mpModalMonthChanged()">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Monthly Target (points)</label>
+                        <input type="number" id="mpModalTarget" value="600" min="1" step="1" style="width:100%;padding:8px 12px;border:2px solid #c7d2fe;border-radius:8px;font-family:'DM Sans',sans-serif;font-weight:700;color:#4f46e5;text-align:center;">
+                    </div>
+                </div>
+                <!-- Source options -->
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:16px;">
+                    <h4 style="font-size:0.85rem;font-weight:700;color:#374151;margin:0 0 10px;">Data Source</h4>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+                            <input type="radio" name="mpSource" value="daily" checked onchange="mpSourceChanged()" style="margin-top:3px;">
+                            <div>
+                                <div style="font-weight:600;font-size:0.85rem;">Build from saved daily dashboards</div>
+                                <div style="font-size:0.75rem;color:#64748b;">Auto-aggregate all saved daily dashboards within the selected full month range</div>
+                            </div>
+                        </label>
+                        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+                            <input type="radio" name="mpSource" value="range" onchange="mpSourceChanged()" style="margin-top:3px;">
+                            <div>
+                                <div style="font-weight:600;font-size:0.85rem;">Build from date range (Data Upload)</div>
+                                <div style="font-size:0.75rem;color:#64748b;">Use the currently loaded date-range report from the Data Upload tab</div>
+                            </div>
+                        </label>
+                        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+                            <input type="radio" name="mpSource" value="manual" onchange="mpSourceChanged()" style="margin-top:3px;">
+                            <div>
+                                <div style="font-weight:600;font-size:0.85rem;">Manual entry / edit existing</div>
+                                <div style="font-size:0.75rem;color:#64748b;">Type or edit figures directly in the table below</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Preview / Editor Table Area -->
+                <div id="mpModalTableArea" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <h4 style="font-size:0.85rem;font-weight:700;color:#374151;margin:0;" id="mpModalTableTitle">Preview Data</h4>
+                        <button onclick="mpModalBuildData()" id="mpBuildDataBtn" style="background:#2563eb;color:white;border:none;padding:6px 14px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;">
+                            🔄 Load / Refresh Data
+                        </button>
+                    </div>
+                    <!-- AEDC -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:0.8rem;font-weight:700;color:#1e40af;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#3b82f6;border-radius:50%;display:inline-block;"></span>AEDC Enumerators</div>
+                        <div style="overflow-x:auto;"><table id="mpEditAedcTable" style="width:100%;border-collapse:collapse;font-size:11px;"><thead id="mpEditAedcHead"></thead><tbody id="mpEditAedcBody"></tbody></table></div>
+                    </div>
+                    <!-- BSS -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:0.8rem;font-weight:700;color:#166534;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#22c55e;border-radius:50%;display:inline-block;"></span>BSS Enumerators</div>
+                        <div style="overflow-x:auto;"><table id="mpEditBssTable" style="width:100%;border-collapse:collapse;font-size:11px;"><thead id="mpEditBssHead"></thead><tbody id="mpEditBssBody"></tbody></table></div>
+                    </div>
+                    <!-- NYSC -->
+                    <div>
+                        <div style="font-size:0.8rem;font-weight:700;color:#c2410c;margin-bottom:4px;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#f97316;border-radius:50%;display:inline-block;"></span>NYSC Enumerators</div>
+                        <div style="overflow-x:auto;"><table id="mpEditNyscTable" style="width:100%;border-collapse:collapse;font-size:11px;"><thead id="mpEditNyscHead"></thead><tbody id="mpEditNyscBody"></tbody></table></div>
+                    </div>
+                </div>
+
+                <!-- Remark -->
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Month Highlights / Remarks</label>
+                    <textarea id="mpModalRemark" rows="3" placeholder="Key highlights for this month…" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;resize:vertical;"></textarea>
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button onclick="mpCloseCreateModal()" style="padding:10px 20px;background:#f1f5f9;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;">Cancel</button>
+                    <button onclick="mpSaveMonthlyDashboard()" style="padding:10px 24px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                        💾 Save Monthly Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MULTI-MONTH EXPORT MODAL ===== -->
+    <div id="mpMultiExportModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 mx-4 fade-in" style="max-width:500px;width:100%;">
+            <h2 style="font-size:1.1rem;font-weight:700;color:#1e293b;margin:0 0 14px;display:flex;align-items:center;gap:6px;">📦 Export Multiple Months</h2>
+            <p style="font-size:0.8rem;color:#64748b;margin-bottom:12px;">Select the months you want to export. Each month becomes a separate sheet in one workbook.</p>
+            <div id="mpMultiExportList" style="max-height:250px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-bottom:16px;"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button onclick="document.getElementById('mpMultiExportModal').classList.add('hidden')" style="padding:8px 18px;background:#f1f5f9;border:1px solid #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;color:#374151;">Cancel</button>
+                <button onclick="mpDoMultiExport()" style="padding:8px 18px;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">📥 Export Selected</button>
+            </div>
+        </div>
+    </div>
+
     <div id="statusMessage" class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg transition-all transform translate-y-20 opacity-0 no-print" style="z-index: 1000;"></div>
 
     <script>
@@ -1034,9 +1274,9 @@
             document.getElementById('mainContent').style.display = 'block';
             document.getElementById('accessBadge').textContent = '🔑 Admin Mode';
             document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
-            ['data','mapping','dashboard'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
+            ['data','mapping','dashboard','monthly'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
             switchTab('data');
-            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => renderSavedDatesList());
+            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => { renderSavedDatesList(); mpLoadSavedMonths(); });
             showStatus('Logged in as Admin','success');
         } catch(e) { errorDiv.textContent=e.message||'Invalid credentials'; errorDiv.classList.remove('hidden'); }
         finally { loginBtn.disabled=false; loginBtn.textContent='Login as Admin'; }
@@ -1048,9 +1288,9 @@
         document.getElementById('mainContent').style.display='block';
         document.getElementById('accessBadge').textContent='👁️ Public View';
         document.getElementById('accessBadge').className='px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800';
-        ['data','mapping','dashboard'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
+        ['data','mapping','dashboard','monthly'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
         switchTab('dashboard');
-        Promise.all([loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => loadLatestDashboard());
+        Promise.all([loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => { loadLatestDashboard(); mpLoadSavedMonths(); });
     }
 
     function switchAccessMode() {
@@ -1071,12 +1311,14 @@
     // ============================================
     function switchTab(tabName) {
         document.querySelectorAll('[id^="tab-"]').forEach(t=>t.classList.remove('tab-active'));
-        document.getElementById(`tab-${tabName}`).classList.add('tab-active');
+        const tabEl = document.getElementById(`tab-${tabName}`);
+        if(tabEl) tabEl.classList.add('tab-active');
         document.querySelectorAll('.tab-content').forEach(c=>{c.classList.add('hidden');c.style.display='none';});
         const target = document.getElementById(`content-${tabName}`);
-        target.classList.remove('hidden'); target.style.display='block';
+        if(target){target.classList.remove('hidden'); target.style.display='block';}
         if (tabName==='dashboard') { updateDashboard(); setTimeout(()=>initCharts(),100); }
         if (tabName==='mapping') { refreshPairingDropdowns(); }
+        if (tabName==='monthly') { mpLoadSavedMonths(); }
     }
 
     function toggleDateMode() {
@@ -3340,6 +3582,683 @@
     }
 
     // END FEEDER VALIDATION PANEL
+
+    // ============================================
+    // MONTHLY PERFORMANCE DASHBOARD
+    // ============================================
+    let mpCurrentTarget = 600;
+    let mpSavedMonths = {};        // key: "2026-05" → full monthly doc
+    let mpActiveMonthKey = null;
+    let mpAssetColsVisible = false;
+    let mpModalData = { aedc:[], bss:[], nysc:[] };  // editing state in modal
+
+    // ---- Firebase CRUD ----
+    async function mpLoadSavedMonths() {
+        if (!firebaseInitialized) return;
+        try {
+            const snap = await database.ref('monthlyPerformance').once('value');
+            mpSavedMonths = snap.val() || {};
+            mpRenderMonthSelector();
+            // If we had an active month, re-render it
+            if (mpActiveMonthKey && mpSavedMonths[mpActiveMonthKey]) {
+                mpDisplayMonth(mpActiveMonthKey);
+            }
+        } catch(e) { console.error('mpLoadSavedMonths:', e); }
+    }
+
+    async function mpSaveToFirebase(monthKey, doc) {
+        if (!firebaseInitialized || !currentUser) { showStatus('Admin login required','error'); return false; }
+        try {
+            updateFirebaseStatus('syncing');
+            await database.ref(`monthlyPerformance/${monthKey}`).set(doc);
+            updateFirebaseStatus('connected');
+            mpSavedMonths[monthKey] = doc;
+            return true;
+        } catch(e) {
+            updateFirebaseStatus('disconnected');
+            showStatus('Save failed: ' + e.message, 'error');
+            return false;
+        }
+    }
+
+    // ---- Month Selector ----
+    function mpRenderMonthSelector() {
+        const container = document.getElementById('mpMonthSelector');
+        if (!container) return;
+        const keys = Object.keys(mpSavedMonths).sort().reverse();
+        if (!keys.length) {
+            container.innerHTML = '<span style="font-size:0.8rem;color:#94a3b8;font-style:italic;">No monthly dashboards saved yet</span>';
+            return;
+        }
+        container.innerHTML = keys.map(k => {
+            const doc = mpSavedMonths[k];
+            const label = mpFormatMonthLabel(k);
+            const isActive = k === mpActiveMonthKey;
+            return `<button onclick="mpDisplayMonth('${k}')"
+                style="padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ${isActive?'#4f46e5':'#c7d2fe'};background:${isActive?'#4f46e5':'white'};color:${isActive?'white':'#4f46e5'};transition:all 0.15s;">
+                📅 ${label}
+            </button>`;
+        }).join('');
+    }
+
+    function mpFormatMonthLabel(key) {
+        // key like "2026-05"
+        const [y,m] = key.split('-');
+        const d = new Date(parseInt(y), parseInt(m)-1, 1);
+        return d.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+    }
+
+    function mpFormatMonthSheetName(key) {
+        return mpFormatMonthLabel(key); // "May 2026"
+    }
+
+    // ---- Display a month ----
+    function mpDisplayMonth(monthKey) {
+        mpActiveMonthKey = monthKey;
+        const doc = mpSavedMonths[monthKey];
+        if (!doc) return;
+
+        // Update target input to reflect this month's saved target
+        const tgt = doc.target || 600;
+
+        // Update badges
+        const viewBadge = document.getElementById('mpViewingBadge');
+        const viewLabel = document.getElementById('mpViewingLabel');
+        const viewMeta  = document.getElementById('mpViewingMeta');
+        if(viewBadge){viewBadge.style.display='flex';}
+        if(viewLabel) viewLabel.textContent = '📅 ' + mpFormatMonthLabel(monthKey);
+        if(viewMeta)  viewMeta.textContent  = `Target: ${tgt} pts/person  ·  Saved: ${doc.savedAt ? new Date(doc.savedAt).toLocaleDateString() : '—'}`;
+
+        // Remark section
+        const remarkSection = document.getElementById('mpRemarkSection');
+        const remarkEdit    = document.getElementById('mpRemarkEdit');
+        const remarkDisplay = document.getElementById('mpRemarkDisplay');
+        if(remarkSection) remarkSection.style.display='block';
+        if(remarkEdit)   { remarkEdit.value = doc.remark || ''; }
+        if(remarkDisplay){
+            if(!isAdminMode) {
+                remarkDisplay.style.display = doc.remark ? 'block' : 'none';
+                remarkDisplay.textContent = doc.remark || '';
+                if(remarkEdit) remarkEdit.style.display='none';
+            } else {
+                remarkDisplay.style.display='none';
+                if(remarkEdit) remarkEdit.style.display='block';
+            }
+        }
+
+        // Dashboard area
+        document.getElementById('mpDashboardArea').style.display='block';
+        document.getElementById('mpEmptyState').style.display='none';
+
+        // Render tables for each group
+        ['aedc','bss','nysc'].forEach(g => {
+            mpRenderGroupTable(g, doc[g]||[], tgt, mpAssetColsVisible);
+        });
+
+        mpRenderMonthSelector(); // re-render to highlight active
+    }
+
+    // ---- Render one group table in the view area ----
+    const MP_COLORS = {
+        aedc: { bg:'#eff6ff', border:'#bfdbfe', foot:'#dbeafe' },
+        bss:  { bg:'#f0fdf4', border:'#bbf7d0', foot:'#dcfce7' },
+        nysc: { bg:'#fff7ed', border:'#fed7aa', foot:'#ffedd5' }
+    };
+
+    function mpRenderGroupTable(group, rows, target, showAssets) {
+        const cap = group.charAt(0).toUpperCase()+group.slice(1);
+        const thead = document.getElementById(`mp${cap}Head`);
+        const tbody  = document.getElementById(`mp${cap}Body`);
+        const tfoot  = document.getElementById(`mp${cap}Foot`);
+        if(!thead||!tbody||!tfoot) return;
+        const c = MP_COLORS[group];
+
+        // Build header
+        const assetCols = showAssets ? `
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;display:${showAssets?'':'none'}" class="mp-asset-col">DT/DSS</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">HT</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">Cust</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">LT</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">Issues</th>` : '';
+
+        thead.innerHTML = `<tr style="background:${c.bg};">
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:left;">S/N</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:left;">Full Name</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Feeder</th>
+            ${assetCols}
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Total</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">% Target Met</th>
+        </tr>`;
+
+        if(!rows||!rows.length){
+            tbody.innerHTML=`<tr><td colspan="10" style="border:1px solid ${c.border};padding:10px;text-align:center;color:#9ca3af;font-style:italic;">No data</td></tr>`;
+            tfoot.innerHTML='';
+            return;
+        }
+
+        let totalSum = 0;
+        tbody.innerHTML = rows.map((r,i) => {
+            const total = r.total||0;
+            totalSum += total;
+            const pct = target>0 ? ((total/target)*100).toFixed(1) : '0.0';
+            const pctNum = parseFloat(pct);
+            const pctBg   = pctNum>=100?'#dcfce7':pctNum>=75?'#fef9c3':pctNum>=50?'#fef3c7':'#fee2e2';
+            const pctColor= pctNum>=100?'#166534':pctNum>=75?'#854d0e':pctNum>=50?'#92400e':'#991b1b';
+
+            // Asset cols (editable if admin, view-only if not)
+            const assetEditCols = showAssets ? ['dss','ht','cust','lt','issues'].map(f => {
+                const val = r[f]||0;
+                const cell = isAdminMode
+                    ? `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;" class="mp-asset-col"><span contenteditable="true" style="display:inline-block;min-width:24px;text-align:center;padding:2px 4px;border:1px dashed #a5b4fc;border-radius:4px;background:#f5f3ff;cursor:text;" onblur="mpUpdateRowField('${group}',${i},'${f}',this.textContent.trim())">${val}</span></td>`
+                    : `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;" class="mp-asset-col">${val}</td>`;
+                return cell;
+            }).join('') : '';
+
+            const totalCell = isAdminMode
+                ? `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-weight:700;"><span contenteditable="true" style="display:inline-block;min-width:28px;text-align:center;padding:2px 4px;border:1px dashed #a5b4fc;border-radius:4px;background:#f5f3ff;cursor:text;" onblur="mpUpdateRowTotal('${group}',${i},this.textContent.trim())">${total}</span></td>`
+                : `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-weight:700;">${total}</td>`;
+
+            return `<tr style="background:${i%2===0?c.bg:'#fff'};">
+                <td style="border:1px solid ${c.border};padding:4px 8px;">${i+1}</td>
+                <td style="border:1px solid ${c.border};padding:4px 8px;">${escapeHtml(r.fullname||'')}</td>
+                <td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-size:10px;">
+                    ${r.feeder?`<span style="background:#fef9c3;color:#854d0e;padding:2px 6px;border-radius:5px;font-weight:600;">⚡ ${escapeHtml(r.feeder)}</span>`:'<span style="color:#d1d5db;">—</span>'}
+                </td>
+                ${assetEditCols}
+                ${totalCell}
+                <td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;background:#e5e7eb;border-radius:9999px;height:6px;min-width:40px;max-width:80px;">
+                            <div style="height:6px;border-radius:9999px;background:${pctColor};width:${Math.min(100,pctNum)}%;"></div>
+                        </div>
+                        <span style="background:${pctBg};color:${pctColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap;">${pct}%</span>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        const avgPct = target>0 && rows.length>0 ? ((totalSum/(rows.length*target))*100).toFixed(1) : '0.0';
+        const assetFootCols = showAssets ? ['dss','ht','cust','lt','issues'].map(f => {
+            const s = rows.reduce((a,r)=>a+(r[f]||0),0);
+            return `<td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">${s}</td>`;
+        }).join('') : '';
+
+        tfoot.innerHTML=`<tr style="background:${c.foot};font-weight:600;">
+            <td style="border:1px solid ${c.border};padding:5px 8px;" colspan="3">TOTAL (${rows.length} enumerators)</td>
+            ${assetFootCols}
+            <td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">${totalSum}</td>
+            <td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">
+                <span style="font-weight:700;">${avgPct}%</span> avg
+            </td>
+        </tr>`;
+    }
+
+    // Admin: inline-edit total in view table
+    function mpUpdateRowTotal(group, index, newVal) {
+        if (!isAdminMode || !mpActiveMonthKey) return;
+        const doc = mpSavedMonths[mpActiveMonthKey];
+        if (!doc || !doc[group] || !doc[group][index]) return;
+        const num = parseInt(newVal)||0;
+        doc[group][index].total = num;
+        // Don't auto-save; let user click the save button that appears
+        mpShowPendingSaveBar();
+    }
+
+    function mpUpdateRowField(group, index, field, newVal) {
+        if (!isAdminMode || !mpActiveMonthKey) return;
+        const doc = mpSavedMonths[mpActiveMonthKey];
+        if (!doc || !doc[group] || !doc[group][index]) return;
+        const num = parseInt(newVal)||0;
+        doc[group][index][field] = num;
+        // Recalc total
+        const r = doc[group][index];
+        r.total = (r.dss||0)+(r.ht||0)+(r.cust||0)+(r.lt||0)+(r.issues||0);
+        mpShowPendingSaveBar();
+    }
+
+    function mpShowPendingSaveBar() {
+        let bar = document.getElementById('mpPendingSaveBar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'mpPendingSaveBar';
+            bar.style.cssText = 'position:fixed;bottom:70px;right:16px;z-index:200;background:#1d4ed8;color:white;padding:8px 16px;border-radius:8px;font-size:0.8rem;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+            bar.innerHTML = '⚠️ Unsaved changes &nbsp;<button onclick="mpSaveActiveMonth()" style="background:white;color:#1d4ed8;border:none;padding:4px 10px;border-radius:5px;font-weight:700;cursor:pointer;">Save Now</button>';
+            document.body.appendChild(bar);
+        }
+    }
+
+    async function mpSaveActiveMonth() {
+        if (!mpActiveMonthKey || !mpSavedMonths[mpActiveMonthKey]) return;
+        const doc = mpSavedMonths[mpActiveMonthKey];
+        // Sync remark from edit field
+        const remarkEl = document.getElementById('mpRemarkEdit');
+        if(remarkEl) doc.remark = remarkEl.value.trim();
+        doc.updatedAt = Date.now();
+        const ok = await mpSaveToFirebase(mpActiveMonthKey, doc);
+        if(ok) {
+            showStatus(`Monthly dashboard for ${mpFormatMonthLabel(mpActiveMonthKey)} updated!`, 'success');
+            const bar = document.getElementById('mpPendingSaveBar');
+            if(bar) bar.remove();
+            mpDisplayMonth(mpActiveMonthKey);
+        }
+    }
+
+    // ---- Toggle asset columns ----
+    function mpToggleAssetCols() {
+        mpAssetColsVisible = !mpAssetColsVisible;
+        const btn = document.getElementById('mpToggleColsBtn');
+        if(btn) btn.textContent = mpAssetColsVisible ? '🙈 Hide Asset Breakdown' : '👁 Show Asset Breakdown';
+        if(mpActiveMonthKey && mpSavedMonths[mpActiveMonthKey]) {
+            const doc = mpSavedMonths[mpActiveMonthKey];
+            ['aedc','bss','nysc'].forEach(g => mpRenderGroupTable(g, doc[g]||[], doc.target||600, mpAssetColsVisible));
+        }
+    }
+
+    // ---- Create/Edit Modal ----
+    function mpOpenCreateModal(existingKey) {
+        if (!isAdminMode) return;
+        const modal = document.getElementById('mpCreateModal');
+        if(!modal) return;
+
+        // Default to current month
+        const now = new Date();
+        const monthVal = existingKey || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        document.getElementById('mpModalMonth').value = monthVal;
+        document.getElementById('mpModalTarget').value = (mpSavedMonths[monthVal]?.target) || mpCurrentTarget || 600;
+        document.getElementById('mpModalRemark').value = mpSavedMonths[monthVal]?.remark || '';
+
+        const subtitle = document.getElementById('mpModalSubtitle');
+        if(subtitle) subtitle.textContent = mpSavedMonths[monthVal] ? `Editing: ${mpFormatMonthLabel(monthVal)}` : `New Dashboard`;
+
+        // Set modal edit data from existing saved data if present
+        if(mpSavedMonths[monthVal]) {
+            mpModalData = {
+                aedc: JSON.parse(JSON.stringify(mpSavedMonths[monthVal].aedc||[])),
+                bss:  JSON.parse(JSON.stringify(mpSavedMonths[monthVal].bss||[])),
+                nysc: JSON.parse(JSON.stringify(mpSavedMonths[monthVal].nysc||[]))
+            };
+        } else {
+            mpModalData = {aedc:[],bss:[],nysc:[]};
+        }
+        mpRenderModalTables();
+        modal.classList.remove('hidden');
+    }
+
+    function mpCloseCreateModal() {
+        document.getElementById('mpCreateModal').classList.add('hidden');
+    }
+
+    function mpModalMonthChanged() {
+        const key = document.getElementById('mpModalMonth').value;
+        if(mpSavedMonths[key]) {
+            document.getElementById('mpModalTarget').value = mpSavedMonths[key].target || 600;
+            document.getElementById('mpModalRemark').value = mpSavedMonths[key].remark || '';
+            mpModalData = {
+                aedc: JSON.parse(JSON.stringify(mpSavedMonths[key].aedc||[])),
+                bss:  JSON.parse(JSON.stringify(mpSavedMonths[key].bss||[])),
+                nysc: JSON.parse(JSON.stringify(mpSavedMonths[key].nysc||[]))
+            };
+        } else {
+            document.getElementById('mpModalTarget').value = mpCurrentTarget || 600;
+            document.getElementById('mpModalRemark').value = '';
+            mpModalData = {aedc:[],bss:[],nysc:[]};
+        }
+        const subtitle = document.getElementById('mpModalSubtitle');
+        if(subtitle) subtitle.textContent = mpSavedMonths[key] ? `Editing: ${mpFormatMonthLabel(key)}` : 'New Dashboard';
+        mpRenderModalTables();
+    }
+
+    function mpSourceChanged() {
+        // Nothing visual needed
+    }
+
+    async function mpModalBuildData() {
+        const source = document.querySelector('input[name="mpSource"]:checked')?.value || 'daily';
+        const monthKey = document.getElementById('mpModalMonth').value;
+        if (!monthKey) { showStatus('Please select a month first','warning'); return; }
+        const btn = document.getElementById('mpBuildDataBtn');
+        if(btn) { btn.textContent='⏳ Loading…'; btn.disabled=true; }
+
+        try {
+            if (source === 'daily') {
+                await mpBuildFromDailyDashboards(monthKey);
+            } else if (source === 'range') {
+                mpBuildFromCurrentReport(monthKey);
+            } else {
+                // Manual — ensure each group row from mappings is present
+                mpBuildManualRows();
+            }
+        } finally {
+            if(btn) { btn.textContent='🔄 Load / Refresh Data'; btn.disabled=false; }
+        }
+        mpRenderModalTables();
+    }
+
+    async function mpBuildFromDailyDashboards(monthKey) {
+        // monthKey like "2026-05"
+        const [y,m] = monthKey.split('-');
+        const start = `${y}-${m}-01`;
+        // last day of month
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        const end = `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+
+        // Get all matching daily dashboard keys
+        const keys = Object.keys(savedDashboards).filter(k => {
+            const base = k.includes('_to_') ? k.split('_to_')[0] : k;
+            return base >= start && base <= end;
+        });
+
+        if (!keys.length) {
+            showStatus(`No saved daily dashboards found for ${mpFormatMonthLabel(monthKey)}`,'warning');
+            mpBuildManualRows();
+            return;
+        }
+
+        // Aggregate
+        const agg = {aedc:{},bss:{},nysc:{}};
+        let loaded = 0;
+        for(const dk of keys) {
+            try {
+                const snap = await database.ref(`dashboards/${dk}`).once('value');
+                const raw = snap.val();
+                if(!raw) continue;
+                ['aedc','bss','nysc'].forEach(g=>{
+                    const grpData = raw[g];
+                    if(!grpData) return;
+                    const results = toArray(grpData.results);
+                    results.forEach(r=>{
+                        if(!r.username) return;
+                        const key = r.username;
+                        if(!agg[g][key]) agg[g][key] = {username:r.username,fullname:r.fullname||r.username,dss:0,ht:0,cust:0,lt:0,issues:0,total:0,feeder:''};
+                        agg[g][key].dss    += r.dss||0;
+                        agg[g][key].ht     += r.ht||0;
+                        agg[g][key].cust   += r.cust||0;
+                        agg[g][key].lt     += r.lt||0;
+                        agg[g][key].issues += r.issues||0;
+                        agg[g][key].total  += r.total||0;
+                        // Use most recent feeder
+                        if(r.savedFeeder) agg[g][key].feeder = r.savedFeeder;
+                    });
+                });
+                loaded++;
+            } catch(e){ console.warn('Failed to load', dk, e); }
+        }
+
+        ['aedc','bss','nysc'].forEach(g=>{
+            mpModalData[g] = Object.values(agg[g]).sort((a,b)=>b.total-a.total);
+        });
+        showStatus(`Aggregated data from ${loaded} daily dashboard(s)`, 'success');
+    }
+
+    function mpBuildFromCurrentReport(monthKey) {
+        const [y,m] = monthKey.split('-');
+        const start = `${y}-${m}-01`;
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        const end = `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+        // Validate range matches the month
+        const rStart = reportResults.dateKey||'';
+        const rEnd   = reportResults.endDateKey || rStart;
+        if(!rStart){ showStatus('No date-range report loaded in Data Upload tab','warning'); return; }
+        if(rStart < start || rEnd > end){ showStatus(`Report range (${rStart}→${rEnd}) does not match ${mpFormatMonthLabel(monthKey)}. Use exact full month range.`,'warning'); }
+        ['aedc','bss','nysc'].forEach(g=>{
+            mpModalData[g] = (reportResults[g].results||[]).map(r=>({
+                username:r.username, fullname:r.fullname||r.username,
+                dss:r.dss||0, ht:r.ht||0, cust:r.cust||0, lt:r.lt||0, issues:r.issues||0,
+                total:r.total||0, feeder:r.savedFeeder||''
+            }));
+        });
+        showStatus('Data loaded from current report','success');
+    }
+
+    function mpBuildManualRows() {
+        // Add any mapped enumerators not yet in modal data
+        ['aedc','bss','nysc'].forEach(g=>{
+            const existing = new Set(mpModalData[g].map(r=>r.username));
+            (usernameMappings[g]||new Map()).forEach((fullname,username)=>{
+                if(!existing.has(username)){
+                    mpModalData[g].push({username,fullname,dss:0,ht:0,cust:0,lt:0,issues:0,total:0,feeder:''});
+                }
+            });
+        });
+    }
+
+    function mpRenderModalTables() {
+        ['aedc','bss','nysc'].forEach(g=>{
+            const cap = g.charAt(0).toUpperCase()+g.slice(1);
+            const thead = document.getElementById(`mpEdit${cap}Head`);
+            const tbody  = document.getElementById(`mpEdit${cap}Body`);
+            if(!thead||!tbody) return;
+            const c = MP_COLORS[g];
+            thead.innerHTML=`<tr style="background:${c.bg};">
+                <th style="border:1px solid ${c.border};padding:5px 8px;">#</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;">Full Name</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Feeder</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">DT/DSS</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">HT</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Cust</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">LT</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Issues</th>
+                <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;font-weight:700;">Total</th>
+            </tr>`;
+            tbody.innerHTML = (mpModalData[g]||[]).map((r,i)=>`<tr style="background:${i%2===0?c.bg:'#fff'};">
+                <td style="border:1px solid ${c.border};padding:3px 6px;">${i+1}</td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;font-weight:600;">${escapeHtml(r.fullname||r.username||'')}</td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;">
+                    <input type="text" value="${escapeHtml(r.feeder||'')}" placeholder="feeder" style="width:110px;padding:2px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:10px;" oninput="mpModalData['${g}'][${i}].feeder=this.value">
+                </td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;"><input type="number" value="${r.dss||0}" style="width:52px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;text-align:center;font-size:10px;" oninput="mpModalSetField('${g}',${i},'dss',this.value)"></td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;"><input type="number" value="${r.ht||0}" style="width:52px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;text-align:center;font-size:10px;" oninput="mpModalSetField('${g}',${i},'ht',this.value)"></td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;"><input type="number" value="${r.cust||0}" style="width:52px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;text-align:center;font-size:10px;" oninput="mpModalSetField('${g}',${i},'cust',this.value)"></td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;"><input type="number" value="${r.lt||0}" style="width:52px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;text-align:center;font-size:10px;" oninput="mpModalSetField('${g}',${i},'lt',this.value)"></td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;"><input type="number" value="${r.issues||0}" style="width:52px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;text-align:center;font-size:10px;" oninput="mpModalSetField('${g}',${i},'issues',this.value)"></td>
+                <td style="border:1px solid ${c.border};padding:3px 6px;text-align:center;font-weight:700;">${r.total||0}</td>
+            </tr>`).join('') || `<tr><td colspan="9" style="border:1px solid ${c.border};padding:8px;text-align:center;color:#9ca3af;font-style:italic;">No data — click "Load / Refresh Data"</td></tr>`;
+        });
+    }
+
+    function mpModalSetField(group, index, field, val) {
+        const num = parseInt(val)||0;
+        mpModalData[group][index][field] = num;
+        // Recalc total
+        const r = mpModalData[group][index];
+        r.total = (r.dss||0)+(r.ht||0)+(r.cust||0)+(r.lt||0)+(r.issues||0);
+        // Update total cell in table
+        const tbody = document.getElementById(`mpEdit${group.charAt(0).toUpperCase()+group.slice(1)}Body`);
+        if(tbody){
+            const rows = tbody.querySelectorAll('tr');
+            if(rows[index]) {
+                const lastTd = rows[index].querySelectorAll('td');
+                if(lastTd.length) lastTd[lastTd.length-1].textContent = r.total;
+            }
+        }
+    }
+
+    async function mpSaveMonthlyDashboard() {
+        const monthKey = document.getElementById('mpModalMonth').value;
+        if(!monthKey){ showStatus('Please select a month','error'); return; }
+        const target   = parseInt(document.getElementById('mpModalTarget').value)||600;
+        const remark   = document.getElementById('mpModalRemark').value.trim();
+
+        // Collect final values from modal inputs
+        ['aedc','bss','nysc'].forEach(g=>{
+            const cap = g.charAt(0).toUpperCase()+g.slice(1);
+            const tbody = document.getElementById(`mpEdit${cap}Body`);
+            if(!tbody) return;
+            tbody.querySelectorAll('tr').forEach((row,i)=>{
+                if(!mpModalData[g][i]) return;
+                const inputs = row.querySelectorAll('input');
+                // inputs: feeder(0), dss(1), ht(2), cust(3), lt(4), issues(5)
+                if(inputs[0]) mpModalData[g][i].feeder = inputs[0].value.trim();
+                ['dss','ht','cust','lt','issues'].forEach((f,fi)=>{
+                    if(inputs[fi+1]) mpModalData[g][i][f] = parseInt(inputs[fi+1].value)||0;
+                });
+                const r = mpModalData[g][i];
+                r.total = (r.dss||0)+(r.ht||0)+(r.cust||0)+(r.lt||0)+(r.issues||0);
+            });
+        });
+
+        const doc = {
+            monthKey,
+            target,
+            remark,
+            aedc:  mpModalData.aedc,
+            bss:   mpModalData.bss,
+            nysc:  mpModalData.nysc,
+            savedAt:  Date.now(),
+            savedBy:  currentUser?.email||'admin'
+        };
+
+        const ok = await mpSaveToFirebase(monthKey, doc);
+        if(ok){
+            showStatus(`Monthly dashboard for ${mpFormatMonthLabel(monthKey)} saved!`, 'success');
+            mpCloseCreateModal();
+            mpRenderMonthSelector();
+            mpDisplayMonth(monthKey);
+        }
+    }
+
+    // ---- Import from Excel ----
+    function mpImportFromExcel() {
+        document.getElementById('mpImportFile').click();
+    }
+
+    function mpHandleImport(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async e => {
+            try {
+                const wb = XLSX.read(e.target.result, {type:'binary'});
+                // Detect month from sheet name or filename
+                // Expected sheet names: "May 2026" etc
+                let imported = 0;
+                for(const sheetName of wb.SheetNames) {
+                    // Parse month label like "May 2026"
+                    const d = new Date(sheetName);
+                    if(isNaN(d.getTime())) continue;
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                    const ws = wb.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(ws);
+                    if(!rows.length) continue;
+
+                    // Parse rows: expected columns: Group, Full Name, DT/DSS, HT, Cust, LT, Issues, Total, Feeder
+                    const grpData = {aedc:[],bss:[],nysc:[]};
+                    rows.forEach(r=>{
+                        const grpRaw = (r['Group']||r['group']||'').toLowerCase();
+                        const g = grpRaw.includes('aedc')?'aedc':grpRaw.includes('bss')?'bss':grpRaw.includes('nysc')?'nysc':null;
+                        if(!g) return;
+                        grpData[g].push({
+                            username: r['Username']||r['username']||'',
+                            fullname: r['Full Name']||r['full_name']||r['Name']||'',
+                            dss:     parseInt(r['DT/DSS']||r['dss'])||0,
+                            ht:      parseInt(r['HT']||r['ht'])||0,
+                            cust:    parseInt(r['Cust']||r['cust']||r['Customer'])||0,
+                            lt:      parseInt(r['LT']||r['lt'])||0,
+                            issues:  parseInt(r['Issues']||r['issues'])||0,
+                            total:   parseInt(r['Total']||r['total'])||0,
+                            feeder:  r['Feeder']||r['feeder']||''
+                        });
+                    });
+
+                    const target = parseInt(rows[0]?.['Target']||rows[0]?.['target'])||600;
+                    const doc = { monthKey, target, aedc:grpData.aedc, bss:grpData.bss, nysc:grpData.nysc, savedAt:Date.now(), savedBy:currentUser?.email||'admin', remark:'' };
+                    const ok = await mpSaveToFirebase(monthKey, doc);
+                    if(ok) imported++;
+                }
+                if(imported>0){
+                    showStatus(`Imported ${imported} monthly dashboard(s)`, 'success');
+                    mpRenderMonthSelector();
+                } else {
+                    showStatus('No valid monthly sheets found. Expected sheet names like "May 2026"', 'warning');
+                }
+            } catch(e) { showStatus('Import failed: '+e.message,'error'); }
+            input.value='';
+        };
+        reader.readAsBinaryString(file);
+    }
+
+    // ---- Export: single month ----
+    function mpExportSelectedMonth() {
+        if(!mpActiveMonthKey||!mpSavedMonths[mpActiveMonthKey]){
+            showStatus('Please select a month first','warning'); return;
+        }
+        const wb = XLSX.utils.book_new();
+        mpAppendMonthSheet(wb, mpActiveMonthKey, mpSavedMonths[mpActiveMonthKey]);
+        XLSX.writeFile(wb, `Monthly_Performance_${mpFormatMonthSheetName(mpActiveMonthKey)}.xlsx`);
+        showStatus('Exported!','success');
+    }
+
+    // ---- Export: multi-month selector ----
+    function mpExportMultipleMonths() {
+        const keys = Object.keys(mpSavedMonths).sort();
+        if(!keys.length){ showStatus('No monthly dashboards saved yet','warning'); return; }
+        const list = document.getElementById('mpMultiExportList');
+        if(list) {
+            list.innerHTML = keys.map(k=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f1f5f9;cursor:pointer;">
+                    <input type="checkbox" class="mp-multi-check" value="${k}" style="width:16px;height:16px;">
+                    <span style="font-size:0.85rem;font-weight:600;color:#374151;">${mpFormatMonthLabel(k)}</span>
+                    <span style="font-size:0.75rem;color:#64748b;margin-left:auto;">Target: ${mpSavedMonths[k].target||600}</span>
+                </label>`).join('');
+        }
+        document.getElementById('mpMultiExportModal').classList.remove('hidden');
+    }
+
+    function mpDoMultiExport() {
+        const checked = [...document.querySelectorAll('.mp-multi-check:checked')].map(c=>c.value);
+        if(!checked.length){ showStatus('Select at least one month','warning'); return; }
+        const wb = XLSX.utils.book_new();
+        checked.sort().forEach(k=>{
+            if(mpSavedMonths[k]) mpAppendMonthSheet(wb, k, mpSavedMonths[k]);
+        });
+        XLSX.writeFile(wb, `Monthly_Performance_Export_${checked.length}months.xlsx`);
+        document.getElementById('mpMultiExportModal').classList.add('hidden');
+        showStatus(`Exported ${checked.length} month(s) to one workbook`, 'success');
+    }
+
+    function mpAppendMonthSheet(wb, monthKey, doc) {
+        const label  = mpFormatMonthSheetName(monthKey); // e.g. "May 2026"
+        const target = doc.target || 600;
+        const rows = [];
+        // Header info rows
+        rows.push({'Group':'Monthly Performance Dashboard - '+label});
+        rows.push({'Group':`Target: ${target} pts/person`});
+        rows.push({});
+
+        ['aedc','bss','nysc'].forEach(g=>{
+            const grpLabel = g.toUpperCase()+' Enumerators';
+            rows.push({'Group':grpLabel,'Full Name':'','Feeder':'','DT/DSS':'','HT':'','Cust':'','LT':'','Issues':'','Total':'','% Target Met':''});
+            (doc[g]||[]).forEach((r,i)=>{
+                const pct = target>0?((r.total||0)/target*100).toFixed(1)+'%':'0.0%';
+                rows.push({
+                    'Group':g.toUpperCase(),
+                    'S/N':i+1,
+                    'Full Name':r.fullname||r.username||'',
+                    'Feeder':r.feeder||'',
+                    'DT/DSS':r.dss||0,
+                    'HT':r.ht||0,
+                    'Cust':r.cust||0,
+                    'LT':r.lt||0,
+                    'Issues':r.issues||0,
+                    'Total':r.total||0,
+                    '% Target Met':pct
+                });
+            });
+            // Group total row
+            const sum = (doc[g]||[]).reduce((a,r)=>a+(r.total||0),0);
+            rows.push({'Group':'','Full Name':'GROUP TOTAL','Feeder':'','DT/DSS':'','HT':'','Cust':'','LT':'','Issues':'','Total':sum,'% Target Met':target>0?(sum/((doc[g]||[]).length||1)/target*100).toFixed(1)+'%':''});
+            rows.push({});
+        });
+
+        if(doc.remark) { rows.push({}); rows.push({'Group':'Remarks:','Full Name':doc.remark}); }
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        // Truncate sheet name to 31 chars (Excel limit)
+        const safeLabel = label.substring(0,31);
+        XLSX.utils.book_append_sheet(wb, ws, safeLabel);
+    }
+
+    // END MONTHLY PERFORMANCE DASHBOARD
     </script>
 </body>
 </html>
