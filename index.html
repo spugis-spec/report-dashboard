@@ -3832,7 +3832,12 @@
 
         // ---- Build header ----
         const monthTotalCols = isMulti
-            ? monthKeys.map(mk => `<th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;background:#f0f4ff;white-space:nowrap;">${mpFormatMonthLabel(mk).split(' ')[0]} Total</th>`).join('')
+            ? monthKeys.map(mk => {
+                const [y,m] = mk.split('-');
+                const d = new Date(parseInt(y), parseInt(m)-1, 1);
+                const shortLabel = d.toLocaleDateString('en-US', {month:'short', year:'numeric'}); // e.g. "May 2026"
+                return `<th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;background:#f0f4ff;white-space:nowrap;">${shortLabel} Total</th>`;
+            }).join('')
             : '';
 
         const assetCols = showAssets ? `
