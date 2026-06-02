@@ -901,9 +901,15 @@
                     </div>
                     <!-- Month Navigator -->
                     <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-                        <h3 style="font-size:0.95rem;font-weight:700;color:#1e293b;margin:0 0 10px;display:flex;align-items:center;gap:6px;">🗓️ Saved Monthly Dashboards</h3>
-                        <div id="mpMonthSelector" style="display:flex;flex-wrap:wrap;gap:6px;max-height:80px;overflow-y:auto;">
+                        <h3 style="font-size:0.95rem;font-weight:700;color:#1e293b;margin:0 0 6px;display:flex;align-items:center;gap:6px;">🗓️ Saved Monthly Dashboards</h3>
+                        <p style="font-size:0.72rem;color:#64748b;margin:0 0 10px;">Select one or multiple months to display together</p>
+                        <div id="mpMonthSelector" style="display:flex;flex-wrap:wrap;gap:6px;max-height:100px;overflow-y:auto;">
                             <span style="font-size:0.8rem;color:#94a3b8;font-style:italic;">No monthly dashboards saved yet</span>
+                        </div>
+                        <div id="mpMultiMonthActions" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;gap:6px;flex-wrap:wrap;align-items:center;">
+                            <button onclick="mpViewSelectedMonths()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:0.75rem;cursor:pointer;">📊 View Selected</button>
+                            <button onclick="mpClearMonthSelection()" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;padding:6px 12px;border-radius:6px;font-weight:600;font-size:0.75rem;cursor:pointer;">✕ Clear</button>
+                            <span id="mpSelectedMonthsCount" style="font-size:0.72rem;color:#6366f1;font-weight:700;"></span>
                         </div>
                     </div>
                 </div>
@@ -935,7 +941,7 @@
                 </div>
 
                 <!-- Currently Viewing Indicator -->
-                <div id="mpViewingBadge" style="display:none;margin-bottom:14px;padding:10px 16px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <div id="mpViewingBadge" style="display:none;margin-bottom:14px;padding:10px 16px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                     <span style="font-weight:700;color:#4f46e5;font-size:0.9rem;" id="mpViewingLabel">📅 —</span>
                     <span style="font-size:0.75rem;color:#6366f1;" id="mpViewingMeta"></span>
                 </div>
@@ -3601,7 +3607,7 @@
             mpRenderMonthSelector();
             // If we had an active month, re-render it
             if (mpActiveMonthKey && mpSavedMonths[mpActiveMonthKey]) {
-                mpDisplayMonth(mpActiveMonthKey);
+                mpDisplaySelectedMonths();
             }
         } catch(e) { console.error('mpLoadSavedMonths:', e); }
     }
@@ -3621,25 +3627,8 @@
         }
     }
 
-    // ---- Month Selector ----
-    function mpRenderMonthSelector() {
-        const container = document.getElementById('mpMonthSelector');
-        if (!container) return;
-        const keys = Object.keys(mpSavedMonths).sort().reverse();
-        if (!keys.length) {
-            container.innerHTML = '<span style="font-size:0.8rem;color:#94a3b8;font-style:italic;">No monthly dashboards saved yet</span>';
-            return;
-        }
-        container.innerHTML = keys.map(k => {
-            const doc = mpSavedMonths[k];
-            const label = mpFormatMonthLabel(k);
-            const isActive = k === mpActiveMonthKey;
-            return `<button onclick="mpDisplayMonth('${k}')"
-                style="padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ${isActive?'#4f46e5':'#c7d2fe'};background:${isActive?'#4f46e5':'white'};color:${isActive?'white':'#4f46e5'};transition:all 0.15s;">
-                📅 ${label}
-            </button>`;
-        }).join('');
-    }
+    // ---- Month Selector (multi-select) ----
+    let mpSelectedMonths = new Set(); // set of month keys currently selected
 
     function mpFormatMonthLabel(key) {
         // key like "2026-05"
@@ -3652,120 +3641,253 @@
         return mpFormatMonthLabel(key); // "May 2026"
     }
 
-    // ---- Display a month ----
+    function mpRenderMonthSelector() {
+        const container = document.getElementById('mpMonthSelector');
+        if (!container) return;
+        const keys = Object.keys(mpSavedMonths).sort().reverse();
+        if (!keys.length) {
+            container.innerHTML = '<span style="font-size:0.8rem;color:#94a3b8;font-style:italic;">No monthly dashboards saved yet</span>';
+            document.getElementById('mpMultiMonthActions').style.display='none';
+            return;
+        }
+        container.innerHTML = keys.map(k => {
+            const doc = mpSavedMonths[k];
+            const label = mpFormatMonthLabel(k);
+            const isSelected = mpSelectedMonths.has(k);
+            return `<button onclick="mpToggleMonthSelection('${k}')"
+                style="padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ${isSelected?'#4f46e5':'#c7d2fe'};background:${isSelected?'#4f46e5':'white'};color:${isSelected?'white':'#4f46e5'};transition:all 0.15s;display:inline-flex;align-items:center;gap:4px;">
+                ${isSelected?'✓ ':''}<span>📅 ${label}</span>
+            </button>`;
+        }).join('');
+
+        const actionsEl = document.getElementById('mpMultiMonthActions');
+        if (actionsEl) actionsEl.style.display = keys.length ? 'flex' : 'none';
+        const countEl = document.getElementById('mpSelectedMonthsCount');
+        if (countEl) countEl.textContent = mpSelectedMonths.size ? `${mpSelectedMonths.size} month${mpSelectedMonths.size>1?'s':''} selected` : '';
+    }
+
+    function mpToggleMonthSelection(key) {
+        if (mpSelectedMonths.has(key)) {
+            mpSelectedMonths.delete(key);
+        } else {
+            mpSelectedMonths.add(key);
+        }
+        mpRenderMonthSelector();
+        // If only one selected, auto-display it; if multiple, user clicks "View Selected"
+        if (mpSelectedMonths.size === 1) {
+            mpActiveMonthKey = key;
+            mpDisplaySelectedMonths();
+        } else if (mpSelectedMonths.size === 0) {
+            // hide dashboard
+            document.getElementById('mpDashboardArea').style.display='none';
+            document.getElementById('mpEmptyState').style.display='block';
+            const vb = document.getElementById('mpViewingBadge'); if(vb) vb.style.display='none';
+            const rs = document.getElementById('mpRemarkSection'); if(rs) rs.style.display='none';
+        }
+    }
+
+    function mpViewSelectedMonths() {
+        if (mpSelectedMonths.size === 0) { showStatus('Select at least one month','warning'); return; }
+        mpDisplaySelectedMonths();
+    }
+
+    function mpClearMonthSelection() {
+        mpSelectedMonths.clear();
+        mpActiveMonthKey = null;
+        mpRenderMonthSelector();
+        document.getElementById('mpDashboardArea').style.display='none';
+        document.getElementById('mpEmptyState').style.display='block';
+        const vb = document.getElementById('mpViewingBadge'); if(vb) vb.style.display='none';
+        const rs = document.getElementById('mpRemarkSection'); if(rs) rs.style.display='none';
+    }
+
+    // Legacy single-month display (kept for compatibility; redirects to multi)
     function mpDisplayMonth(monthKey) {
+        mpSelectedMonths.clear();
+        mpSelectedMonths.add(monthKey);
         mpActiveMonthKey = monthKey;
-        const doc = mpSavedMonths[monthKey];
-        if (!doc) return;
+        mpRenderMonthSelector();
+        mpDisplaySelectedMonths();
+    }
 
-        // Update target input to reflect this month's saved target
-        const tgt = doc.target || 600;
+    // ---- Display one or multiple months ----
+    function mpDisplaySelectedMonths() {
+        const keys = [...mpSelectedMonths].filter(k => mpSavedMonths[k]).sort();
+        if (!keys.length) return;
+        const isMulti = keys.length > 1;
 
-        // Update badges
+        // Update badge
         const viewBadge = document.getElementById('mpViewingBadge');
         const viewLabel = document.getElementById('mpViewingLabel');
         const viewMeta  = document.getElementById('mpViewingMeta');
-        if(viewBadge){viewBadge.style.display='flex';}
-        if(viewLabel) viewLabel.textContent = '📅 ' + mpFormatMonthLabel(monthKey);
-        if(viewMeta)  viewMeta.textContent  = `Target: ${tgt} pts/person  ·  Saved: ${doc.savedAt ? new Date(doc.savedAt).toLocaleDateString() : '—'}`;
-
-        // Remark section
-        const remarkSection = document.getElementById('mpRemarkSection');
-        const remarkEdit    = document.getElementById('mpRemarkEdit');
-        const remarkDisplay = document.getElementById('mpRemarkDisplay');
-        if(remarkSection) remarkSection.style.display='block';
-        if(remarkEdit)   { remarkEdit.value = doc.remark || ''; }
-        if(remarkDisplay){
-            if(!isAdminMode) {
-                remarkDisplay.style.display = doc.remark ? 'block' : 'none';
-                remarkDisplay.textContent = doc.remark || '';
-                if(remarkEdit) remarkEdit.style.display='none';
+        if (viewBadge) { viewBadge.style.display = 'flex'; }
+        if (viewLabel) {
+            viewLabel.textContent = isMulti
+                ? '📅 ' + keys.map(k => mpFormatMonthLabel(k)).join(', ')
+                : '📅 ' + mpFormatMonthLabel(keys[0]);
+        }
+        if (viewMeta) {
+            if (isMulti) {
+                viewMeta.textContent = `${keys.length} months selected — aggregate view`;
             } else {
-                remarkDisplay.style.display='none';
-                if(remarkEdit) remarkEdit.style.display='block';
+                const doc = mpSavedMonths[keys[0]];
+                viewMeta.textContent = `Target: ${doc.target||600} pts/person  ·  Saved: ${doc.savedAt ? new Date(doc.savedAt).toLocaleDateString() : '—'}`;
             }
         }
 
-        // Dashboard area
-        document.getElementById('mpDashboardArea').style.display='block';
-        document.getElementById('mpEmptyState').style.display='none';
+        // Remark section — show only for single month
+        const remarkSection = document.getElementById('mpRemarkSection');
+        const remarkEdit    = document.getElementById('mpRemarkEdit');
+        const remarkDisplay = document.getElementById('mpRemarkDisplay');
+        if (!isMulti && remarkSection) {
+            const doc = mpSavedMonths[keys[0]];
+            remarkSection.style.display = 'block';
+            if (remarkEdit)    { remarkEdit.value = doc.remark || ''; }
+            if (remarkDisplay) {
+                if (!isAdminMode) {
+                    remarkDisplay.style.display = doc.remark ? 'block' : 'none';
+                    remarkDisplay.textContent = doc.remark || '';
+                    if (remarkEdit) remarkEdit.style.display = 'none';
+                } else {
+                    remarkDisplay.style.display = 'none';
+                    if (remarkEdit) remarkEdit.style.display = 'block';
+                }
+            }
+        } else if (remarkSection) {
+            remarkSection.style.display = 'none';
+        }
 
-        // Render tables for each group
+        document.getElementById('mpDashboardArea').style.display = 'block';
+        document.getElementById('mpEmptyState').style.display = 'none';
+
+        // Render tables — pass all keys
         ['aedc','bss','nysc'].forEach(g => {
-            mpRenderGroupTable(g, doc[g]||[], tgt, mpAssetColsVisible);
+            mpRenderGroupTable(g, keys, mpAssetColsVisible);
         });
-
-        mpRenderMonthSelector(); // re-render to highlight active
     }
 
-    // ---- Render one group table in the view area ----
+    // ---- Render one group table in the view area (supports multiple months) ----
     const MP_COLORS = {
         aedc: { bg:'#eff6ff', border:'#bfdbfe', foot:'#dbeafe' },
         bss:  { bg:'#f0fdf4', border:'#bbf7d0', foot:'#dcfce7' },
         nysc: { bg:'#fff7ed', border:'#fed7aa', foot:'#ffedd5' }
     };
 
-    function mpRenderGroupTable(group, rows, target, showAssets) {
+    function mpRenderGroupTable(group, monthKeys, showAssets) {
+        // monthKeys is an array of month key strings
+        if (!Array.isArray(monthKeys)) monthKeys = [monthKeys];
+        const isMulti = monthKeys.length > 1;
+
         const cap = group.charAt(0).toUpperCase()+group.slice(1);
         const thead = document.getElementById(`mp${cap}Head`);
         const tbody  = document.getElementById(`mp${cap}Body`);
         const tfoot  = document.getElementById(`mp${cap}Foot`);
-        if(!thead||!tbody||!tfoot) return;
+        if (!thead||!tbody||!tfoot) return;
         const c = MP_COLORS[group];
 
-        // Build header
+        // Collect all docs
+        const docs = monthKeys.map(k => mpSavedMonths[k]).filter(Boolean);
+        if (!docs.length) {
+            tbody.innerHTML = `<tr><td colspan="20" style="border:1px solid ${c.border};padding:10px;text-align:center;color:#9ca3af;font-style:italic;">No data</td></tr>`;
+            tfoot.innerHTML = '';
+            return;
+        }
+
+        // Use first doc's target for single; for multi use average or first
+        const targets = docs.map(d => d.target||600);
+        const aggregateTarget = targets[0]; // we use per-month target for % calc individually; aggregate % = sum(totals) / (n_people * sum(targets))
+
+        // Build the full person list — union of names across months
+        // For multi-month, build a map: fullname (lowercased) → { fullname, monthTotals: {key: total}, assetSums }
+        const personMap = {}; // key: fullname_lower → data
+
+        docs.forEach((doc, di) => {
+            const mk = monthKeys[di];
+            (doc[group]||[]).forEach(r => {
+                const nameKey = (r.fullname||r.username||'').toLowerCase().trim();
+                if (!nameKey) return;
+                if (!personMap[nameKey]) {
+                    personMap[nameKey] = {
+                        fullname: r.fullname||r.username||'',
+                        monthTotals: {},
+                        assetSums: { dss:0, ht:0, cust:0, lt:0, issues:0 }
+                    };
+                }
+                personMap[nameKey].monthTotals[mk] = (personMap[nameKey].monthTotals[mk]||0) + (r.total||0);
+                personMap[nameKey].assetSums.dss     += r.dss||0;
+                personMap[nameKey].assetSums.ht      += r.ht||0;
+                personMap[nameKey].assetSums.cust    += r.cust||0;
+                personMap[nameKey].assetSums.lt      += r.lt||0;
+                personMap[nameKey].assetSums.issues  += r.issues||0;
+            });
+        });
+
+        const rows = Object.values(personMap);
+
+        if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="20" style="border:1px solid ${c.border};padding:10px;text-align:center;color:#9ca3af;font-style:italic;">No data</td></tr>`;
+            tfoot.innerHTML = '';
+            return;
+        }
+
+        // ---- Build header ----
+        const monthTotalCols = isMulti
+            ? monthKeys.map(mk => `<th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;background:#f0f4ff;white-space:nowrap;">${mpFormatMonthLabel(mk).split(' ')[0]} Total</th>`).join('')
+            : '';
+
         const assetCols = showAssets ? `
-            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;display:${showAssets?'':'none'}" class="mp-asset-col">DT/DSS</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">DT/DSS</th>
             <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">HT</th>
             <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">Cust</th>
             <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">LT</th>
             <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">Issues</th>` : '';
 
+        const totalColLabel = isMulti ? 'Total (Agg.)' : 'Total';
+        const pctColLabel   = isMulti ? '% Target Met (Aggregate)' : '% Target Met';
+
         thead.innerHTML = `<tr style="background:${c.bg};">
             <th style="border:1px solid ${c.border};padding:5px 8px;text-align:left;">S/N</th>
-            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:left;">Full Name</th>
-            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Feeder</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:left;font-size:13px;font-weight:800;">Full Name</th>
+            ${monthTotalCols}
             ${assetCols}
-            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">Total</th>
-            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">% Target Met</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">${totalColLabel}</th>
+            <th style="border:1px solid ${c.border};padding:5px 8px;text-align:center;white-space:nowrap;">${pctColLabel}</th>
         </tr>`;
 
-        if(!rows||!rows.length){
-            tbody.innerHTML=`<tr><td colspan="10" style="border:1px solid ${c.border};padding:10px;text-align:center;color:#9ca3af;font-style:italic;">No data</td></tr>`;
-            tfoot.innerHTML='';
-            return;
-        }
+        // ---- Build body ----
+        // For aggregate % target: use sum of monthly targets as the aggregate target per person
+        const aggregateTotalTarget = targets.reduce((a,b)=>a+b,0);
 
-        let totalSum = 0;
-        tbody.innerHTML = rows.map((r,i) => {
-            const total = r.total||0;
-            totalSum += total;
-            const pct = target>0 ? ((total/target)*100).toFixed(1) : '0.0';
+        let grandTotal = 0;
+        tbody.innerHTML = rows.map((row, i) => {
+            const aggTotal = Object.values(row.monthTotals).reduce((a,b)=>a+b,0);
+            grandTotal += aggTotal;
+
+            // Per-month total cells
+            const perMonthCells = isMulti
+                ? monthKeys.map(mk => {
+                    const t = row.monthTotals[mk]||0;
+                    return `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;background:#f8f9ff;font-weight:600;">${t}</td>`;
+                }).join('')
+                : '';
+
+            // % based on aggregate target (sum of all selected months' targets)
+            const pct = aggregateTotalTarget > 0 ? ((aggTotal / aggregateTotalTarget)*100).toFixed(1) : '0.0';
             const pctNum = parseFloat(pct);
-            const pctBg   = pctNum>=100?'#dcfce7':pctNum>=75?'#fef9c3':pctNum>=50?'#fef3c7':'#fee2e2';
-            const pctColor= pctNum>=100?'#166534':pctNum>=75?'#854d0e':pctNum>=50?'#92400e':'#991b1b';
+            const pctBg    = pctNum>=100?'#dcfce7':pctNum>=75?'#fef9c3':pctNum>=50?'#fef3c7':'#fee2e2';
+            const pctColor = pctNum>=100?'#166534':pctNum>=75?'#854d0e':pctNum>=50?'#92400e':'#991b1b';
 
-            // Asset cols (editable if admin, view-only if not)
             const assetEditCols = showAssets ? ['dss','ht','cust','lt','issues'].map(f => {
-                const val = r[f]||0;
-                const cell = isAdminMode
-                    ? `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;" class="mp-asset-col"><span contenteditable="true" style="display:inline-block;min-width:24px;text-align:center;padding:2px 4px;border:1px dashed #a5b4fc;border-radius:4px;background:#f5f3ff;cursor:text;" onblur="mpUpdateRowField('${group}',${i},'${f}',this.textContent.trim())">${val}</span></td>`
-                    : `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;" class="mp-asset-col">${val}</td>`;
-                return cell;
+                const val = row.assetSums[f]||0;
+                return `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;" class="mp-asset-col">${val}</td>`;
             }).join('') : '';
-
-            const totalCell = isAdminMode
-                ? `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-weight:700;"><span contenteditable="true" style="display:inline-block;min-width:28px;text-align:center;padding:2px 4px;border:1px dashed #a5b4fc;border-radius:4px;background:#f5f3ff;cursor:text;" onblur="mpUpdateRowTotal('${group}',${i},this.textContent.trim())">${total}</span></td>`
-                : `<td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-weight:700;">${total}</td>`;
 
             return `<tr style="background:${i%2===0?c.bg:'#fff'};">
                 <td style="border:1px solid ${c.border};padding:4px 8px;">${i+1}</td>
-                <td style="border:1px solid ${c.border};padding:4px 8px;">${escapeHtml(r.fullname||'')}</td>
-                <td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-size:10px;">
-                    ${r.feeder?`<span style="background:#fef9c3;color:#854d0e;padding:2px 6px;border-radius:5px;font-weight:600;">⚡ ${escapeHtml(r.feeder)}</span>`:'<span style="color:#d1d5db;">—</span>'}
-                </td>
+                <td style="border:1px solid ${c.border};padding:4px 10px;font-size:13px;font-weight:700;color:#1e293b;">${escapeHtml(row.fullname)}</td>
+                ${perMonthCells}
                 ${assetEditCols}
-                ${totalCell}
+                <td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;font-weight:700;">${aggTotal}</td>
                 <td style="border:1px solid ${c.border};padding:4px 8px;text-align:center;">
                     <div style="display:flex;align-items:center;gap:6px;">
                         <div style="flex:1;background:#e5e7eb;border-radius:9999px;height:6px;min-width:40px;max-width:80px;">
@@ -3777,23 +3899,34 @@
             </tr>`;
         }).join('');
 
-        const avgPct = target>0 && rows.length>0 ? ((totalSum/(rows.length*target))*100).toFixed(1) : '0.0';
+        // ---- Footer ----
+        const grandPct = aggregateTotalTarget>0 && rows.length>0
+            ? ((grandTotal/(rows.length*aggregateTotalTarget))*100).toFixed(1) : '0.0';
+
+        const perMonthFootCells = isMulti
+            ? monthKeys.map(mk => {
+                const s = rows.reduce((a,r)=>a+(r.monthTotals[mk]||0),0);
+                return `<td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;background:#e8eeff;font-weight:700;">${s}</td>`;
+            }).join('')
+            : '';
+
         const assetFootCols = showAssets ? ['dss','ht','cust','lt','issues'].map(f => {
-            const s = rows.reduce((a,r)=>a+(r[f]||0),0);
+            const s = rows.reduce((a,r)=>a+(r.assetSums[f]||0),0);
             return `<td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;" class="mp-asset-col">${s}</td>`;
         }).join('') : '';
 
         tfoot.innerHTML=`<tr style="background:${c.foot};font-weight:600;">
-            <td style="border:1px solid ${c.border};padding:5px 8px;" colspan="3">TOTAL (${rows.length} enumerators)</td>
+            <td style="border:1px solid ${c.border};padding:5px 8px;" colspan="2">TOTAL (${rows.length} enumerators)</td>
+            ${perMonthFootCells}
             ${assetFootCols}
-            <td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">${totalSum}</td>
+            <td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">${grandTotal}</td>
             <td style="border:1px solid ${c.border};padding:5px 8px;text-align:center;">
-                <span style="font-weight:700;">${avgPct}%</span> avg
+                <span style="font-weight:700;">${grandPct}%</span>${isMulti?' agg.':' avg'}
             </td>
         </tr>`;
     }
 
-    // Admin: inline-edit total in view table
+    // Admin: inline-edit total in view table — only works in single-month mode
     function mpUpdateRowTotal(group, index, newVal) {
         if (!isAdminMode || !mpActiveMonthKey) return;
         const doc = mpSavedMonths[mpActiveMonthKey];
@@ -3839,7 +3972,7 @@
             showStatus(`Monthly dashboard for ${mpFormatMonthLabel(mpActiveMonthKey)} updated!`, 'success');
             const bar = document.getElementById('mpPendingSaveBar');
             if(bar) bar.remove();
-            mpDisplayMonth(mpActiveMonthKey);
+            mpDisplaySelectedMonths();
         }
     }
 
@@ -3848,9 +3981,9 @@
         mpAssetColsVisible = !mpAssetColsVisible;
         const btn = document.getElementById('mpToggleColsBtn');
         if(btn) btn.textContent = mpAssetColsVisible ? '🙈 Hide Asset Breakdown' : '👁 Show Asset Breakdown';
-        if(mpActiveMonthKey && mpSavedMonths[mpActiveMonthKey]) {
-            const doc = mpSavedMonths[mpActiveMonthKey];
-            ['aedc','bss','nysc'].forEach(g => mpRenderGroupTable(g, doc[g]||[], doc.target||600, mpAssetColsVisible));
+        const keys = [...mpSelectedMonths].filter(k => mpSavedMonths[k]).sort();
+        if (keys.length) {
+            ['aedc','bss','nysc'].forEach(g => mpRenderGroupTable(g, keys, mpAssetColsVisible));
         }
     }
 
@@ -4112,8 +4245,11 @@
         if(ok){
             showStatus(`Monthly dashboard for ${mpFormatMonthLabel(monthKey)} saved!`, 'success');
             mpCloseCreateModal();
+            mpSelectedMonths.clear();
+            mpSelectedMonths.add(monthKey);
+            mpActiveMonthKey = monthKey;
             mpRenderMonthSelector();
-            mpDisplayMonth(monthKey);
+            mpDisplaySelectedMonths();
         }
     }
 
