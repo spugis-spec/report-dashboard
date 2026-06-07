@@ -638,6 +638,51 @@
 
         </div>
 
+        <!-- ==================== UNAUTHORIZED MAPPING ALERT ==================== -->
+        <div id="unauthorizedMappingAlert" style="display:none;" class="mt-6">
+            <div style="background:#fff1f2;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(220,38,38,0.12);">
+                <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.5rem;">⚠️</span>
+                        <div>
+                            <div style="color:white;font-weight:700;font-size:0.95rem;">Unauthorized Mapping Detected</div>
+                            <div style="color:#fecaca;font-size:0.75rem;">Staff who captured feeders outside the assigned exercise</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button onclick="toggleUnauthorizedPanel()" id="unauthToggleBtn" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;">🔼 Collapse</button>
+                        <button onclick="copyUnauthorizedAlert()" style="background:#fff;color:#dc2626;border:none;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;">📋 Copy Alert</button>
+                    </div>
+                </div>
+                <div id="unauthBody" style="padding:16px 20px;">
+                    <!-- Auto-generated alert text for WhatsApp -->
+                    <div id="unauthAlertText" style="background:#fff;border:1.5px solid #fca5a5;border-radius:8px;padding:14px;margin-bottom:14px;font-size:0.85rem;line-height:1.7;color:#1f2937;white-space:pre-wrap;font-family:'DM Sans',sans-serif;"></div>
+
+                    <!-- Unauthorized Mapping Table -->
+                    <div style="overflow-x:auto;border-radius:8px;border:1px solid #fca5a5;">
+                        <table style="width:100%;border-collapse:collapse;font-size:11px;" id="unauthTable">
+                            <thead>
+                                <tr style="background:#fee2e2;color:#991b1b;">
+                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">#</th>
+                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Staff Name</th>
+                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Group</th>
+                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Assigned Feeder</th>
+                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Unauthorized Feeder Captured</th>
+                                    <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #fca5a5;">Pole Count</th>
+                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Structure No(s)</th>
+                                    <th class="admin-only" style="padding:8px 10px;text-align:center;border-bottom:2px solid #fca5a5;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="unauthTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:10px;font-size:0.75rem;color:#6b7280;font-style:italic;">
+                        💡 <strong>Admin:</strong> Click the ✕ button on a row to dismiss an error that has been corrected. Changes save automatically.
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ==================== ENUMERATOR MAPPING TAB ==================== -->
         <div id="content-mapping" class="tab-content hidden admin-only">
             <div class="bg-white rounded-xl shadow-md p-6">
@@ -808,6 +853,18 @@
                                 <tfoot id="feederSummaryFoot" style="background: #fef3c7; font-weight: 700;"></tfoot>
                             </table></div>
                         </div>
+                        <!-- ⚡ FEEDER REMARK / UNAUTHORIZED MAPPING NOTICE (editable by admin) -->
+                        <div id="sectionFeederRemark" style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:4px solid #dc2626;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                                <h3 style="font-size:0.9rem;font-weight:600;margin:0;display:flex;align-items:center;gap:6px;color:#dc2626;"><span>⚠️</span> Unauthorized Mapping Remark</h3>
+                                <div class="admin-only" style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button onclick="saveFeederRemark()" style="font-size:10px;padding:3px 10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;cursor:pointer;font-weight:600;">💾 Save</button>
+                                    <button onclick="clearFeederRemark()" style="font-size:10px;padding:3px 10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;font-weight:600;">🗑️ Clear</button>
+                                </div>
+                            </div>
+                            <div id="feederRemarkDisplay" style="display:none;white-space:pre-wrap;font-size:0.82rem;line-height:1.7;color:#1f2937;background:#fff1f2;border:1px solid #fca5a5;border-radius:6px;padding:10px;"></div>
+                            <textarea id="feederRemarkInput" class="admin-only" placeholder="Type or paste unauthorized mapping alert here (e.g. generated from the Feeder Validation panel above). This text will appear on the dashboard and can be copied for WhatsApp..." style="width:100%;min-height:80px;padding:8px;border:1.5px dashed #fca5a5;border-radius:6px;font-size:0.8rem;font-family:'DM Sans',sans-serif;resize:vertical;color:#1f2937;background:#fff1f2;" oninput="updateFeederRemarkDisplay()"></textarea>
+                        </div>
                         <!-- Absent/Sick/Excused Legacy -->
                         <div id="sectionAbsentSick" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                             <div style="background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #ef4444; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h4 style="font-size: 0.8rem; font-weight: 600; color: #dc2626; margin: 0 0 6px 0;">🚫 Absent</h4><div id="absentList" style="font-size: 0.7rem;"></div></div>
@@ -923,6 +980,9 @@
                         </button>
                         <button onclick="mpImportFromExcel()" style="background:#16a34a;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
                             📤 Import from Excel Template
+                        </button>
+                        <button onclick="downloadMpTemplate()" style="background:#0d9488;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" title="Download the Excel import template with correct column headers">
+                            📋 Download Import Template
                         </button>
                         <input type="file" id="mpImportFile" accept=".xlsx,.xls" style="display:none" onchange="mpHandleImport(this)">
                         <button onclick="mpExportSelectedMonth()" style="background:#0891b2;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
@@ -1833,6 +1893,8 @@
         showStatus(`Report generated: ${reportResults.aedc.totals.total+reportResults.bss.totals.total+reportResults.nysc.totals.total} total entries`,'success');
         // Auto-build feeder validation panel after every report generation
         buildFeederValidationPanel();
+        // Auto-detect unauthorized mapping
+        buildUnauthorizedMappingPanel();
     }
 
     function renderResultsTable(group) {
@@ -2857,6 +2919,14 @@
             currentViewMode = 'legacy';
             updateDashboard();
             setTimeout(()=>initCharts(), 100);
+            // Load feeder remark for this date
+            try {
+                const rmSnap = await database.ref(`feederRemarks/${dateKey}`).once('value');
+                const rmVal = rmSnap.val() || '';
+                const inp = document.getElementById('feederRemarkInput');
+                if (inp) inp.value = rmVal;
+                updateFeederRemarkDisplay();
+            } catch(e) { /* non-critical */ }
             showStatus(`✅ Loaded dashboard for ${formatDateFull(dateKey)}`, 'success');
         } catch(e) {
             console.error('loadDashboardByDate error:', e);
@@ -3504,6 +3574,7 @@
         // Re-render dashboard with fresh feeders
         updateDashboard();
         renderFeederSummary();
+        buildUnauthorizedMappingPanel();
         showStatus(`Validated feeders applied to dashboard (${applied} enumerators updated)`, 'success');
 
         // Flash the panel header to confirm
@@ -3590,6 +3661,194 @@
     // END FEEDER VALIDATION PANEL
 
     // ============================================
+    // UNAUTHORIZED MAPPING DETECTION
+    // ============================================
+    let unauthDismissed = []; // list of dismissed row keys (username+feeder)
+
+    function buildUnauthorizedMappingPanel() {
+        // Determine the dominant feeder per person (their assigned feeder = top feeder by count)
+        const startDateStr = reportResults.dateKey || null;
+        const endDateStr = reportResults.endDateKey || startDateStr;
+        if (!startDateStr) return;
+
+        // Get structure_no data from HT file
+        const htData = uploadedData.ht || [];
+        const htCols = htData.length ? Object.keys(htData[0]) : [];
+        const htUserCol = htCols.find(c => c.toLowerCase().includes('username') || c.toLowerCase() === 'user');
+        const htStructCol = htCols.find(c => c.toLowerCase() === 'structure_no' || c.toLowerCase().replace(/[\s_]/g,'') === 'structureno');
+        const htFeederCols = htCols.filter(c => {
+            const cl = c.toLowerCase().replace(/\s+/g,'_').trim();
+            return cl === '_33kv_feeder' || cl === '_11kv_feeder' || cl === 'feeder';
+        });
+        const htTimeCol = htCols.find(c => {
+            const cl = c.toLowerCase();
+            return cl.includes('time') || cl.includes('date') || cl === 'today';
+        });
+
+        // Build structure_no lookup: { username: { feederName: [struct_no,...] } }
+        const structureMap = {};
+        if (htUserCol && htStructCol && htFeederCols.length) {
+            htData.forEach(row => {
+                const username = (row[htUserCol] || '').toString().trim().toLowerCase();
+                const structNo = (row[htStructCol] || '').toString().trim();
+                if (!username || !structNo) return;
+                // Date filter
+                if (htTimeCol && row[htTimeCol]) {
+                    const dk = toLocalDateKey(row[htTimeCol]);
+                    if (dk && startDateStr && (dk < startDateStr || dk > endDateStr)) return;
+                }
+                htFeederCols.forEach(fc => {
+                    let fv = (row[fc] || '').toString().trim();
+                    if (!fv || fv === '0' || fv.toLowerCase() === 'null') return;
+                    const translated = feederLookup[fv]; if (translated) fv = translated;
+                    if (!structureMap[username]) structureMap[username] = {};
+                    if (!structureMap[username][fv]) structureMap[username][fv] = [];
+                    if (!structureMap[username][fv].includes(structNo)) structureMap[username][fv].push(structNo);
+                });
+            });
+        }
+
+        // Find unauthorized: users who have feeders other than their top (assigned) feeder
+        const violations = [];
+        ['aedc','bss','nysc'].forEach(group => {
+            (reportResults[group]?.results || []).forEach(r => {
+                if ((r.total || 0) === 0 || r.status !== 'present') return;
+                const assignedFeeder = fvSessionOverrides[r.username] || r.savedFeeder || getTopFeeder(r.username, startDateStr, endDateStr);
+                const allFeeders = getAllFeeders(r.username, startDateStr, endDateStr);
+                allFeeders.forEach(f => {
+                    if (f === assignedFeeder) return; // this is the assigned one, skip
+                    const key = r.username + '||' + f;
+                    if (unauthDismissed.includes(key)) return;
+                    const merged = mergeFeederCounts(userFeederData[r.username] || {}, startDateStr, endDateStr);
+                    const count = merged[f] || 0;
+                    const structures = (structureMap[r.username] || {})[f] || [];
+                    violations.push({
+                        username: r.username,
+                        fullname: r.fullname,
+                        group,
+                        assignedFeeder: assignedFeeder || '—',
+                        unauthorizedFeeder: f,
+                        count,
+                        structures,
+                        key
+                    });
+                });
+            });
+        });
+
+        const panel = document.getElementById('unauthorizedMappingAlert');
+        if (!violations.length) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+
+        // Build the WhatsApp-style alert text
+        const uniqueNames = [...new Set(violations.map(v => v.fullname))];
+        const uniqueFeeders = [...new Set(violations.map(v => v.unauthorizedFeeder))];
+
+        let alertText = `⚠️ ATTENTION: ${uniqueNames.slice(0, -1).join(', ')}${uniqueNames.length > 1 ? ' and ' : ''}${uniqueNames[uniqueNames.length - 1]}.\n\n`;
+        alertText += `The above-listed staff have captured the following feeders which are NOT part of the feeders assigned for this mapping exercise:\n\n`;
+
+        uniqueFeeders.forEach(feeder => {
+            const rows = violations.filter(v => v.unauthorizedFeeder === feeder);
+            const totalCount = rows.reduce((s, v) => s + v.count, 0);
+            const allStructures = [...new Set(rows.flatMap(v => v.structures))];
+            alertText += `📌 ${feeder}\n`;
+            alertText += `   • Poles captured: ${totalCount}\n`;
+            if (allStructures.length) {
+                alertText += `   • Structure No(s): ${allStructures.slice(0, 10).join(', ')}${allStructures.length > 10 ? ` ... (+${allStructures.length - 10} more)` : ''}\n`;
+            }
+            alertText += '\n';
+        });
+
+        alertText += `Kindly and urgently correct the ⚡ Unauthorized Mapping from yesterday's submissions ASAP.\n\nThank you.`;
+
+        document.getElementById('unauthAlertText').textContent = alertText;
+
+        // Build table
+        const tbody = document.getElementById('unauthTableBody');
+        tbody.innerHTML = violations.map((v, i) => {
+            const groupBadgeColors = { aedc: '#dbeafe;color:#1e40af', bss: '#dcfce7;color:#166534', nysc: '#fef3c7;color:#92400e' };
+            const bc = groupBadgeColors[v.group] || '#f3f4f6;color:#374151';
+            const structs = v.structures.length
+                ? v.structures.slice(0, 10).join(', ') + (v.structures.length > 10 ? ` (+${v.structures.length - 10} more)` : '')
+                : '<span style="color:#9ca3af;font-style:italic;">N/A</span>';
+            return `<tr style="background:${i%2===0?'#fff1f2':'#fff'};">
+                <td style="padding:6px 10px;font-size:11px;color:#6b7280;">${i+1}</td>
+                <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;">${escapeHtml(v.fullname)}</td>
+                <td style="padding:6px 10px;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${v.group.toUpperCase()}</span></td>
+                <td style="padding:6px 10px;font-size:10px;color:#16a34a;font-weight:600;">${escapeHtml(v.assignedFeeder)}</td>
+                <td style="padding:6px 10px;font-size:10px;color:#dc2626;font-weight:600;">${escapeHtml(v.unauthorizedFeeder)}</td>
+                <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;">${v.count}</td>
+                <td style="padding:6px 10px;font-size:10px;color:#374151;max-width:200px;word-break:break-word;">${structs}</td>
+                <td style="padding:6px 10px;text-align:center;" class="admin-only">
+                    <button onclick="dismissUnauthorizedRow('${escapeHtml(v.key)}')" title="Dismiss (mark as corrected)" style="background:#dcfce7;color:#166534;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✓ Dismiss</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function dismissUnauthorizedRow(key) {
+        if (!isAdminMode) return;
+        if (!unauthDismissed.includes(key)) unauthDismissed.push(key);
+        buildUnauthorizedMappingPanel();
+        showStatus('Row dismissed successfully', 'success');
+    }
+
+    function toggleUnauthorizedPanel() {
+        const body = document.getElementById('unauthBody');
+        const btn = document.getElementById('unauthToggleBtn');
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : '';
+        btn.textContent = isOpen ? '🔽 Expand' : '🔼 Collapse';
+    }
+
+    function copyUnauthorizedAlert() {
+        const text = document.getElementById('unauthAlertText')?.textContent || '';
+        if (!text) { showStatus('No alert text to copy', 'warning'); return; }
+        navigator.clipboard.writeText(text).then(() => {
+            showStatus('✅ Alert text copied to clipboard! Paste on WhatsApp.', 'success');
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            showStatus('✅ Alert copied!', 'success');
+        });
+    }
+
+    // Feeder Remark functions (dashboard section)
+    function updateFeederRemarkDisplay() {
+        const input = document.getElementById('feederRemarkInput');
+        const display = document.getElementById('feederRemarkDisplay');
+        if (!input || !display) return;
+        const val = input.value.trim();
+        display.textContent = val;
+        display.style.display = val ? 'block' : 'none';
+    }
+
+    function saveFeederRemark() {
+        const val = document.getElementById('feederRemarkInput')?.value?.trim() || '';
+        // Save to current dashboard date in firebase
+        const dk = reportResults.dateKey;
+        if (dk && firebaseInitialized && currentUser) {
+            database.ref(`feederRemarks/${dk}`).set(val).catch(e => console.error(e));
+        }
+        updateFeederRemarkDisplay();
+        showStatus('Remark saved', 'success');
+    }
+
+    function clearFeederRemark() {
+        if (!confirm('Clear the unauthorized mapping remark?')) return;
+        const inp = document.getElementById('feederRemarkInput');
+        if (inp) inp.value = '';
+        updateFeederRemarkDisplay();
+        const dk = reportResults.dateKey;
+        if (dk && firebaseInitialized && currentUser) {
+            database.ref(`feederRemarks/${dk}`).remove().catch(e => console.error(e));
+        }
+        showStatus('Remark cleared', 'success');
+    }
+
+    // ============================================
     // MONTHLY PERFORMANCE DASHBOARD
     // ============================================
     let mpCurrentTarget = 600;
@@ -3627,6 +3886,69 @@
         }
     }
 
+    function mpConfirmDeleteMonth(monthKey) {
+        if (!isAdminMode) return;
+        const label = mpFormatMonthLabel(monthKey);
+        const confirmed = confirm(`🗑️ Delete Monthly Dashboard\n\nAre you sure you want to permanently delete the dashboard for:\n\n📅 ${label}\n\nThis action cannot be undone.`);
+        if (confirmed) mpDeleteMonth(monthKey);
+    }
+
+    async function mpDeleteMonth(monthKey) {
+        if (!firebaseInitialized || !currentUser) { showStatus('Admin login required','error'); return; }
+        try {
+            updateFirebaseStatus('syncing');
+            await database.ref(`monthlyPerformance/${monthKey}`).remove();
+            updateFirebaseStatus('connected');
+            delete mpSavedMonths[monthKey];
+            mpSelectedMonths.delete(monthKey);
+            if (mpActiveMonthKey === monthKey) mpActiveMonthKey = null;
+            mpRenderMonthSelector();
+            // Hide dashboard if now empty
+            if (mpSelectedMonths.size === 0) {
+                document.getElementById('mpDashboardArea').style.display='none';
+                document.getElementById('mpEmptyState').style.display='block';
+                const vb = document.getElementById('mpViewingBadge'); if(vb) vb.style.display='none';
+                const rs = document.getElementById('mpRemarkSection'); if(rs) rs.style.display='none';
+            }
+            showStatus(`${mpFormatMonthLabel(monthKey)} dashboard deleted`, 'success');
+        } catch(e) {
+            updateFirebaseStatus('disconnected');
+            showStatus('Delete failed: ' + e.message, 'error');
+        }
+    }
+
+    function downloadMpTemplate() {
+        const wb = XLSX.utils.book_new();
+        // Instructions sheet
+        const instrRows = [
+            { 'Instructions': 'MONTHLY PERFORMANCE IMPORT TEMPLATE' },
+            { 'Instructions': '' },
+            { 'Instructions': 'HOW TO USE THIS TEMPLATE:' },
+            { 'Instructions': '1. Rename the "May 2026" sheet to the month you want to import (e.g. "June 2026", "July 2026")' },
+            { 'Instructions': '2. Fill in the data rows — do NOT change column headers' },
+            { 'Instructions': '3. Required columns: Group, Full Name, DT/DSS, HT, Cust, LT, Issues, Total, Feeder, Target' },
+            { 'Instructions': '4. Group values must be: AEDC, BSS, or NYSC (case-insensitive)' },
+            { 'Instructions': '5. Target: put the monthly target value in the first row (default 600)' },
+            { 'Instructions': '6. Save the file as .xlsx and import using the "Import from Excel Template" button' },
+        ];
+        const instrWs = XLSX.utils.json_to_sheet(instrRows);
+        instrWs['!cols'] = [{wch: 80}];
+        XLSX.utils.book_append_sheet(wb, instrWs, 'Instructions');
+
+        // Template data sheet — sample data
+        const templateRows = [
+            { Group:'AEDC', 'Full Name':'John Doe', Feeder:'132KV KARU TS_33KV FDR K5', 'DT/DSS':10, HT:20, Cust:5, LT:15, Issues:2, Total:52, '% Target Met':'8.7%', Target:600 },
+            { Group:'AEDC', 'Full Name':'Jane Smith', Feeder:'132KV KARU TS_33KV FDR K5', 'DT/DSS':12, HT:18, Cust:7, LT:14, Issues:1, Total:52, '% Target Met':'8.7%', Target:600 },
+            { Group:'BSS',  'Full Name':'Alice Brown', Feeder:'132KV KARU TS_33KV FDR K6', 'DT/DSS':8,  HT:16, Cust:4, LT:11, Issues:3, Total:42, '% Target Met':'7.0%', Target:600 },
+            { Group:'NYSC', 'Full Name':'Bob Johnson', Feeder:'132KV KARU TS_33KV FDR K6', 'DT/DSS':9,  HT:17, Cust:6, LT:13, Issues:2, Total:47, '% Target Met':'7.8%', Target:600 },
+        ];
+        const dataWs = XLSX.utils.json_to_sheet(templateRows);
+        dataWs['!cols'] = [{wch:8},{wch:20},{wch:35},{wch:8},{wch:6},{wch:6},{wch:6},{wch:8},{wch:8},{wch:12},{wch:8}];
+        XLSX.utils.book_append_sheet(wb, dataWs, 'May 2026');
+        XLSX.writeFile(wb, 'Monthly_Performance_Import_Template.xlsx');
+        showStatus('Template downloaded! Rename the sheet to your target month.', 'success');
+    }
+
     // ---- Month Selector (multi-select) ----
     let mpSelectedMonths = new Set(); // set of month keys currently selected
 
@@ -3654,10 +3976,15 @@
             const doc = mpSavedMonths[k];
             const label = mpFormatMonthLabel(k);
             const isSelected = mpSelectedMonths.has(k);
-            return `<button onclick="mpToggleMonthSelection('${k}')"
-                style="padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ${isSelected?'#4f46e5':'#c7d2fe'};background:${isSelected?'#4f46e5':'white'};color:${isSelected?'white':'#4f46e5'};transition:all 0.15s;display:inline-flex;align-items:center;gap:4px;">
-                ${isSelected?'✓ ':''}<span>📅 ${label}</span>
-            </button>`;
+            const deleteBtn = isAdminMode
+                ? `<span onclick="event.stopPropagation();mpConfirmDeleteMonth('${k}')" title="Delete this month" style="margin-left:4px;padding:0 3px;border-radius:50%;background:rgba(220,38,38,0.15);color:#dc2626;font-size:10px;font-weight:700;cursor:pointer;line-height:14px;" class="admin-only">✕</span>`
+                : '';
+            return `<div style="display:inline-flex;align-items:center;gap:0;">
+                <button onclick="mpToggleMonthSelection('${k}')"
+                    style="padding:5px 10px;border-radius:20px 0 0 20px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ${isSelected?'#4f46e5':'#c7d2fe'};border-right:none;background:${isSelected?'#4f46e5':'white'};color:${isSelected?'white':'#4f46e5'};transition:all 0.15s;display:inline-flex;align-items:center;gap:4px;">
+                    ${isSelected?'✓ ':''}<span>📅 ${label}</span>
+                </button>${isAdminMode ? `<span onclick="event.stopPropagation();mpConfirmDeleteMonth('${k}')" title="Delete ${label}" style="padding:5px 7px;border-radius:0 20px 20px 0;font-size:10px;font-weight:700;cursor:pointer;border:2px solid ${isSelected?'#dc2626':'#fca5a5'};border-left:none;background:${isSelected?'#dc2626':'#fef2f2'};color:${isSelected?'white':'#dc2626'};transition:all 0.15s;">✕</span>` : `<span style="padding:5px 10px;border-radius:0 20px 20px 0;font-size:0.75rem;border:2px solid ${isSelected?'#4f46e5':'#c7d2fe'};border-left:none;background:${isSelected?'#4f46e5':'white'};"></span>`}
+            </div>`;
         }).join('');
 
         const actionsEl = document.getElementById('mpMultiMonthActions');
@@ -4266,21 +4593,46 @@
     function mpHandleImport(input) {
         const file = input.files[0];
         if(!file) return;
+
+        // Validate file is .xlsx or .xls
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['xlsx','xls'].includes(ext)) {
+            showStatus('❌ Invalid file type. Please upload an Excel (.xlsx or .xls) file only. Download the Import Template for the correct format.', 'error');
+            input.value=''; return;
+        }
+
         const reader = new FileReader();
         reader.onload = async e => {
             try {
                 const wb = XLSX.read(e.target.result, {type:'binary'});
+
+                // Check for Instructions sheet as a sign of valid template (optional — don't block if absent)
+                const hasInstructions = wb.SheetNames.includes('Instructions');
+
                 // Detect month from sheet name or filename
                 // Expected sheet names: "May 2026" etc
                 let imported = 0;
+                let skippedSheets = [];
                 for(const sheetName of wb.SheetNames) {
+                    if (sheetName === 'Instructions' || sheetName === 'Summary') continue; // skip meta sheets
                     // Parse month label like "May 2026"
                     const d = new Date(sheetName);
-                    if(isNaN(d.getTime())) continue;
+                    if(isNaN(d.getTime())) { skippedSheets.push(sheetName); continue; }
                     const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
                     const ws = wb.Sheets[sheetName];
                     const rows = XLSX.utils.sheet_to_json(ws);
                     if(!rows.length) continue;
+
+                    // Validate required columns exist
+                    const firstRow = rows[0];
+                    const requiredCols = ['Group','Full Name'];
+                    const missingCols = requiredCols.filter(col =>
+                        !Object.keys(firstRow).some(k => k.toLowerCase() === col.toLowerCase())
+                    );
+                    if (missingCols.length > 0) {
+                        showStatus(`❌ Sheet "${sheetName}" is missing required columns: ${missingCols.join(', ')}. Download the Import Template for the correct format.`, 'error');
+                        continue;
+                    }
 
                     // Parse rows: expected columns: Group, Full Name, DT/DSS, HT, Cust, LT, Issues, Total, Feeder
                     const grpData = {aedc:[],bss:[],nysc:[]};
@@ -4307,12 +4659,13 @@
                     if(ok) imported++;
                 }
                 if(imported>0){
-                    showStatus(`Imported ${imported} monthly dashboard(s)`, 'success');
+                    const skipNote = skippedSheets.length ? ` (${skippedSheets.length} sheet(s) skipped — not a valid month name)` : '';
+                    showStatus(`✅ Imported ${imported} monthly dashboard(s)${skipNote}`, 'success');
                     mpRenderMonthSelector();
                 } else {
-                    showStatus('No valid monthly sheets found. Expected sheet names like "May 2026"', 'warning');
+                    showStatus('⚠️ No valid monthly sheets found. Sheet names must be like "May 2026". Download the Import Template for the correct format.', 'warning');
                 }
-            } catch(e) { showStatus('Import failed: '+e.message,'error'); }
+            } catch(e) { showStatus('Import failed: '+e.message+'. Make sure you are using the correct Import Template format.','error'); }
             input.value='';
         };
         reader.readAsBinaryString(file);
@@ -4349,12 +4702,114 @@
         const checked = [...document.querySelectorAll('.mp-multi-check:checked')].map(c=>c.value);
         if(!checked.length){ showStatus('Select at least one month','warning'); return; }
         const wb = XLSX.utils.book_new();
+        // Add Summary sheet FIRST
+        if (checked.length > 1) {
+            mpAppendSummarySheet(wb, checked.sort());
+        }
         checked.sort().forEach(k=>{
             if(mpSavedMonths[k]) mpAppendMonthSheet(wb, k, mpSavedMonths[k]);
         });
         XLSX.writeFile(wb, `Monthly_Performance_Export_${checked.length}months.xlsx`);
         document.getElementById('mpMultiExportModal').classList.add('hidden');
-        showStatus(`Exported ${checked.length} month(s) to one workbook`, 'success');
+        showStatus(`Exported ${checked.length} month(s) to one workbook${checked.length > 1 ? ' (with Summary sheet)' : ''}`, 'success');
+    }
+
+    function mpAppendSummarySheet(wb, monthKeys) {
+        // Aggregate all persons across months
+        // Structure: { username → { fullname, group, months: {monthKey: {dss,ht,cust,lt,issues,total}}, feeder } }
+        const personMap = {};
+
+        monthKeys.forEach(k => {
+            const doc = mpSavedMonths[k];
+            if (!doc) return;
+            ['aedc','bss','nysc'].forEach(g => {
+                (doc[g] || []).forEach(r => {
+                    const key = r.username || r.fullname || '';
+                    if (!key) return;
+                    if (!personMap[key]) personMap[key] = { fullname: r.fullname||r.username||key, group: g.toUpperCase(), months: {}, feeder: r.feeder||'' };
+                    personMap[key].months[k] = { dss:r.dss||0, ht:r.ht||0, cust:r.cust||0, lt:r.lt||0, issues:r.issues||0, total:r.total||0 };
+                    if (r.feeder) personMap[key].feeder = r.feeder;
+                });
+            });
+        });
+
+        const monthLabels = monthKeys.map(k => mpFormatMonthLabel(k));
+
+        // Build header row
+        const header1 = { 'S/N':'', 'Full Name':'GIS ENUMERATION & ASSET MAPPING — MONTHLY PERFORMANCE SUMMARY' };
+        monthKeys.forEach(k => header1[k] = '');
+        header1['Grand Total'] = '';
+        header1['Avg/Month'] = '';
+
+        const header2 = { 'S/N':'S/N', 'Full Name':'Full Name', 'Group':'Group', 'Feeder':'Feeder' };
+        monthKeys.forEach((k,i) => { header2[k] = monthLabels[i]; });
+        header2['Grand Total'] = 'Grand Total';
+        header2['Avg/Month'] = 'Avg/Month';
+
+        const rows = [];
+        rows.push(header1);
+        rows.push(header2);
+
+        // Group rows
+        ['AEDC','BSS','NYSC'].forEach(grp => {
+            const persons = Object.values(personMap).filter(p => p.group === grp);
+            if (!persons.length) return;
+            // Group header
+            const grpHeader = { 'S/N': '', 'Full Name': `— ${grp} Enumerators —`, 'Group':'', 'Feeder':'' };
+            monthKeys.forEach(k => grpHeader[k] = '');
+            grpHeader['Grand Total'] = ''; grpHeader['Avg/Month'] = '';
+            rows.push(grpHeader);
+
+            let sn = 1;
+            persons.sort((a,b) => {
+                const aT = Object.values(a.months).reduce((s,m)=>s+m.total,0);
+                const bT = Object.values(b.months).reduce((s,m)=>s+m.total,0);
+                return bT - aT;
+            }).forEach(p => {
+                const row = { 'S/N': sn++, 'Full Name': p.fullname, 'Group': p.group, 'Feeder': p.feeder };
+                let grandTotal = 0;
+                monthKeys.forEach(k => {
+                    const t = p.months[k]?.total || 0;
+                    row[k] = t;
+                    grandTotal += t;
+                });
+                row['Grand Total'] = grandTotal;
+                row['Avg/Month'] = monthKeys.length > 0 ? (grandTotal / monthKeys.length).toFixed(1) : 0;
+                rows.push(row);
+            });
+
+            // Group sub-total
+            const subTotal = { 'S/N': '', 'Full Name': `${grp} SUB-TOTAL`, 'Group':'', 'Feeder':'' };
+            let grpGrand = 0;
+            monthKeys.forEach(k => {
+                const sum = persons.reduce((s,p) => s + (p.months[k]?.total||0), 0);
+                subTotal[k] = sum; grpGrand += sum;
+            });
+            subTotal['Grand Total'] = grpGrand;
+            subTotal['Avg/Month'] = monthKeys.length > 0 ? (grpGrand / monthKeys.length).toFixed(1) : 0;
+            rows.push(subTotal);
+            rows.push({}); // blank spacer
+        });
+
+        // Grand total row
+        const grandRow = { 'S/N': '', 'Full Name': 'GRAND TOTAL (ALL GROUPS)', 'Group':'', 'Feeder':'' };
+        let allGrand = 0;
+        monthKeys.forEach(k => {
+            const sum = Object.values(personMap).reduce((s,p) => s + (p.months[k]?.total||0), 0);
+            grandRow[k] = sum; allGrand += sum;
+        });
+        grandRow['Grand Total'] = allGrand;
+        grandRow['Avg/Month'] = monthKeys.length > 0 ? (allGrand / monthKeys.length).toFixed(1) : 0;
+        rows.push(grandRow);
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        // Set column widths
+        const colWidths = [{ wch:5 }, { wch:22 }, { wch:7 }, { wch:30 }];
+        monthKeys.forEach(() => colWidths.push({ wch:14 }));
+        colWidths.push({ wch:12 }, { wch:12 });
+        ws['!cols'] = colWidths;
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Summary');
     }
 
     function mpAppendMonthSheet(wb, monthKey, doc) {
