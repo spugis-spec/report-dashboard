@@ -638,50 +638,7 @@
 
         </div>
 
-        <!-- ==================== UNAUTHORIZED MAPPING ALERT ==================== -->
-        <div id="unauthorizedMappingAlert" style="display:none;" class="mt-6">
-            <div style="background:#fff1f2;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(220,38,38,0.12);">
-                <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="font-size:1.5rem;">⚠️</span>
-                        <div>
-                            <div style="color:white;font-weight:700;font-size:0.95rem;">Unauthorized Mapping Detected</div>
-                            <div style="color:#fecaca;font-size:0.75rem;">Staff who captured feeders outside the assigned exercise</div>
-                        </div>
-                    </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button onclick="toggleUnauthorizedPanel()" id="unauthToggleBtn" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;">🔼 Collapse</button>
-                        <button onclick="copyUnauthorizedAlert()" style="background:#fff;color:#dc2626;border:none;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;">📋 Copy Alert</button>
-                    </div>
-                </div>
-                <div id="unauthBody" style="padding:16px 20px;">
-                    <!-- Auto-generated alert text for WhatsApp -->
-                    <div id="unauthAlertText" style="background:#fff;border:1.5px solid #fca5a5;border-radius:8px;padding:14px;margin-bottom:14px;font-size:0.85rem;line-height:1.7;color:#1f2937;white-space:pre-wrap;font-family:'DM Sans',sans-serif;"></div>
-
-                    <!-- Unauthorized Mapping Table -->
-                    <div style="overflow-x:auto;border-radius:8px;border:1px solid #fca5a5;">
-                        <table style="width:100%;border-collapse:collapse;font-size:11px;" id="unauthTable">
-                            <thead>
-                                <tr style="background:#fee2e2;color:#991b1b;">
-                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">#</th>
-                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Staff Name</th>
-                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Group</th>
-                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Assigned Feeder</th>
-                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Unauthorized Feeder Captured</th>
-                                    <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #fca5a5;">Pole Count</th>
-                                    <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fca5a5;">Structure No(s)</th>
-                                    <th class="admin-only" style="padding:8px 10px;text-align:center;border-bottom:2px solid #fca5a5;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="unauthTableBody"></tbody>
-                        </table>
-                    </div>
-                    <div style="margin-top:10px;font-size:0.75rem;color:#6b7280;font-style:italic;">
-                        💡 <strong>Admin:</strong> Click the ✕ button on a row to dismiss an error that has been corrected. Changes save automatically.
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Unauthorized Mapping Alert moved inside #dashboardCapture below feeder summary -->
 
         <!-- ==================== ENUMERATOR MAPPING TAB ==================== -->
         <div id="content-mapping" class="tab-content hidden admin-only">
@@ -852,6 +809,49 @@
                                 <tbody id="feederSummaryBody"></tbody>
                                 <tfoot id="feederSummaryFoot" style="background: #fef3c7; font-weight: 700;"></tfoot>
                             </table></div>
+                        </div>
+                        <!-- ⚡ UNAUTHORIZED MAPPING ALERT (collapsible, inside export area) -->
+                        <div id="unauthorizedMappingAlert" style="display:none;margin-bottom:12px;">
+                            <div style="background:#fff1f2;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(220,38,38,0.12);">
+                                <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <span style="font-size:1.3rem;">⚠️</span>
+                                        <div>
+                                            <div style="color:white;font-weight:700;font-size:0.9rem;">Unauthorized Mapping Detected</div>
+                                            <div style="color:#fecaca;font-size:0.72rem;">Staff who captured feeders outside the assigned exercise</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
+                                        <button onclick="toggleUnauthorizedPanel()" id="unauthToggleBtn" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:5px 12px;border-radius:8px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔼 Collapse</button>
+                                        <button onclick="copyUnauthorizedAlert()" style="background:#fff;color:#dc2626;border:none;padding:5px 12px;border-radius:8px;font-weight:600;font-size:0.78rem;cursor:pointer;">📋 Copy Alert</button>
+                                    </div>
+                                </div>
+                                <div id="unauthBody" style="padding:14px 18px;">
+                                    <!-- WhatsApp-style alert text only (no bullet writeup) -->
+                                    <div id="unauthAlertText" style="background:#fff;border:1.5px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.82rem;line-height:1.75;color:#1f2937;white-space:pre-wrap;font-family:'DM Sans',sans-serif;"></div>
+                                    <!-- Unauthorized Mapping Table -->
+                                    <div style="overflow-x:auto;border-radius:8px;border:1px solid #fca5a5;">
+                                        <table style="width:100%;border-collapse:collapse;font-size:11px;" id="unauthTable">
+                                            <thead>
+                                                <tr style="background:#fee2e2;color:#991b1b;">
+                                                    <th style="padding:7px 9px;text-align:left;border-bottom:2px solid #fca5a5;">#</th>
+                                                    <th style="padding:7px 9px;text-align:left;border-bottom:2px solid #fca5a5;">Staff Name</th>
+                                                    <th style="padding:7px 9px;text-align:left;border-bottom:2px solid #fca5a5;">Group</th>
+                                                    <th style="padding:7px 9px;text-align:left;border-bottom:2px solid #fca5a5;">Assigned Feeder</th>
+                                                    <th style="padding:7px 9px;text-align:left;border-bottom:2px solid #fca5a5;">Unauthorized Feeder Captured</th>
+                                                    <th style="padding:7px 9px;text-align:center;border-bottom:2px solid #fca5a5;">Pole Count</th>
+                                                    <th style="padding:7px 9px;text-align:left;border-bottom:2px solid #fca5a5;">Structure No(s)</th>
+                                                    <th class="admin-only" style="padding:7px 9px;text-align:center;border-bottom:2px solid #fca5a5;">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="unauthTableBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <div style="margin-top:8px;font-size:0.72rem;color:#6b7280;font-style:italic;" class="no-print">
+                                        💡 <strong>Admin:</strong> Click ✕ to dismiss corrected rows. Use the Assigned Feeder column to fix wrong feeder assignments.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <!-- ⚡ FEEDER REMARK / UNAUTHORIZED MAPPING NOTICE (editable by admin) -->
                         <div id="sectionFeederRemark" style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:4px solid #dc2626;">
@@ -2101,14 +2101,16 @@
         if (!list.length) { section.style.display='none'; return; }
         section.style.display='block';
         const el = document.getElementById(listId);
+        // Multi-column grid: 3 columns on wide, 2 on medium, 1 on narrow
+        el.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px;';
         el.innerHTML = list.map(item => {
             let remarkBtn = '';
             if (isAdminMode && item.group !== undefined && item.index !== undefined) {
                 remarkBtn = `<button onclick="openZeroRemarkModal('${item.group}',${item.index})" style="font-size:9px;padding:1px 5px;background:#fed7aa;color:#c2410c;border:none;border-radius:3px;cursor:pointer;margin-left:4px;">✏️ ${item.remark?'Edit':'Add'} Remark</button>`;
             }
-            return `<div style="padding:3px 5px;background:#fff7ed;border-radius:4px;margin-bottom:3px;color:#c2410c;border-left:3px solid #f97316;">
-                <div style="font-weight:600;">${item.name}${remarkBtn}</div>
-                ${item.remark?`<div style="font-size:0.65rem;color:#ea580c;margin-top:1px;">📋 ${escapeHtml(item.remark)}</div>`:'<div style="font-size:0.65rem;color:#9ca3af;font-style:italic;">No remark added</div>'}
+            return `<div style="padding:4px 6px;background:#fff7ed;border-radius:4px;color:#c2410c;border-left:3px solid #f97316;min-width:0;">
+                <div style="font-weight:600;font-size:0.7rem;word-break:break-word;">${item.name}${remarkBtn}</div>
+                ${item.remark?`<div style="font-size:0.62rem;color:#ea580c;margin-top:1px;">📋 ${escapeHtml(item.remark)}</div>`:''}
             </div>`;
         }).join('');
     }
@@ -3740,30 +3742,19 @@
         if (!violations.length) { panel.style.display = 'none'; return; }
         panel.style.display = 'block';
 
-        // Build the WhatsApp-style alert text
+        // Build the WhatsApp-style alert text (names + attention message only, no bullet feeder list)
         const uniqueNames = [...new Set(violations.map(v => v.fullname))];
-        const uniqueFeeders = [...new Set(violations.map(v => v.unauthorizedFeeder))];
 
-        let alertText = `⚠️ ATTENTION: ${uniqueNames.slice(0, -1).join(', ')}${uniqueNames.length > 1 ? ' and ' : ''}${uniqueNames[uniqueNames.length - 1]}.\n\n`;
-        alertText += `The above-listed staff have captured the following feeders which are NOT part of the feeders assigned for this mapping exercise:\n\n`;
-
-        uniqueFeeders.forEach(feeder => {
-            const rows = violations.filter(v => v.unauthorizedFeeder === feeder);
-            const totalCount = rows.reduce((s, v) => s + v.count, 0);
-            const allStructures = [...new Set(rows.flatMap(v => v.structures))];
-            alertText += `📌 ${feeder}\n`;
-            alertText += `   • Poles captured: ${totalCount}\n`;
-            if (allStructures.length) {
-                alertText += `   • Structure No(s): ${allStructures.slice(0, 10).join(', ')}${allStructures.length > 10 ? ` ... (+${allStructures.length - 10} more)` : ''}\n`;
-            }
-            alertText += '\n';
-        });
-
-        alertText += `Kindly and urgently correct the ⚡ Unauthorized Mapping from yesterday's submissions ASAP.\n\nThank you.`;
+        let alertText = `⚠️ ATTENTION: `;
+        if (uniqueNames.length === 1) {
+            alertText += uniqueNames[0];
+        } else {
+            alertText += uniqueNames.slice(0,-1).join(', ') + ' and ' + uniqueNames[uniqueNames.length-1];
+        }
+        alertText += `.\n\nThe above-listed staff have captured the following feeders which are NOT part of the feeders assigned for this mapping exercise:\n\nKindly and urgently correct the ⚡ Unauthorized Mapping from yesterday's submissions ASAP. Thank you.`;
 
         document.getElementById('unauthAlertText').textContent = alertText;
 
-        // Build table
         const tbody = document.getElementById('unauthTableBody');
         tbody.innerHTML = violations.map((v, i) => {
             const groupBadgeColors = { aedc: '#dbeafe;color:#1e40af', bss: '#dcfce7;color:#166534', nysc: '#fef3c7;color:#92400e' };
@@ -3771,11 +3762,20 @@
             const structs = v.structures.length
                 ? v.structures.slice(0, 10).join(', ') + (v.structures.length > 10 ? ` (+${v.structures.length - 10} more)` : '')
                 : '<span style="color:#9ca3af;font-style:italic;">N/A</span>';
+            // Editable assigned feeder input (admin only)
+            const assignedFeederCell = isAdminMode
+                ? `<div style="display:flex;gap:4px;align-items:center;">
+                    <input type="text" value="${escapeHtml(v.assignedFeeder)}"
+                        oninput="updateUnauthAssignedFeeder('${escapeHtml(v.key)}', '${escapeHtml(v.username)}', '${escapeHtml(v.group)}', this.value)"
+                        style="flex:1;min-width:120px;padding:3px 7px;border:1.5px solid #bbf7d0;border-radius:5px;font-size:10px;background:#f0fdf4;outline:none;color:#065f46;font-weight:600;"
+                        onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#bbf7d0'">
+                  </div>`
+                : `<span style="color:#16a34a;font-weight:600;font-size:10px;">${escapeHtml(v.assignedFeeder)}</span>`;
             return `<tr style="background:${i%2===0?'#fff1f2':'#fff'};">
                 <td style="padding:6px 10px;font-size:11px;color:#6b7280;">${i+1}</td>
                 <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;">${escapeHtml(v.fullname)}</td>
                 <td style="padding:6px 10px;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${v.group.toUpperCase()}</span></td>
-                <td style="padding:6px 10px;font-size:10px;color:#16a34a;font-weight:600;">${escapeHtml(v.assignedFeeder)}</td>
+                <td style="padding:6px 10px;min-width:160px;">${assignedFeederCell}</td>
                 <td style="padding:6px 10px;font-size:10px;color:#dc2626;font-weight:600;">${escapeHtml(v.unauthorizedFeeder)}</td>
                 <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;">${v.count}</td>
                 <td style="padding:6px 10px;font-size:10px;color:#374151;max-width:200px;word-break:break-word;">${structs}</td>
@@ -3791,6 +3791,28 @@
         if (!unauthDismissed.includes(key)) unauthDismissed.push(key);
         buildUnauthorizedMappingPanel();
         showStatus('Row dismissed successfully', 'success');
+    }
+
+    // Allow admin to correct the assigned feeder inline in the unauthorized table
+    function updateUnauthAssignedFeeder(key, username, group, newFeeder) {
+        const trimmed = newFeeder.trim();
+        if (!trimmed) return;
+        // Update the savedFeeder on the dashboard record
+        if (reportResults[group]) {
+            const rec = reportResults[group].results.find(r => r.username === username);
+            if (rec) {
+                rec.savedFeeder = trimmed;
+            }
+        }
+        // Also update fvSessionOverrides so live panel stays consistent
+        fvSessionOverrides[username] = trimmed;
+        // Debounce rebuild to avoid rebuilding on every keystroke
+        clearTimeout(window._unauthRebuildTimer);
+        window._unauthRebuildTimer = setTimeout(() => {
+            renderFeederSummary();
+            buildUnauthorizedMappingPanel();
+            showStatus(`Assigned feeder updated to: ${trimmed}`, 'success');
+        }, 800);
     }
 
     function toggleUnauthorizedPanel() {
@@ -4745,6 +4767,7 @@
         monthKeys.forEach((k,i) => { header2[k] = monthLabels[i]; });
         header2['Grand Total'] = 'Grand Total';
         header2['Avg/Month'] = 'Avg/Month';
+        header2['% Target Met (Agg.)'] = '% Target Met (Agg.)';
 
         const rows = [];
         rows.push(header1);
@@ -4757,7 +4780,7 @@
             // Group header
             const grpHeader = { 'S/N': '', 'Full Name': `— ${grp} Enumerators —`, 'Group':'', 'Feeder':'' };
             monthKeys.forEach(k => grpHeader[k] = '');
-            grpHeader['Grand Total'] = ''; grpHeader['Avg/Month'] = '';
+            grpHeader['Grand Total'] = ''; grpHeader['Avg/Month'] = ''; grpHeader['% Target Met (Agg.)'] = '';
             rows.push(grpHeader);
 
             let sn = 1;
@@ -4775,6 +4798,9 @@
                 });
                 row['Grand Total'] = grandTotal;
                 row['Avg/Month'] = monthKeys.length > 0 ? (grandTotal / monthKeys.length).toFixed(1) : 0;
+                // Aggregate target = sum of per-month targets
+                const aggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0);
+                row['% Target Met (Agg.)'] = aggTarget > 0 ? ((grandTotal / aggTarget)*100).toFixed(1)+'%' : '0.0%';
                 rows.push(row);
             });
 
@@ -4787,26 +4813,30 @@
             });
             subTotal['Grand Total'] = grpGrand;
             subTotal['Avg/Month'] = monthKeys.length > 0 ? (grpGrand / monthKeys.length).toFixed(1) : 0;
+            const grpAggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0) * (persons.length||1);
+            subTotal['% Target Met (Agg.)'] = grpAggTarget > 0 ? ((grpGrand / grpAggTarget)*100).toFixed(1)+'%' : '0.0%';
             rows.push(subTotal);
             rows.push({}); // blank spacer
         });
 
-        // Grand total row
         const grandRow = { 'S/N': '', 'Full Name': 'GRAND TOTAL (ALL GROUPS)', 'Group':'', 'Feeder':'' };
         let allGrand = 0;
+        const allPersons = Object.values(personMap);
         monthKeys.forEach(k => {
-            const sum = Object.values(personMap).reduce((s,p) => s + (p.months[k]?.total||0), 0);
+            const sum = allPersons.reduce((s,p) => s + (p.months[k]?.total||0), 0);
             grandRow[k] = sum; allGrand += sum;
         });
         grandRow['Grand Total'] = allGrand;
         grandRow['Avg/Month'] = monthKeys.length > 0 ? (allGrand / monthKeys.length).toFixed(1) : 0;
+        const overallAggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0) * (allPersons.length||1);
+        grandRow['% Target Met (Agg.)'] = overallAggTarget > 0 ? ((allGrand / overallAggTarget)*100).toFixed(1)+'%' : '0.0%';
         rows.push(grandRow);
 
         const ws = XLSX.utils.json_to_sheet(rows);
         // Set column widths
         const colWidths = [{ wch:5 }, { wch:22 }, { wch:7 }, { wch:30 }];
         monthKeys.forEach(() => colWidths.push({ wch:14 }));
-        colWidths.push({ wch:12 }, { wch:12 });
+        colWidths.push({ wch:12 }, { wch:12 }, { wch:18 });
         ws['!cols'] = colWidths;
 
         XLSX.utils.book_append_sheet(wb, ws, 'Summary');
