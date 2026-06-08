@@ -2845,7 +2845,12 @@
         if(!reportResults.dateKey){showStatus('Generate a report first','error');return;}
         updateFirebaseStatus('syncing');
         try {
-            const dashData={...reportResults,savedAt:Date.now(),savedBy:currentUser.email,remarksData,feederOverrides,feederCompletionStatus};
+            // Snapshot current violations (from live data if available, else last saved)
+            const currentViolations = _buildUnauthorizedViolations();
+            const dashData={...reportResults,savedAt:Date.now(),savedBy:currentUser.email,remarksData,feederOverrides,feederCompletionStatus,
+                unauthViolations: currentViolations.length ? currentViolations : unauthSavedViolations,
+                unauthDismissed: unauthDismissed,
+                unauthManualEntries: unauthManualEntries};
             if(isPairedMode(reportResults.dateKey)){collectPairings();dashData.pairings={aedcNysc:teamPairings.aedcNysc,bssNysc:teamPairings.bssNysc};dashData.isPairedMode=true;}
             await database.ref(`dashboards/${reportResults.dateKey}`).set(dashData);
             updateFirebaseStatus('connected');loadSavedDashboards();
@@ -2920,6 +2925,10 @@
             remarksData = reportResults.remarksData || {};
             feederOverrides = reportResults.feederOverrides ? {...reportResults.feederOverrides} : {};
             if (reportResults.feederCompletionStatus) feederCompletionStatus = {...reportResults.feederCompletionStatus};
+            // Restore unauthorized mapping data
+            unauthSavedViolations = toArray(reportResults.unauthViolations || []);
+            unauthDismissed = toArray(reportResults.unauthDismissed || []);
+            unauthManualEntries = toArray(reportResults.unauthManualEntries || []);
             if (reportResults.pairings) {
                 teamPairings.aedcNysc = toArray(reportResults.pairings.aedcNysc);
                 teamPairings.bssNysc  = toArray(reportResults.pairings.bssNysc);
@@ -2928,6 +2937,7 @@
             currentViewMode = 'legacy';
             updateDashboard();
             setTimeout(()=>initCharts(), 100);
+            setTimeout(()=>buildUnauthorizedMappingPanel(), 200);
             // Load feeder remark for this date
             try {
                 const rmSnap = await database.ref(`feederRemarks/${dateKey}`).once('value');
@@ -3673,14 +3683,15 @@
     // UNAUTHORIZED MAPPING DETECTION
     // ============================================
     let unauthDismissed = []; // list of dismissed row keys (username+feeder)
+    let unauthSavedViolations = []; // violations saved to Firebase (persisted across sessions)
+    let unauthManualEntries = [];   // manually added suspected violators (persisted)
 
-    function buildUnauthorizedMappingPanel() {
-        // Determine the dominant feeder per person (their assigned feeder = top feeder by count)
+    // Pure computation: returns array of violation objects from live data (or empty if no live data)
+    function _buildUnauthorizedViolations() {
         const startDateStr = reportResults.dateKey || null;
         const endDateStr = reportResults.endDateKey || startDateStr;
-        if (!startDateStr) return;
+        if (!startDateStr) return [];
 
-        // Get structure_no data from HT file
         const htData = uploadedData.ht || [];
         const htCols = htData.length ? Object.keys(htData[0]) : [];
         const htUserCol = htCols.find(c => c.toLowerCase().includes('username') || c.toLowerCase() === 'user');
@@ -3693,15 +3704,12 @@
             const cl = c.toLowerCase();
             return cl.includes('time') || cl.includes('date') || cl === 'today';
         });
-
-        // Build structure_no lookup: { username: { feederName: [struct_no,...] } }
         const structureMap = {};
         if (htUserCol && htStructCol && htFeederCols.length) {
             htData.forEach(row => {
                 const username = (row[htUserCol] || '').toString().trim().toLowerCase();
                 const structNo = (row[htStructCol] || '').toString().trim();
                 if (!username || !structNo) return;
-                // Date filter
                 if (htTimeCol && row[htTimeCol]) {
                     const dk = toLocalDateKey(row[htTimeCol]);
                     if (dk && startDateStr && (dk < startDateStr || dk > endDateStr)) return;
@@ -3717,7 +3725,8 @@
             });
         }
 
-        // Find unauthorized: users who have feeders other than their top (assigned) feeder
+        if (!Object.keys(userFeederData).length) return [];
+
         const violations = [];
         ['aedc','bss','nysc'].forEach(group => {
             (reportResults[group]?.results || []).forEach(r => {
@@ -3725,72 +3734,114 @@
                 const assignedFeeder = fvSessionOverrides[r.username] || r.savedFeeder || getTopFeeder(r.username, startDateStr, endDateStr);
                 const allFeeders = getAllFeeders(r.username, startDateStr, endDateStr);
                 allFeeders.forEach(f => {
-                    if (f === assignedFeeder) return; // this is the assigned one, skip
+                    if (f === assignedFeeder) return;
                     const key = r.username + '||' + f;
                     if (unauthDismissed.includes(key)) return;
                     const merged = mergeFeederCounts(userFeederData[r.username] || {}, startDateStr, endDateStr);
                     const count = merged[f] || 0;
                     const structures = (structureMap[r.username] || {})[f] || [];
-                    violations.push({
-                        username: r.username,
-                        fullname: r.fullname,
-                        group,
-                        assignedFeeder: assignedFeeder || '—',
-                        unauthorizedFeeder: f,
-                        count,
-                        structures,
-                        key
-                    });
+                    violations.push({ username: r.username, fullname: r.fullname, group, assignedFeeder: assignedFeeder || '—', unauthorizedFeeder: f, count, structures, key, isManual: false });
                 });
             });
         });
+        return violations;
+    }
+
+    function buildUnauthorizedMappingPanel() {
+        const hasLiveData = Object.keys(userFeederData).length > 0;
+        const liveViolations = hasLiveData ? _buildUnauthorizedViolations() : [];
+
+        // Use live violations if available; otherwise restore from saved
+        const autoViolations = hasLiveData
+            ? liveViolations.filter(v => !unauthDismissed.includes(v.key))
+            : unauthSavedViolations.filter(v => !v.isManual && !unauthDismissed.includes(v.key));
+
+        // Snapshot live into saved so next reload can restore them
+        if (hasLiveData && liveViolations.length) {
+            unauthSavedViolations = liveViolations;
+        }
+
+        const manualViolations = unauthManualEntries.filter(v => !unauthDismissed.includes(v.key));
+        const violations = [...autoViolations, ...manualViolations];
 
         const panel = document.getElementById('unauthorizedMappingAlert');
-        if (!violations.length) { panel.style.display = 'none'; return; }
-        panel.style.display = 'block';
+        // Always show so admin can add manual entries
+        panel.style.display = (violations.length > 0 || isAdminMode) ? 'block' : 'none';
 
-        // Build the WhatsApp-style alert text (names + attention message only, no bullet feeder list)
         const uniqueNames = [...new Set(violations.map(v => v.fullname))];
-
-        let alertText = `⚠️ ATTENTION: `;
-        if (uniqueNames.length === 1) {
-            alertText += uniqueNames[0];
+        let alertText = '';
+        if (uniqueNames.length > 0) {
+            alertText = `⚠️ ATTENTION: `;
+            alertText += uniqueNames.length === 1 ? uniqueNames[0] : uniqueNames.slice(0,-1).join(', ') + ' and ' + uniqueNames[uniqueNames.length-1];
+            alertText += `.\n\nThe above-listed staff have captured the following feeders which are NOT part of the feeders assigned for this mapping exercise:\n\nKindly and urgently correct the ⚡ Unauthorized Mapping from yesterday's submissions ASAP. Thank you.`;
         } else {
-            alertText += uniqueNames.slice(0,-1).join(', ') + ' and ' + uniqueNames[uniqueNames.length-1];
+            alertText = isAdminMode ? 'No violations detected yet. You can add suspected violators manually below.' : 'No unauthorized mapping violations detected.';
         }
-        alertText += `.\n\nThe above-listed staff have captured the following feeders which are NOT part of the feeders assigned for this mapping exercise:\n\nKindly and urgently correct the ⚡ Unauthorized Mapping from yesterday's submissions ASAP. Thank you.`;
-
         document.getElementById('unauthAlertText').textContent = alertText;
 
         const tbody = document.getElementById('unauthTableBody');
         tbody.innerHTML = violations.map((v, i) => {
             const groupBadgeColors = { aedc: '#dbeafe;color:#1e40af', bss: '#dcfce7;color:#166534', nysc: '#fef3c7;color:#92400e' };
             const bc = groupBadgeColors[v.group] || '#f3f4f6;color:#374151';
-            const structs = v.structures.length
-                ? v.structures.slice(0, 10).join(', ') + (v.structures.length > 10 ? ` (+${v.structures.length - 10} more)` : '')
+            const structs = v.structures && v.structures.length
+                ? v.structures.slice(0,10).join(', ') + (v.structures.length > 10 ? ` (+${v.structures.length - 10} more)` : '')
                 : '<span style="color:#9ca3af;font-style:italic;">N/A</span>';
-            // Editable assigned feeder input (admin only)
+            const manualBadge = v.isManual ? '<span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:5px;font-size:9px;margin-left:4px;">✋ Manual</span>' : '';
             const assignedFeederCell = isAdminMode
                 ? `<div style="display:flex;gap:4px;align-items:center;">
                     <input type="text" value="${escapeHtml(v.assignedFeeder)}"
-                        oninput="updateUnauthAssignedFeeder('${escapeHtml(v.key)}', '${escapeHtml(v.username)}', '${escapeHtml(v.group)}', this.value)"
+                        oninput="updateUnauthAssignedFeeder('${escapeHtml(v.key)}','${escapeHtml(v.username)}','${escapeHtml(v.group)}',this.value)"
                         style="flex:1;min-width:120px;padding:3px 7px;border:1.5px solid #bbf7d0;border-radius:5px;font-size:10px;background:#f0fdf4;outline:none;color:#065f46;font-weight:600;"
                         onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#bbf7d0'">
                   </div>`
                 : `<span style="color:#16a34a;font-weight:600;font-size:10px;">${escapeHtml(v.assignedFeeder)}</span>`;
             return `<tr style="background:${i%2===0?'#fff1f2':'#fff'};">
                 <td style="padding:6px 10px;font-size:11px;color:#6b7280;">${i+1}</td>
-                <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;">${escapeHtml(v.fullname)}</td>
-                <td style="padding:6px 10px;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${v.group.toUpperCase()}</span></td>
+                <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;">${escapeHtml(v.fullname)}${manualBadge}</td>
+                <td style="padding:6px 10px;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${(v.group||'').toUpperCase()}</span></td>
                 <td style="padding:6px 10px;min-width:160px;">${assignedFeederCell}</td>
                 <td style="padding:6px 10px;font-size:10px;color:#dc2626;font-weight:600;">${escapeHtml(v.unauthorizedFeeder)}</td>
-                <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;">${v.count}</td>
+                <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;">${v.count||0}</td>
                 <td style="padding:6px 10px;font-size:10px;color:#374151;max-width:200px;word-break:break-word;">${structs}</td>
                 <td style="padding:6px 10px;text-align:center;" class="admin-only">
                     <button onclick="dismissUnauthorizedRow('${escapeHtml(v.key)}')" title="Dismiss (mark as corrected)" style="background:#dcfce7;color:#166534;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✓ Dismiss</button>
                 </td>
             </tr>`;
-        }).join('');
+        }).join('') + (isAdminMode ? `
+            <tr style="background:#fff8f8;">
+                <td colspan="8" style="padding:10px 10px;border-top:2px dashed #fca5a5;">
+                    <div style="font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px;">✋ Add Suspected Violator Manually:</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                        <input id="unauthManualName" type="text" placeholder="Full Name" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:5px;font-size:11px;min-width:140px;">
+                        <select id="unauthManualGroup" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:5px;font-size:11px;">
+                            <option value="aedc">AEDC</option><option value="bss">BSS</option><option value="nysc">NYSC</option>
+                        </select>
+                        <input id="unauthManualAssigned" type="text" placeholder="Assigned Feeder" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:5px;font-size:11px;min-width:130px;">
+                        <input id="unauthManualUnauth" type="text" placeholder="Unauthorized Feeder Captured" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:5px;font-size:11px;min-width:160px;">
+                        <input id="unauthManualCount" type="number" placeholder="Pole Count" min="0" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:5px;font-size:11px;width:90px;">
+                        <input id="unauthManualStructures" type="text" placeholder="Structure No(s) comma-separated (optional)" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:5px;font-size:11px;min-width:200px;">
+                        <button onclick="addManualUnauthEntry()" style="background:#dc2626;color:white;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">➕ Add Row</button>
+                    </div>
+                    <div style="font-size:10px;color:#9ca3af;margin-top:4px;">💡 Tip: After adding all violations, click <strong>"☁️ Save to Cloud"</strong> to persist them for this date.</div>
+                </td>
+            </tr>` : '');
+    }
+
+    function addManualUnauthEntry() {
+        const name = (document.getElementById('unauthManualName')?.value || '').trim();
+        const group = document.getElementById('unauthManualGroup')?.value || 'aedc';
+        const assigned = (document.getElementById('unauthManualAssigned')?.value || '').trim();
+        const unauth = (document.getElementById('unauthManualUnauth')?.value || '').trim();
+        const count = parseInt(document.getElementById('unauthManualCount')?.value || '0') || 0;
+        const structuresRaw = (document.getElementById('unauthManualStructures')?.value || '').trim();
+        const structures = structuresRaw ? structuresRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+        if (!name || !unauth) { showStatus('Please enter at least Full Name and Unauthorized Feeder', 'warning'); return; }
+
+        const key = `manual||${name.toLowerCase().replace(/\s+/g,'_')}||${unauth}||${Date.now()}`;
+        unauthManualEntries.push({ username: name.toLowerCase().replace(/\s+/g,'_'), fullname: name, group, assignedFeeder: assigned || '—', unauthorizedFeeder: unauth, count, structures, key, isManual: true });
+        buildUnauthorizedMappingPanel();
+        showStatus(`Manual entry added for ${name}. Remember to Save to Cloud.`, 'success');
     }
 
     function dismissUnauthorizedRow(key) {
