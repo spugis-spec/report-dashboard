@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AEDC GIS Enumeration Performance Report Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- xlsx-js-style: SheetJS + full cell styling (colors, fonts, borders, fills) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+    <script>
+        // Fallback: if xlsx-js-style failed to load (e.g. network issue), load standard xlsx
+        if(typeof XLSX === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dom-to-image-more@3.3.0/dist/dom-to-image-more.min.js"></script>
@@ -4731,113 +4738,226 @@
         checked.sort().forEach(k=>{
             if(mpSavedMonths[k]) mpAppendMonthSheet(wb, k, mpSavedMonths[k]);
         });
-        XLSX.writeFile(wb, `Monthly_Performance_Export_${checked.length}months.xlsx`);
+        XLSX.writeFile(wb, `Monthly_Performance_Export_${checked.length}months.xlsx`, {bookType:'xlsx', type:'binary', cellStyles:true});
         document.getElementById('mpMultiExportModal').classList.add('hidden');
         showStatus(`Exported ${checked.length} month(s) to one workbook${checked.length > 1 ? ' (with Summary sheet)' : ''}`, 'success');
     }
 
     function mpAppendSummarySheet(wb, monthKeys) {
-        // Aggregate all persons across months
-        // Structure: { username → { fullname, group, months: {monthKey: {dss,ht,cust,lt,issues,total}}, feeder } }
-        const personMap = {};
+        // ── 1. Aggregate persons per group ─────────────────────────────────
+        const groupData = { AEDC: [], BSS: [], NYSC: [] };
+        const aggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0);
 
         monthKeys.forEach(k => {
             const doc = mpSavedMonths[k];
             if (!doc) return;
             ['aedc','bss','nysc'].forEach(g => {
-                (doc[g] || []).forEach(r => {
-                    const key = r.username || r.fullname || '';
-                    if (!key) return;
-                    if (!personMap[key]) personMap[key] = { fullname: r.fullname||r.username||key, group: g.toUpperCase(), months: {}, feeder: r.feeder||'' };
-                    personMap[key].months[k] = { dss:r.dss||0, ht:r.ht||0, cust:r.cust||0, lt:r.lt||0, issues:r.issues||0, total:r.total||0 };
-                    if (r.feeder) personMap[key].feeder = r.feeder;
+                (doc[g]||[]).forEach(r => {
+                    const grp = g.toUpperCase();
+                    const nameKey = (r.fullname||r.username||'').trim();
+                    if (!nameKey) return;
+                    let entry = groupData[grp].find(e => e.fullname === nameKey);
+                    if (!entry) { entry = { fullname: nameKey, months:{} }; groupData[grp].push(entry); }
+                    entry.months[k] = (entry.months[k]||0) + (r.total||0);
                 });
             });
         });
-
-        const monthLabels = monthKeys.map(k => mpFormatMonthLabel(k));
-
-        // Build header row
-        const header1 = { 'S/N':'', 'Full Name':'GIS ENUMERATION & ASSET MAPPING — MONTHLY PERFORMANCE SUMMARY' };
-        monthKeys.forEach(k => header1[k] = '');
-        header1['Grand Total'] = '';
-        header1['Avg/Month'] = '';
-
-        const header2 = { 'S/N':'S/N', 'Full Name':'Full Name', 'Group':'Group', 'Feeder':'Feeder' };
-        monthKeys.forEach((k,i) => { header2[k] = monthLabels[i]; });
-        header2['Grand Total'] = 'Grand Total';
-        header2['Avg/Month'] = 'Avg/Month';
-        header2['% Target Met (Agg.)'] = '% Target Met (Agg.)';
-
-        const rows = [];
-        rows.push(header1);
-        rows.push(header2);
-
-        // Group rows
         ['AEDC','BSS','NYSC'].forEach(grp => {
-            const persons = Object.values(personMap).filter(p => p.group === grp);
-            if (!persons.length) return;
-            // Group header
-            const grpHeader = { 'S/N': '', 'Full Name': `— ${grp} Enumerators —`, 'Group':'', 'Feeder':'' };
-            monthKeys.forEach(k => grpHeader[k] = '');
-            grpHeader['Grand Total'] = ''; grpHeader['Avg/Month'] = ''; grpHeader['% Target Met (Agg.)'] = '';
-            rows.push(grpHeader);
-
-            let sn = 1;
-            persons.sort((a,b) => {
-                const aT = Object.values(a.months).reduce((s,m)=>s+m.total,0);
-                const bT = Object.values(b.months).reduce((s,m)=>s+m.total,0);
-                return bT - aT;
-            }).forEach(p => {
-                const row = { 'S/N': sn++, 'Full Name': p.fullname, 'Group': p.group, 'Feeder': p.feeder };
-                let grandTotal = 0;
-                monthKeys.forEach(k => {
-                    const t = p.months[k]?.total || 0;
-                    row[k] = t;
-                    grandTotal += t;
-                });
-                row['Grand Total'] = grandTotal;
-                row['Avg/Month'] = monthKeys.length > 0 ? (grandTotal / monthKeys.length).toFixed(1) : 0;
-                // Aggregate target = sum of per-month targets
-                const aggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0);
-                row['% Target Met (Agg.)'] = aggTarget > 0 ? ((grandTotal / aggTarget)*100).toFixed(1)+'%' : '0.0%';
-                rows.push(row);
-            });
-
-            // Group sub-total
-            const subTotal = { 'S/N': '', 'Full Name': `${grp} SUB-TOTAL`, 'Group':'', 'Feeder':'' };
-            let grpGrand = 0;
-            monthKeys.forEach(k => {
-                const sum = persons.reduce((s,p) => s + (p.months[k]?.total||0), 0);
-                subTotal[k] = sum; grpGrand += sum;
-            });
-            subTotal['Grand Total'] = grpGrand;
-            subTotal['Avg/Month'] = monthKeys.length > 0 ? (grpGrand / monthKeys.length).toFixed(1) : 0;
-            const grpAggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0) * (persons.length||1);
-            subTotal['% Target Met (Agg.)'] = grpAggTarget > 0 ? ((grpGrand / grpAggTarget)*100).toFixed(1)+'%' : '0.0%';
-            rows.push(subTotal);
-            rows.push({}); // blank spacer
+            groupData[grp].sort((a,b) =>
+                Object.values(b.months).reduce((s,v)=>s+v,0) - Object.values(a.months).reduce((s,v)=>s+v,0)
+            );
         });
 
-        const grandRow = { 'S/N': '', 'Full Name': 'GRAND TOTAL (ALL GROUPS)', 'Group':'', 'Feeder':'' };
-        let allGrand = 0;
-        const allPersons = Object.values(personMap);
-        monthKeys.forEach(k => {
-            const sum = allPersons.reduce((s,p) => s + (p.months[k]?.total||0), 0);
-            grandRow[k] = sum; allGrand += sum;
-        });
-        grandRow['Grand Total'] = allGrand;
-        grandRow['Avg/Month'] = monthKeys.length > 0 ? (allGrand / monthKeys.length).toFixed(1) : 0;
-        const overallAggTarget = monthKeys.reduce((s,k) => s + (mpSavedMonths[k]?.target||600), 0) * (allPersons.length||1);
-        grandRow['% Target Met (Agg.)'] = overallAggTarget > 0 ? ((allGrand / overallAggTarget)*100).toFixed(1)+'%' : '0.0%';
-        rows.push(grandRow);
+        const nMonths  = monthKeys.length;
+        const dateRange = nMonths > 1
+            ? `${mpFormatMonthLabel(monthKeys[0])} to ${mpFormatMonthLabel(monthKeys[nMonths-1])}`
+            : mpFormatMonthLabel(monthKeys[0]);
+        const MAX_ROWS = Math.max(groupData.AEDC.length, groupData.BSS.length, groupData.NYSC.length, 39);
 
-        const ws = XLSX.utils.json_to_sheet(rows);
-        // Set column widths
-        const colWidths = [{ wch:5 }, { wch:22 }, { wch:7 }, { wch:30 }];
-        monthKeys.forEach(() => colWidths.push({ wch:14 }));
-        colWidths.push({ wch:12 }, { wch:12 }, { wch:18 });
-        ws['!cols'] = colWidths;
+        // ── 2. Style helpers ───────────────────────────────────────────────
+        const font  = (bold,sz,color) => ({ bold:!!bold, sz:sz||10, color:{rgb:color||'FF000000'}, name:'Calibri' });
+        const fill  = (rgb) => rgb ? { fgColor:{rgb}, patternType:'solid' } : { patternType:'none' };
+        const align = (h,v,wrap) => ({ horizontal:h||'left', vertical:v||'center', wrapText:!!wrap });
+        const border= (rgb,style) => {
+            const s = { style:style||'thin', color:{rgb:rgb||'FFD1D5DB'} };
+            return { top:s, bottom:s, left:s, right:s };
+        };
+
+        // Per-group colour themes
+        const THEME = {
+            AEDC: {
+                titleBg:'FF1A3A6B', titleFg:'FFFFFFFF',
+                hdrBg:  'FF1D4ED8', hdrFg:  'FFFFFFFF',
+                subHdr: 'FFD6E4FF', subHdrFg:'FF1E3A8A',
+                rowEven:'FFE8F2FF', rowOdd: 'FFEFF6FF',
+                totalBg:'FF1E40AF', totalFg:'FFFFFFFF',
+                barBg:  'FF3B82F6', border: 'FFB3D0FF',
+            },
+            BSS: {
+                titleBg:'FF145A32', titleFg:'FFFFFFFF',
+                hdrBg:  'FF15803D', hdrFg:  'FFFFFFFF',
+                subHdr: 'FFD1FAE5', subHdrFg:'FF14532D',
+                rowEven:'FFE8FDF3', rowOdd: 'FFF0FDF4',
+                totalBg:'FF166534', totalFg:'FFFFFFFF',
+                barBg:  'FF22C55E', border: 'FFBBF7D0',
+            },
+            NYSC: {
+                titleBg:'FF4A1D6B', titleFg:'FFFFFFFF',
+                hdrBg:  'FF7C3AED', hdrFg:  'FFFFFFFF',
+                subHdr: 'FFEDE9FE', subHdrFg:'FF4C1D95',
+                rowEven:'FFF5F3FF', rowOdd: 'FFFAF5FF',
+                totalBg:'FF5B21B6', totalFg:'FFFFFFFF',
+                barBg:  'FFA78BFA', border: 'FFDDD6FE',
+            },
+        };
+
+        // Col layout (0-based):
+        //  AEDC: 0=s/n 1=name 2=total 3=%target
+        //  gap:  4
+        //  BSS:  5=s/n 6=name 7=total 8=%target
+        //  gap:  9
+        //  NYSC: 10=s/n 11=name 12=total 13=%target
+        const GC = { AEDC:0, BSS:5, NYSC:10 };
+        const TOTAL_COLS = 14;
+
+        // Cell ref helper
+        function cl(n) { let s=''; n++; while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);} return s; }
+        function ref(r,c) { return cl(c)+(r+1); }
+
+        const ws = {};
+        const merges = [];
+
+        function cell(r, c, v, s) {
+            ws[ref(r,c)] = { v: v===''||v==null?'':v, t: typeof v==='number'?'n':'s', s: s||{} };
+        }
+
+        // ── 3. ROW 0: Full-width title ─────────────────────────────────────
+        const MONTHS_LABEL = nMonths > 1
+            ? `(${nMonths} Months-Adhoc/BSS, ${groupData.NYSC.length ? nMonths : nMonths} Months-NYSC)`
+            : `(${nMonths} Month)`;
+        const titleTxt = `${dateRange} Aggregate Performance Summary${MONTHS_LABEL}`;
+        cell(0,0, titleTxt, { font:font(true,13,'FFFFFFFF'), fill:fill('FF1B3A5C'), alignment:align('center','center',true), border:border('FF0F2944','medium') });
+        for(let c=1;c<TOTAL_COLS;c++) cell(0,c,'',{ fill:fill('FF1B3A5C'), border:border('FF0F2944','medium') });
+        merges.push({s:{r:0,c:0},e:{r:0,c:TOTAL_COLS-1}});
+
+        // ── 4. ROW 1: blank spacer ─────────────────────────────────────────
+        for(let c=0;c<TOTAL_COLS;c++) cell(1,c,'',{});
+
+        // ── 5. ROW 2: Group title bars ─────────────────────────────────────
+        ['AEDC','BSS','NYSC'].forEach(grp => {
+            const sc = GC[grp]; const t = THEME[grp];
+            const s = { font:font(true,12,t.titleFg), fill:fill(t.titleBg), alignment:align('center','center'), border:border(t.titleBg) };
+            cell(2,sc, `TEAM ${grp} ENUMERATORS`, s);
+            for(let i=1;i<=3;i++) cell(2,sc+i,'',s);
+            merges.push({s:{r:2,c:sc},e:{r:2,c:sc+3}});
+        });
+        cell(2,4,'',{}); cell(2,9,'',{});
+
+        // ── 6. ROW 3: Sub-header (S/N | name | total | % labels) ──────────
+        const tgtLabel = `%Target Met\n(${aggTarget} per)`;
+        ['AEDC','BSS','NYSC'].forEach(grp => {
+            const sc = GC[grp]; const t = THEME[grp];
+            const sh = { font:font(true,9,t.subHdrFg), fill:fill(t.subHdr), alignment:align('center','center',true), border:border(t.border) };
+            const sl = { font:font(true,9,t.subHdrFg), fill:fill(t.subHdr), alignment:align('left','center',true),  border:border(t.border) };
+            cell(3,sc,   's/n',           sh);
+            cell(3,sc+1, `${grp} ENUMERATORS`, sl);
+            cell(3,sc+2, 'Total',         sh);
+            cell(3,sc+3, tgtLabel,        sh);
+        });
+        cell(3,4,'',{}); cell(3,9,'',{});
+
+        // ── 7. ROW 4: Column detail header (bold green/blue/purple row) ────
+        ['AEDC','BSS','NYSC'].forEach(grp => {
+            const sc = GC[grp]; const t = THEME[grp];
+            const s = { font:font(true,9,t.hdrFg), fill:fill(t.hdrBg), alignment:align('left','center'), border:border(t.border) };
+            const sc_ = { font:font(true,9,t.hdrFg), fill:fill(t.hdrBg), alignment:align('center','center'), border:border(t.border) };
+            cell(4,sc,   's/n',           sc_);
+            cell(4,sc+1, `${grp} ENUMERATORS`, s);
+            cell(4,sc+2, 'Total',         sc_);
+            cell(4,sc+3, `%Target Met\n(${aggTarget} per)`, sc_);
+        });
+        cell(4,4,'',{}); cell(4,9,'',{});
+
+        // ── 8. DATA ROWS ────────────────────────────────────────────────────
+        const DATA_START = 5;
+        for(let i=0;i<MAX_ROWS;i++) {
+            const row = DATA_START + i;
+            ['AEDC','BSS','NYSC'].forEach(grp => {
+                const sc = GC[grp]; const t = THEME[grp];
+                const bg = i%2===0 ? t.rowEven : t.rowOdd;
+                const sn  = { font:font(false,9,'FF374151'), fill:fill(bg), alignment:align('center','center'), border:border(t.border) };
+                const snm = { font:font(false,9,'FF111827'), fill:fill(bg), alignment:align('left','center'),   border:border(t.border) };
+                const snum= { font:font(true, 9,'FF1E3A8A'), fill:fill(bg), alignment:align('center','center'), border:border(t.border) };
+                const spct= { font:font(false,9,'FF374151'), fill:fill(bg), alignment:align('center','center'), border:border(t.border) };
+
+                const p = groupData[grp][i];
+                if(p) {
+                    const total = Object.values(p.months).reduce((s,v)=>s+v,0);
+                    const pct   = aggTarget>0 ? Math.round((total/aggTarget)*100)+'%' : '0%';
+                    cell(row,sc,   i+1,        sn);
+                    cell(row,sc+1, p.fullname, snm);
+                    cell(row,sc+2, total,      snum);
+                    cell(row,sc+3, pct,        spct);
+                } else {
+                    cell(row,sc,   i+1, sn);
+                    cell(row,sc+1, '',  snm);
+                    cell(row,sc+2, '',  snum);
+                    cell(row,sc+3, '',  spct);
+                }
+            });
+            cell(row,4,'',{}); cell(row,9,'',{});
+        }
+
+        // ── 9. TOTALS ROW ──────────────────────────────────────────────────
+        const TOTAL_ROW = DATA_START + MAX_ROWS;
+        ['AEDC','BSS','NYSC'].forEach(grp => {
+            const sc = GC[grp]; const t = THEME[grp];
+            const ts = { font:font(true,10,t.totalFg), fill:fill(t.totalBg), alignment:align('left','center'),   border:border(t.totalBg,'medium') };
+            const tn = { font:font(true,10,t.totalFg), fill:fill(t.totalBg), alignment:align('center','center'), border:border(t.totalBg,'medium') };
+            const persons = groupData[grp];
+            const grpTotal = persons.reduce((s,p)=>s+Object.values(p.months).reduce((a,v)=>a+v,0),0);
+            const grpPct   = aggTarget>0&&persons.length>0 ? Math.round((grpTotal/(aggTarget*persons.length))*100)+'%' : '0%';
+            cell(TOTAL_ROW, sc,   '',             tn);
+            cell(TOTAL_ROW, sc+1, `${grp} TOTAL`, ts);
+            cell(TOTAL_ROW, sc+2, grpTotal,        tn);
+            cell(TOTAL_ROW, sc+3, grpPct,          tn);
+        });
+        cell(TOTAL_ROW,4,'',{}); cell(TOTAL_ROW,9,'',{});
+
+        // ── 10. Personnel footer box ───────────────────────────────────────
+        const FOOT_ROW = TOTAL_ROW + 2;
+        const footTxt = `Personnel Providing Supervisory and Coordination Support\n${
+            ['AEDC','BSS','NYSC'].flatMap(g=>groupData[g].filter(p=>p.fullname.match(/Nansoh|Ocheikwu|Bialonwu/i)).map(p=>p.fullname)).join('\n')
+        }`;
+        const fs = { font:font(false,10,'FF1F2937'), fill:fill('FFF1F5F9'), alignment:align('left','top',true), border:border('FF94A3B8','medium') };
+        cell(FOOT_ROW,0, `Personnel Providing Supervisory and Coordination Support`, fs);
+        for(let c=1;c<TOTAL_COLS;c++) cell(FOOT_ROW,c,'',fs);
+        merges.push({s:{r:FOOT_ROW,c:0},e:{r:FOOT_ROW,c:TOTAL_COLS-1}});
+
+        // ── 11. Note row ───────────────────────────────────────────────────
+        const NOTE_ROW = FOOT_ROW + 1;
+        const noteS = { font:font(false,9,'FF6B7280'), fill:fill('FFFAFAFA'), alignment:align('left','center') };
+        cell(NOTE_ROW,0, `Aggregate target per person: ${aggTarget} pts across ${nMonths} month${nMonths>1?'s':''}  |  Exported: ${new Date().toLocaleDateString()}`, noteS);
+        for(let c=1;c<TOTAL_COLS;c++) cell(NOTE_ROW,c,'',noteS);
+        merges.push({s:{r:NOTE_ROW,c:0},e:{r:NOTE_ROW,c:TOTAL_COLS-1}});
+
+        // ── 12. Sheet metadata ─────────────────────────────────────────────
+        ws['!ref']    = `A1:${cl(TOTAL_COLS-1)}${NOTE_ROW+1}`;
+        ws['!merges'] = merges;
+        ws['!cols']   = [
+            {wch:5},{wch:28},{wch:8},{wch:16},   // AEDC
+            {wch:2},                               // gap
+            {wch:5},{wch:28},{wch:8},{wch:16},   // BSS
+            {wch:2},                               // gap
+            {wch:5},{wch:28},{wch:8},{wch:16},   // NYSC
+        ];
+        ws['!rows'] = [];
+        ws['!rows'][0] = {hpt:34};
+        ws['!rows'][2] = {hpt:22};
+        ws['!rows'][3] = {hpt:26};
+        ws['!rows'][4] = {hpt:26};
+        ws['!rows'][TOTAL_ROW] = {hpt:20};
+        ws['!rows'][FOOT_ROW]  = {hpt:48};
 
         XLSX.utils.book_append_sheet(wb, ws, 'Summary');
     }
