@@ -854,7 +854,7 @@
                                             <tbody id="unauthTableBody"></tbody>
                                         </table>
                                     </div>
-                                    <div style="margin-top:8px;font-size:0.72rem;color:#6b7280;font-style:italic;" class="no-print">
+                                    <div style="margin-top:8px;font-size:0.72rem;color:#6b7280;font-style:italic;" class="admin-only no-print">
                                         💡 <strong>Admin:</strong> Click ✕ to dismiss corrected rows. Use the Assigned Feeder column to fix wrong feeder assignments.
                                     </div>
                                 </div>
@@ -3780,13 +3780,58 @@
         document.getElementById('unauthAlertText').textContent = alertText;
 
         const tbody = document.getElementById('unauthTableBody');
-        tbody.innerHTML = violations.map((v, i) => {
+
+        // Group auto-violations by person (username) so one row per person showing ALL their unauthorized feeders
+        const personMap = {};
+        autoViolations.forEach(v => {
+            const pk = v.username + '||' + v.group;
+            if (!personMap[pk]) {
+                personMap[pk] = { ...v, unauthorizedFeeders: [], allStructures: [], allKeys: [] };
+            }
+            personMap[pk].unauthorizedFeeders.push({ feeder: v.unauthorizedFeeder, count: v.count, structures: v.structures || [] });
+            personMap[pk].allStructures.push(...(v.structures || []));
+            personMap[pk].allKeys.push(v.key);
+        });
+        const groupedAuto = Object.values(personMap);
+
+        // Manual violations stay as individual rows (already one entry per row)
+        const allDisplayRows = [
+            ...groupedAuto.map(g => ({ ...g, isGrouped: true })),
+            ...manualViolations.map(v => ({ ...v, isGrouped: false }))
+        ];
+
+        tbody.innerHTML = allDisplayRows.map((v, i) => {
             const groupBadgeColors = { aedc: '#dbeafe;color:#1e40af', bss: '#dcfce7;color:#166534', nysc: '#fef3c7;color:#92400e' };
             const bc = groupBadgeColors[v.group] || '#f3f4f6;color:#374151';
-            const structs = v.structures && v.structures.length
-                ? v.structures.slice(0,10).join(', ') + (v.structures.length > 10 ? ` (+${v.structures.length - 10} more)` : '')
-                : '<span style="color:#9ca3af;font-style:italic;">N/A</span>';
             const manualBadge = v.isManual ? '<span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:5px;font-size:9px;margin-left:4px;">✋ Manual</span>' : '';
+
+            let unauthFeederCell, totalCount, structsDisplay;
+
+            if (v.isGrouped) {
+                // Multiple unauthorized feeders — list each with its count and structures
+                const feeders = v.unauthorizedFeeders || [];
+                unauthFeederCell = feeders.map(f =>
+                    `<div style="margin-bottom:3px;"><span style="color:#dc2626;font-weight:600;">${escapeHtml(f.feeder)}</span><span style="color:#b45309;font-size:9px;margin-left:4px;">(${f.count} pole${f.count!==1?'s':''})</span></div>`
+                ).join('');
+                totalCount = feeders.reduce((s, f) => s + (f.count||0), 0);
+                // All structure numbers from all feeders, deduplicated, fully shown
+                const allStructsSet = [...new Set(v.allStructures)];
+                structsDisplay = allStructsSet.length
+                    ? `<span style="word-break:break-word;line-height:1.6;">${allStructsSet.join(', ')}</span>`
+                    : '<span style="color:#9ca3af;font-style:italic;">N/A</span>';
+            } else {
+                unauthFeederCell = `<span style="color:#dc2626;font-weight:600;">${escapeHtml(v.unauthorizedFeeder)}</span>`;
+                totalCount = v.count || 0;
+                const structs = v.structures && v.structures.length ? v.structures : [];
+                structsDisplay = structs.length
+                    ? `<span style="word-break:break-word;line-height:1.6;">${structs.join(', ')}</span>`
+                    : '<span style="color:#9ca3af;font-style:italic;">N/A</span>';
+            }
+
+            // For dismiss — dismiss all keys for this person
+            const dismissKeys = v.isGrouped ? (v.allKeys || []) : [v.key];
+            const dismissOnclick = `dismissUnauthorizedRows(${JSON.stringify(dismissKeys)})`;
+
             const assignedFeederCell = isAdminMode
                 ? `<div style="display:flex;gap:4px;align-items:center;">
                     <input type="text" value="${escapeHtml(v.assignedFeeder)}"
@@ -3795,16 +3840,17 @@
                         onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#bbf7d0'">
                   </div>`
                 : `<span style="color:#16a34a;font-weight:600;font-size:10px;">${escapeHtml(v.assignedFeeder)}</span>`;
+
             return `<tr style="background:${i%2===0?'#fff1f2':'#fff'};">
-                <td style="padding:6px 10px;font-size:11px;color:#6b7280;">${i+1}</td>
-                <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;">${escapeHtml(v.fullname)}${manualBadge}</td>
-                <td style="padding:6px 10px;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${(v.group||'').toUpperCase()}</span></td>
-                <td style="padding:6px 10px;min-width:160px;">${assignedFeederCell}</td>
-                <td style="padding:6px 10px;font-size:10px;color:#dc2626;font-weight:600;">${escapeHtml(v.unauthorizedFeeder)}</td>
-                <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;">${v.count||0}</td>
-                <td style="padding:6px 10px;font-size:10px;color:#374151;max-width:200px;word-break:break-word;">${structs}</td>
-                <td style="padding:6px 10px;text-align:center;" class="admin-only">
-                    <button onclick="dismissUnauthorizedRow('${escapeHtml(v.key)}')" title="Dismiss (mark as corrected)" style="background:#dcfce7;color:#166534;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✓ Dismiss</button>
+                <td style="padding:6px 10px;font-size:11px;color:#6b7280;vertical-align:top;">${i+1}</td>
+                <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;vertical-align:top;">${escapeHtml(v.fullname)}${manualBadge}</td>
+                <td style="padding:6px 10px;vertical-align:top;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${(v.group||'').toUpperCase()}</span></td>
+                <td style="padding:6px 10px;min-width:160px;vertical-align:top;">${assignedFeederCell}</td>
+                <td style="padding:6px 10px;font-size:10px;vertical-align:top;">${unauthFeederCell}</td>
+                <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;vertical-align:top;">${totalCount}</td>
+                <td style="padding:6px 10px;font-size:10px;color:#374151;vertical-align:top;">${structsDisplay}</td>
+                <td style="padding:6px 10px;text-align:center;vertical-align:top;" class="admin-only">
+                    <button onclick="${dismissOnclick}" title="Dismiss (mark as corrected)" style="background:#dcfce7;color:#166534;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✓ Dismiss</button>
                 </td>
             </tr>`;
         }).join('') + (isAdminMode ? `
@@ -3849,6 +3895,14 @@
         if (!unauthDismissed.includes(key)) unauthDismissed.push(key);
         buildUnauthorizedMappingPanel();
         showStatus('Row dismissed successfully', 'success');
+    }
+
+    // Dismiss all keys for a grouped person row
+    function dismissUnauthorizedRows(keys) {
+        if (!isAdminMode) return;
+        keys.forEach(k => { if (!unauthDismissed.includes(k)) unauthDismissed.push(k); });
+        buildUnauthorizedMappingPanel();
+        showStatus('Violation dismissed successfully', 'success');
     }
 
     // Allow admin to correct the assigned feeder inline in the unauthorized table
