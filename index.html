@@ -3834,8 +3834,10 @@
             }
 
             // For dismiss — dismiss all keys for this person
+            // Use a safe data attribute + helper to avoid quote-breaking onclick attrs
             const dismissKeys = v.isGrouped ? (v.allKeys || []) : [v.key];
-            const dismissOnclick = `dismissUnauthorizedRows(${JSON.stringify(dismissKeys)})`;
+            const dismissKeysAttr = dismissKeys.map(k => encodeURIComponent(k)).join('|');
+            const dismissOnclick = `dismissUnauthorizedRows(decodeURIComponent('${dismissKeysAttr}').split('|').map(decodeURIComponent))`;
 
             const assignedFeederCell = isAdminMode
                 ? `<div style="display:flex;gap:4px;align-items:center;">
@@ -3847,16 +3849,35 @@
                 : `<span style="color:#16a34a;font-weight:600;font-size:10px;">${escapeHtml(v.assignedFeeder)}</span>`;
 
             // Admin-editable cells for Unauthorized Feeder, Pole Count, Structure No(s)
-            const unauthFeederEditable = (isAdminMode && !v.isGrouped)
-                ? `<input type="text" value="${escapeHtml(v.unauthorizedFeeder)}"
-                    onchange="updateUnauthViolationField('${escapeHtml(v.key)}','unauthorizedFeeder',this.value)"
-                    style="width:100%;min-width:130px;padding:3px 7px;border:1.5px solid #fca5a5;border-radius:5px;font-size:10px;background:#fff1f2;outline:none;color:#dc2626;font-weight:600;"
-                    onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#fca5a5'">`
-                : unauthFeederCell;
+            let unauthFeederEditable;
+            if (isAdminMode) {
+                if (v.isGrouped) {
+                    // Each sub-feeder in a grouped row gets its own editable input
+                    const feeders = v.unauthorizedFeeders || [];
+                    unauthFeederEditable = feeders.map((f, fi) => {
+                        const subKey = encodeURIComponent(v.allKeys[fi] || v.allKeys[0] || v.key);
+                        return `<div style="margin-bottom:4px;display:flex;align-items:center;gap:4px;">
+                            <input type="text" value="${escapeHtml(f.feeder)}"
+                                onchange="updateUnauthViolationField(decodeURIComponent('${subKey}'),'unauthorizedFeeder',this.value)"
+                                style="flex:1;min-width:120px;padding:3px 7px;border:1.5px solid #fca5a5;border-radius:5px;font-size:10px;background:#fff1f2;outline:none;color:#dc2626;font-weight:600;"
+                                onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#fca5a5'">
+                            <span style="color:#b45309;font-size:9px;white-space:nowrap;">(${f.count} pole${f.count!==1?'s':''})</span>
+                        </div>`;
+                    }).join('');
+                } else {
+                    unauthFeederEditable = `<input type="text" value="${escapeHtml(v.unauthorizedFeeder)}"
+                        onchange="updateUnauthViolationField(decodeURIComponent('${encodeURIComponent(v.key)}'),'unauthorizedFeeder',this.value)"
+                        style="width:100%;min-width:130px;padding:3px 7px;border:1.5px solid #fca5a5;border-radius:5px;font-size:10px;background:#fff1f2;outline:none;color:#dc2626;font-weight:600;"
+                        onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#fca5a5'">`;
+                }
+            } else {
+                unauthFeederEditable = unauthFeederCell;
+            }
 
+            const firstKey = encodeURIComponent(v.isGrouped ? (v.allKeys||[])[0] : v.key);
             const poleCountEditable = isAdminMode
                 ? `<input type="number" min="0" value="${totalCount}"
-                    onchange="updateUnauthViolationField('${escapeHtml(v.isGrouped ? (v.allKeys||[])[0] : v.key)}','count',this.value)"
+                    onchange="updateUnauthViolationField(decodeURIComponent('${firstKey}'),'count',this.value)"
                     style="width:70px;padding:3px 7px;border:1.5px solid #fde68a;border-radius:5px;font-size:11px;font-weight:700;color:#b45309;background:#fffbeb;text-align:center;outline:none;"
                     onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">`
                 : `<span style="font-weight:700;color:#b45309;">${totalCount}</span>`;
@@ -3864,7 +3885,7 @@
             const structuresEditable = isAdminMode
                 ? `<input type="text" value="${escapeHtml(v.isGrouped ? [...new Set(v.allStructures)].join(', ') : (v.structures||[]).join(', '))}"
                     placeholder="Structure No(s) comma-separated"
-                    onchange="updateUnauthViolationField('${escapeHtml(v.isGrouped ? (v.allKeys||[])[0] : v.key)}','structures',this.value)"
+                    onchange="updateUnauthViolationField(decodeURIComponent('${firstKey}'),'structures',this.value)"
                     style="width:100%;min-width:150px;padding:3px 7px;border:1.5px solid #c7d2fe;border-radius:5px;font-size:10px;background:#eef2ff;outline:none;color:#374151;"
                     onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#c7d2fe'">`
                 : structsDisplay;
@@ -3958,29 +3979,34 @@
     // Allow admin to edit Unauthorized Feeder Captured, Pole Count, Structure No(s) inline
     function updateUnauthViolationField(key, field, value) {
         if (!isAdminMode) return;
+        const trimmedVal = (typeof value === 'string') ? value.trim() : value;
+
         // Find in manual entries first
         const manualIdx = unauthManualEntries.findIndex(e => e.key === key);
         if (manualIdx >= 0) {
             const entry = unauthManualEntries[manualIdx];
-            if (field === 'unauthorizedFeeder') entry.unauthorizedFeeder = value.trim();
+            if (field === 'unauthorizedFeeder') entry.unauthorizedFeeder = trimmedVal;
             else if (field === 'count') entry.count = parseInt(value) || 0;
-            else if (field === 'structures') entry.structures = value.split(',').map(s => s.trim()).filter(Boolean);
+            else if (field === 'structures') entry.structures = trimmedVal ? trimmedVal.split(',').map(s => s.trim()).filter(Boolean) : [];
             clearTimeout(window._unauthViolationRebuildTimer);
-            window._unauthViolationRebuildTimer = setTimeout(() => buildUnauthorizedMappingPanel(), 600);
+            window._unauthViolationRebuildTimer = setTimeout(() => buildUnauthorizedMappingPanel(), 800);
             showStatus(`Updated ${field} successfully`, 'success');
             return;
         }
-        // Find in saved violations
+
+        // Find in saved violations (individual entries, even if displayed as grouped)
         const savedIdx = unauthSavedViolations.findIndex(e => e.key === key);
         if (savedIdx >= 0) {
             const entry = unauthSavedViolations[savedIdx];
-            if (field === 'count') entry.count = parseInt(value) || 0;
-            else if (field === 'structures') entry.structures = value.split(',').map(s => s.trim()).filter(Boolean);
-            // Note: unauthorizedFeeder on auto-detected rows is read-only (non-manual), count/structures can be overridden
+            if (field === 'unauthorizedFeeder') entry.unauthorizedFeeder = trimmedVal;
+            else if (field === 'count') entry.count = parseInt(value) || 0;
+            else if (field === 'structures') entry.structures = trimmedVal ? trimmedVal.split(',').map(s => s.trim()).filter(Boolean) : [];
             clearTimeout(window._unauthViolationRebuildTimer);
-            window._unauthViolationRebuildTimer = setTimeout(() => buildUnauthorizedMappingPanel(), 600);
+            window._unauthViolationRebuildTimer = setTimeout(() => buildUnauthorizedMappingPanel(), 800);
             showStatus(`Updated ${field} successfully`, 'success');
+            return;
         }
+        showStatus('Could not find entry to update — try recalculating', 'warning');
     }
 
     function toggleUnauthorizedPanel() {
