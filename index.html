@@ -3692,29 +3692,30 @@
         const endDateStr = reportResults.endDateKey || startDateStr;
         if (!startDateStr) return [];
 
-        const htData = uploadedData.ht || [];
-        const htCols = htData.length ? Object.keys(htData[0]) : [];
-        const htUserCol = htCols.find(c => c.toLowerCase().includes('username') || c.toLowerCase() === 'user');
-        const htStructCol = htCols.find(c => c.toLowerCase() === 'structure_no' || c.toLowerCase().replace(/[\s_]/g,'') === 'structureno');
-        const htFeederCols = htCols.filter(c => {
-            const cl = c.toLowerCase().replace(/\s+/g,'_').trim();
-            return cl === '_33kv_feeder' || cl === '_11kv_feeder' || cl === 'feeder';
-        });
-        const htTimeCol = htCols.find(c => {
-            const cl = c.toLowerCase();
-            return cl.includes('time') || cl.includes('date') || cl === 'today';
-        });
-        const structureMap = {};
-        if (htUserCol && htStructCol && htFeederCols.length) {
-            htData.forEach(row => {
-                const username = (row[htUserCol] || '').toString().trim().toLowerCase();
-                const structNo = (row[htStructCol] || '').toString().trim();
+        // Helper: scan a data sheet (HT or DT/DSS) and populate structureMap
+        function _scanSheetForStructures(sheetData, structureMap) {
+            if (!sheetData || !sheetData.length) return;
+            const cols = Object.keys(sheetData[0]);
+            const userCol = cols.find(c => c.toLowerCase().includes('username') || c.toLowerCase() === 'user');
+            const structCol = cols.find(c => c.toLowerCase() === 'structure_no' || c.toLowerCase().replace(/[\s_]/g,'') === 'structureno');
+            const feederCols = cols.filter(c => {
+                const cl = c.toLowerCase().replace(/\s+/g,'_').trim();
+                return cl === '_33kv_feeder' || cl === '_11kv_feeder' || cl === 'feeder';
+            });
+            const timeCol = cols.find(c => {
+                const cl = c.toLowerCase();
+                return cl.includes('time') || cl.includes('date') || cl === 'today';
+            });
+            if (!userCol || !structCol || !feederCols.length) return;
+            sheetData.forEach(row => {
+                const username = (row[userCol] || '').toString().trim().toLowerCase();
+                const structNo = (row[structCol] || '').toString().trim();
                 if (!username || !structNo) return;
-                if (htTimeCol && row[htTimeCol]) {
-                    const dk = toLocalDateKey(row[htTimeCol]);
+                if (timeCol && row[timeCol]) {
+                    const dk = toLocalDateKey(row[timeCol]);
                     if (dk && startDateStr && (dk < startDateStr || dk > endDateStr)) return;
                 }
-                htFeederCols.forEach(fc => {
+                feederCols.forEach(fc => {
                     let fv = (row[fc] || '').toString().trim();
                     if (!fv || fv === '0' || fv.toLowerCase() === 'null') return;
                     const translated = feederLookup[fv]; if (translated) fv = translated;
@@ -3724,6 +3725,10 @@
                 });
             });
         }
+
+        const structureMap = {};
+        _scanSheetForStructures(uploadedData.ht || [], structureMap);
+        _scanSheetForStructures(uploadedData.dss || [], structureMap);
 
         if (!Object.keys(userFeederData).length) return [];
 
@@ -3841,17 +3846,40 @@
                   </div>`
                 : `<span style="color:#16a34a;font-weight:600;font-size:10px;">${escapeHtml(v.assignedFeeder)}</span>`;
 
+            // Admin-editable cells for Unauthorized Feeder, Pole Count, Structure No(s)
+            const unauthFeederEditable = (isAdminMode && !v.isGrouped)
+                ? `<input type="text" value="${escapeHtml(v.unauthorizedFeeder)}"
+                    onchange="updateUnauthViolationField('${escapeHtml(v.key)}','unauthorizedFeeder',this.value)"
+                    style="width:100%;min-width:130px;padding:3px 7px;border:1.5px solid #fca5a5;border-radius:5px;font-size:10px;background:#fff1f2;outline:none;color:#dc2626;font-weight:600;"
+                    onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#fca5a5'">`
+                : unauthFeederCell;
+
+            const poleCountEditable = isAdminMode
+                ? `<input type="number" min="0" value="${totalCount}"
+                    onchange="updateUnauthViolationField('${escapeHtml(v.isGrouped ? (v.allKeys||[])[0] : v.key)}','count',this.value)"
+                    style="width:70px;padding:3px 7px;border:1.5px solid #fde68a;border-radius:5px;font-size:11px;font-weight:700;color:#b45309;background:#fffbeb;text-align:center;outline:none;"
+                    onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">`
+                : `<span style="font-weight:700;color:#b45309;">${totalCount}</span>`;
+
+            const structuresEditable = isAdminMode
+                ? `<input type="text" value="${escapeHtml(v.isGrouped ? [...new Set(v.allStructures)].join(', ') : (v.structures||[]).join(', '))}"
+                    placeholder="Structure No(s) comma-separated"
+                    onchange="updateUnauthViolationField('${escapeHtml(v.isGrouped ? (v.allKeys||[])[0] : v.key)}','structures',this.value)"
+                    style="width:100%;min-width:150px;padding:3px 7px;border:1.5px solid #c7d2fe;border-radius:5px;font-size:10px;background:#eef2ff;outline:none;color:#374151;"
+                    onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#c7d2fe'">`
+                : structsDisplay;
+
             return `<tr style="background:${i%2===0?'#fff1f2':'#fff'};">
                 <td style="padding:6px 10px;font-size:11px;color:#6b7280;vertical-align:top;">${i+1}</td>
                 <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#1f2937;vertical-align:top;">${escapeHtml(v.fullname)}${manualBadge}</td>
                 <td style="padding:6px 10px;vertical-align:top;"><span style="background:${bc};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;">${(v.group||'').toUpperCase()}</span></td>
                 <td style="padding:6px 10px;min-width:160px;vertical-align:top;">${assignedFeederCell}</td>
-                <td style="padding:6px 10px;font-size:10px;vertical-align:top;">${unauthFeederCell}</td>
-                <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:#b45309;vertical-align:top;">${totalCount}</td>
-                <td style="padding:6px 10px;font-size:10px;color:#374151;vertical-align:top;">${structsDisplay}</td>
-                <td style="padding:6px 10px;text-align:center;vertical-align:top;" class="admin-only">
-                    <button onclick="${dismissOnclick}" title="Dismiss (mark as corrected)" style="background:#dcfce7;color:#166534;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;">✓ Dismiss</button>
-                </td>
+                <td style="padding:6px 10px;font-size:10px;vertical-align:top;">${unauthFeederEditable}</td>
+                <td style="padding:6px 10px;text-align:center;font-size:11px;vertical-align:top;">${poleCountEditable}</td>
+                <td style="padding:6px 10px;font-size:10px;color:#374151;vertical-align:top;">${structuresEditable}</td>
+                ${isAdminMode ? `<td style="padding:6px 10px;text-align:center;vertical-align:top;">
+                    <button onclick="${dismissOnclick}" title="Dismiss (mark as corrected)" style="background:#dcfce7;color:#166534;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Dismiss</button>
+                </td>` : '<td></td>'}
             </tr>`;
         }).join('') + (isAdminMode ? `
             <tr style="background:#fff8f8;">
@@ -3925,6 +3953,34 @@
             buildUnauthorizedMappingPanel();
             showStatus(`Assigned feeder updated to: ${trimmed}`, 'success');
         }, 800);
+    }
+
+    // Allow admin to edit Unauthorized Feeder Captured, Pole Count, Structure No(s) inline
+    function updateUnauthViolationField(key, field, value) {
+        if (!isAdminMode) return;
+        // Find in manual entries first
+        const manualIdx = unauthManualEntries.findIndex(e => e.key === key);
+        if (manualIdx >= 0) {
+            const entry = unauthManualEntries[manualIdx];
+            if (field === 'unauthorizedFeeder') entry.unauthorizedFeeder = value.trim();
+            else if (field === 'count') entry.count = parseInt(value) || 0;
+            else if (field === 'structures') entry.structures = value.split(',').map(s => s.trim()).filter(Boolean);
+            clearTimeout(window._unauthViolationRebuildTimer);
+            window._unauthViolationRebuildTimer = setTimeout(() => buildUnauthorizedMappingPanel(), 600);
+            showStatus(`Updated ${field} successfully`, 'success');
+            return;
+        }
+        // Find in saved violations
+        const savedIdx = unauthSavedViolations.findIndex(e => e.key === key);
+        if (savedIdx >= 0) {
+            const entry = unauthSavedViolations[savedIdx];
+            if (field === 'count') entry.count = parseInt(value) || 0;
+            else if (field === 'structures') entry.structures = value.split(',').map(s => s.trim()).filter(Boolean);
+            // Note: unauthorizedFeeder on auto-detected rows is read-only (non-manual), count/structures can be overridden
+            clearTimeout(window._unauthViolationRebuildTimer);
+            window._unauthViolationRebuildTimer = setTimeout(() => buildUnauthorizedMappingPanel(), 600);
+            showStatus(`Updated ${field} successfully`, 'success');
+        }
     }
 
     function toggleUnauthorizedPanel() {
