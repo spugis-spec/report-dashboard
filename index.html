@@ -2216,6 +2216,10 @@
             }
             if(status==='excused'&&isAdminMode){ openExcuseModal(group,index); }
             updateDashboard();
+            // Auto-save to Firebase whenever status changes
+            if(firebaseInitialized && currentUser && reportResults.dateKey){
+                saveDashboardToCloud();
+            }
         }
     }
 
@@ -2951,12 +2955,17 @@
             const raw = snap.val();
             if (!raw) { showStatus(`No data found for ${formatDateFull(dateKey)}`, 'warning'); return; }
 
+            // Single-date dashboards must never have isDateRange=true, even if stale
+            // saved data has it — this flag controls whether the status dropdown
+            // is shown for admin users.
+            const isSingleDay = !dateKey.includes('_to_');
             reportResults = {
                 ...raw,
                 aedc: normGroup(raw.aedc),
                 bss:  normGroup(raw.bss),
                 nysc: normGroup(raw.nysc),
                 dateKey: dateKey,
+                isDateRange: isSingleDay ? false : (raw.isDateRange || true),
                 formattedDate: raw.formattedDate || (
                     dateKey.includes('_to_')
                         ? `${formatDateFull(dateKey.split('_to_')[0])} to ${formatDateFull(dateKey.split('_to_')[1])}`
