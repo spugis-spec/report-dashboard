@@ -880,7 +880,10 @@
                         </div>
                         <!-- Zero-present remarks legacy -->
                         <div id="sectionZeroPresent" style="display:none; background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #f97316; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 12px;">
-                            <h4 style="font-size: 0.8rem; font-weight: 600; color: #c2410c; margin: 0 0 6px 0;">🟡 Present with Zero Entries</h4>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                                <h4 style="font-size: 0.8rem; font-weight: 600; color: #c2410c; margin: 0;">🟡 Present with Zero Entries</h4>
+                                <button id="bulkZeroRemarkBtn" onclick="openBulkZeroRemarkModal('legacy')" style="display:none;font-size:9px;padding:3px 8px;background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;border-radius:4px;cursor:pointer;font-weight:600;">✏️ Add Shared Remark for All</button>
+                            </div>
                             <div id="zeroPresentList" style="font-size: 0.7rem;"></div>
                         </div>
                     </div>
@@ -927,7 +930,10 @@
                             <div style="background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #6366f1; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><h4 style="font-size: 0.8rem; font-weight: 600; color: #4f46e5; margin: 0 0 6px 0;">📝 Excused</h4><div id="pairedExcusedList" style="font-size: 0.7rem;"></div></div>
                         </div>
                         <div id="sectionZeroPresentPaired" style="display:none; background: white; border-radius: 8px; padding: 10px; border-top: 3px solid #f97316; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 12px;">
-                            <h4 style="font-size: 0.8rem; font-weight: 600; color: #c2410c; margin: 0 0 6px 0;">🟡 Present with Zero Entries</h4>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                                <h4 style="font-size: 0.8rem; font-weight: 600; color: #c2410c; margin: 0;">🟡 Present with Zero Entries</h4>
+                                <button id="bulkZeroRemarkBtnPaired" onclick="openBulkZeroRemarkModal('paired')" style="display:none;font-size:9px;padding:3px 8px;background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;border-radius:4px;cursor:pointer;font-weight:600;">✏️ Add Shared Remark for All</button>
+                            </div>
                             <div id="pairedZeroPresentList" style="font-size: 0.7rem;"></div>
                         </div>
                     </div>
@@ -956,7 +962,9 @@
                                 <label style="font-size:0.75rem;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Points Target Per Person</label>
                                 <input type="number" id="mpTargetInput" value="600" min="1" step="1"
                                     style="width:120px;padding:8px 12px;border:2px solid #c7d2fe;border-radius:8px;font-size:1rem;font-weight:700;color:#4f46e5;text-align:center;font-family:'DM Sans',sans-serif;"
-                                    oninput="mpCurrentTarget=parseInt(this.value)||600">
+                                    oninput="if(isAdminMode){mpCurrentTarget=parseInt(this.value)||600;} else {this.value=mpCurrentTarget;}"
+                                    onfocus="if(!isAdminMode){this.blur();}"
+                                    readonly id="mpTargetInput">
                             </div>
                             <div style="font-size:0.75rem;color:#64748b;max-width:200px;line-height:1.4;">
                                 Default is <strong>600</strong>. Change here before saving a new month. Previously saved months retain their original target.
@@ -1332,6 +1340,25 @@
     // ============================================
     // ACCESS CONTROL
     // ============================================
+
+    function syncTargetInputMode() {
+        const inp = document.getElementById('mpTargetInput');
+        if (!inp) return;
+        if (isAdminMode) {
+            inp.removeAttribute('readonly');
+            inp.style.cursor = 'text';
+            inp.style.border = '2px solid #c7d2fe';
+            inp.style.opacity = '1';
+            inp.title = 'Click to change the monthly target';
+        } else {
+            inp.setAttribute('readonly', 'readonly');
+            inp.style.cursor = 'not-allowed';
+            inp.style.border = '2px solid #e2e8f0';
+            inp.style.opacity = '0.7';
+            inp.title = 'Target is set by admin';
+        }
+    }
+
     async function enterAdminMode() {
         const email = document.getElementById('adminEmail').value;
         const password = document.getElementById('adminPassword').value;
@@ -1351,6 +1378,7 @@
             switchTab('data');
             Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => { renderSavedDatesList(); mpLoadSavedMonths(); });
             showStatus('Logged in as Admin','success');
+            syncTargetInputMode();
         } catch(e) { errorDiv.textContent=e.message||'Invalid credentials'; errorDiv.classList.remove('hidden'); }
         finally { loginBtn.disabled=false; loginBtn.textContent='Login as Admin'; }
     }
@@ -1364,6 +1392,7 @@
         ['data','mapping','dashboard','monthly'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
         switchTab('dashboard');
         Promise.all([loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => { loadLatestDashboard(); mpLoadSavedMonths(); });
+        syncTargetInputMode();
     }
 
     function switchAccessMode() {
@@ -1974,7 +2003,52 @@
         remarksData[r.username] = { excuseRemark: r.excuseRemark||'', excuseApproval: r.excuseApproval||'pending', zeroRemark: r.zeroRemark };
         closeZeroRemarkModal();
         updateDashboard();
+        if(firebaseInitialized && currentUser && reportResults.dateKey){ saveDashboardToCloud(); }
         showStatus('Zero-entry remark saved','success');
+    }
+
+    // ─── Bulk Zero Remark ───────────────────────────────────────────────────
+    let bulkZeroRemarkMode = 'legacy'; // 'legacy' | 'paired'
+
+    function openBulkZeroRemarkModal(mode) {
+        if (!isAdminMode) return;
+        bulkZeroRemarkMode = mode || 'legacy';
+        // Count zero-present people
+        let count = 0;
+        ['aedc','bss','nysc'].forEach(g => {
+            (reportResults[g].results||[]).forEach(r => {
+                if (r.status === 'present' && r.total === 0) count++;
+            });
+        });
+        document.getElementById('bulkZeroRemarkCount').textContent = count + (count === 1 ? ' person' : ' people');
+        document.getElementById('bulkZeroRemarkText').value = '';
+        document.getElementById('bulkZeroRemarkModal').classList.remove('hidden');
+    }
+
+    function closeBulkZeroRemarkModal() {
+        document.getElementById('bulkZeroRemarkModal').classList.add('hidden');
+    }
+
+    function saveBulkZeroRemark() {
+        if (!isAdminMode) return;
+        const remark = document.getElementById('bulkZeroRemarkText').value.trim();
+        let changed = 0;
+        ['aedc','bss','nysc'].forEach(g => {
+            (reportResults[g].results||[]).forEach(r => {
+                if (r.status === 'present' && r.total === 0) {
+                    r.zeroRemark = remark;
+                    remarksData[r.username] = remarksData[r.username] || {};
+                    remarksData[r.username].excuseRemark = r.excuseRemark||'';
+                    remarksData[r.username].excuseApproval = r.excuseApproval||'pending';
+                    remarksData[r.username].zeroRemark = remark;
+                    changed++;
+                }
+            });
+        });
+        closeBulkZeroRemarkModal();
+        updateDashboard();
+        if (firebaseInitialized && currentUser && reportResults.dateKey) { saveDashboardToCloud(); }
+        showStatus(`Shared remark applied to ${changed} person(s) with zero entries`, 'success');
     }
 
     // Admin: approve/reject excuse inline
@@ -2107,6 +2181,11 @@
         const section = document.getElementById(sectionId);
         if (!list.length) { section.style.display='none'; return; }
         section.style.display='block';
+        // Show/hide bulk remark button (admin only, 2+ people)
+        const isPaired = sectionId === 'sectionZeroPresentPaired';
+        const bulkBtnId = isPaired ? 'bulkZeroRemarkBtnPaired' : 'bulkZeroRemarkBtn';
+        const bulkBtn = document.getElementById(bulkBtnId);
+        if (bulkBtn) bulkBtn.style.display = (isAdminMode && list.length >= 1) ? 'inline-block' : 'none';
         const el = document.getElementById(listId);
         // Multi-column grid: 3 columns on wide, 2 on medium, 1 on narrow
         el.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px;';
@@ -2661,6 +2740,28 @@
       </div>
     </div>
   </div>
+    <!-- Bulk Zero Remark Modal -->
+    <div id="bulkZeroRemarkModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 fade-in">
+            <div class="text-center mb-4">
+                <div class="text-4xl mb-2">🟡</div>
+                <h2 class="text-xl font-bold text-gray-800">Shared Remark — Zero Entries</h2>
+                <p class="text-gray-500 text-sm mt-1">One remark applied to <strong id="bulkZeroRemarkCount">all</strong> people with zero entries</p>
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Shared Reason for Zero Entries</label>
+                <textarea id="bulkZeroRemarkText" rows="3" placeholder="e.g. Logistics issue, Vehicle breakdown, Equipment fault, Field access denied..." class="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 text-sm"></textarea>
+            </div>
+            <p class="text-xs text-gray-500 mb-4 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                ⚠️ This will <strong>overwrite</strong> any existing individual remark for every person in the zero-entries list. To set individual remarks instead, close this and use the ✏️ button per person.
+            </p>
+            <div class="flex gap-3">
+                <button onclick="closeBulkZeroRemarkModal()" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all">Cancel</button>
+                <button onclick="saveBulkZeroRemark()" class="flex-1 py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-lg transition-all">💾 Apply to All</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>`;
 
