@@ -2007,48 +2007,93 @@
         showStatus('Zero-entry remark saved','success');
     }
 
-    // ─── Bulk Zero Remark ───────────────────────────────────────────────────
-    let bulkZeroRemarkMode = 'legacy'; // 'legacy' | 'paired'
+    // ─── Bulk Zero Remark (select & assign) ────────────────────────────────
+    let bulkZeroRemarkMode = 'legacy';
+    let bzrPeople = []; // [{group, index, username, name, currentRemark}]
 
     function openBulkZeroRemarkModal(mode) {
         if (!isAdminMode) return;
         bulkZeroRemarkMode = mode || 'legacy';
-        // Count zero-present people
-        let count = 0;
+        // Collect all zero-present people
+        bzrPeople = [];
         ['aedc','bss','nysc'].forEach(g => {
-            (reportResults[g].results||[]).forEach(r => {
-                if (r.status === 'present' && r.total === 0) count++;
+            (reportResults[g].results||[]).forEach((r, i) => {
+                if (r.status === 'present' && r.total === 0) {
+                    bzrPeople.push({ group: g, index: i, username: r.username,
+                        name: r.fullname, currentRemark: r.zeroRemark || '' });
+                }
             });
         });
-        document.getElementById('bulkZeroRemarkCount').textContent = count + (count === 1 ? ' person' : ' people');
+        bzrRenderList();
         document.getElementById('bulkZeroRemarkText').value = '';
+        bzrUpdateCount();
         document.getElementById('bulkZeroRemarkModal').classList.remove('hidden');
+    }
+
+    function bzrRenderList() {
+        const container = document.getElementById('bzrPersonList');
+        const groupColors = { aedc: '#2563eb', bss: '#16a34a', nysc: '#ea580c' };
+        container.innerHTML = bzrPeople.map((p, idx) => `
+            <label style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:${idx%2===0?'#fff7ed':'#fff'};border:1px solid #fed7aa;border-radius:6px;cursor:pointer;">
+                <input type="checkbox" class="bzr-check" data-idx="${idx}" checked
+                    onchange="bzrUpdateCount()"
+                    style="margin-top:2px;accent-color:#f97316;width:14px;height:14px;flex-shrink:0;">
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                        <span style="font-size:0.75rem;font-weight:700;color:#1e293b;">${escapeHtml(p.name)}</span>
+                        <span style="font-size:9px;font-weight:700;color:white;background:${groupColors[p.group]||'#64748b'};padding:1px 5px;border-radius:3px;">${p.group.toUpperCase()}</span>
+                    </div>
+                    ${p.currentRemark ? `<div style="font-size:0.65rem;color:#ea580c;margin-top:2px;">📋 Current: ${escapeHtml(p.currentRemark)}</div>` : '<div style="font-size:0.65rem;color:#9ca3af;margin-top:2px;">No remark yet</div>'}
+                </div>
+            </label>`).join('');
+        bzrUpdateCount();
+    }
+
+    function bzrSelectAll(checked) {
+        document.querySelectorAll('.bzr-check').forEach(cb => { cb.checked = checked; });
+        bzrUpdateCount();
+    }
+
+    function bzrUpdateCount() {
+        const checked = document.querySelectorAll('.bzr-check:checked').length;
+        const total = bzrPeople.length;
+        const el = document.getElementById('bzrSelectedCount');
+        if (el) el.textContent = checked + ' of ' + total + ' selected';
     }
 
     function closeBulkZeroRemarkModal() {
         document.getElementById('bulkZeroRemarkModal').classList.add('hidden');
+        bzrPeople = [];
     }
 
     function saveBulkZeroRemark() {
         if (!isAdminMode) return;
         const remark = document.getElementById('bulkZeroRemarkText').value.trim();
+        const checked = document.querySelectorAll('.bzr-check:checked');
+        if (!checked.length) { showStatus('No people selected', 'warning'); return; }
         let changed = 0;
-        ['aedc','bss','nysc'].forEach(g => {
-            (reportResults[g].results||[]).forEach(r => {
-                if (r.status === 'present' && r.total === 0) {
-                    r.zeroRemark = remark;
-                    remarksData[r.username] = remarksData[r.username] || {};
-                    remarksData[r.username].excuseRemark = r.excuseRemark||'';
-                    remarksData[r.username].excuseApproval = r.excuseApproval||'pending';
-                    remarksData[r.username].zeroRemark = remark;
-                    changed++;
-                }
-            });
+        checked.forEach(cb => {
+            const p = bzrPeople[parseInt(cb.dataset.idx)];
+            if (!p) return;
+            const r = reportResults[p.group].results[p.index];
+            if (!r) return;
+            r.zeroRemark = remark;
+            remarksData[r.username] = remarksData[r.username] || {};
+            remarksData[r.username].excuseRemark = r.excuseRemark || '';
+            remarksData[r.username].excuseApproval = r.excuseApproval || 'pending';
+            remarksData[r.username].zeroRemark = remark;
+            changed++;
         });
-        closeBulkZeroRemarkModal();
+        // Refresh checklist (remarks updated, keep modal open for next batch)
+        const appliedRemark = remark;
+        bzrPeople = bzrPeople.map(p => ({
+            ...p, currentRemark: reportResults[p.group].results[p.index]?.zeroRemark || p.currentRemark
+        }));
+        bzrRenderList();
+        document.getElementById('bulkZeroRemarkText').value = '';
         updateDashboard();
         if (firebaseInitialized && currentUser && reportResults.dateKey) { saveDashboardToCloud(); }
-        showStatus(`Shared remark applied to ${changed} person(s) with zero entries`, 'success');
+        showStatus(`Remark applied to ${changed} person(s). Select more to assign a different remark, or close when done.`, 'success');
     }
 
     // Admin: approve/reject excuse inline
@@ -2741,23 +2786,46 @@
     </div>
   </div>
     <!-- Bulk Zero Remark Modal -->
-    <div id="bulkZeroRemarkModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 fade-in">
-            <div class="text-center mb-4">
-                <div class="text-4xl mb-2">🟡</div>
-                <h2 class="text-xl font-bold text-gray-800">Shared Remark — Zero Entries</h2>
-                <p class="text-gray-500 text-sm mt-1">One remark applied to <strong id="bulkZeroRemarkCount">all</strong> people with zero entries</p>
+    <!-- Bulk Zero Remark Modal (select-and-assign) -->
+    <div id="bulkZeroRemarkModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden" style="padding:12px;">
+        <div class="bg-white rounded-2xl shadow-2xl w-full fade-in" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+            <!-- Header -->
+            <div style="padding:18px 20px 12px;border-bottom:1px solid #fed7aa;flex-shrink:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.6rem;">🟡</span>
+                        <div>
+                            <h2 style="font-size:1rem;font-weight:700;color:#1e293b;margin:0;">Zero-Entry Remarks</h2>
+                            <p style="font-size:0.75rem;color:#64748b;margin:2px 0 0;">Select people, type a remark, apply. Repeat for different groups.</p>
+                        </div>
+                    </div>
+                    <button onclick="closeBulkZeroRemarkModal()" style="background:#f1f5f9;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:1rem;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Shared Reason for Zero Entries</label>
-                <textarea id="bulkZeroRemarkText" rows="3" placeholder="e.g. Logistics issue, Vehicle breakdown, Equipment fault, Field access denied..." class="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 text-sm"></textarea>
+
+            <!-- People checklist -->
+            <div style="flex:1;overflow-y:auto;padding:14px 20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <span style="font-size:0.75rem;font-weight:600;color:#374151;">People with Zero Entries</span>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="bzrSelectAll(true)" style="font-size:10px;padding:2px 8px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:4px;cursor:pointer;font-weight:600;">Select All</button>
+                        <button onclick="bzrSelectAll(false)" style="font-size:10px;padding:2px 8px;background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;cursor:pointer;font-weight:600;">Clear</button>
+                    </div>
+                </div>
+                <div id="bzrPersonList" style="display:flex;flex-direction:column;gap:4px;"></div>
             </div>
-            <p class="text-xs text-gray-500 mb-4 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-                ⚠️ This will <strong>overwrite</strong> any existing individual remark for every person in the zero-entries list. To set individual remarks instead, close this and use the ✏️ button per person.
-            </p>
-            <div class="flex gap-3">
-                <button onclick="closeBulkZeroRemarkModal()" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all">Cancel</button>
-                <button onclick="saveBulkZeroRemark()" class="flex-1 py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-lg transition-all">💾 Apply to All</button>
+
+            <!-- Remark input + apply -->
+            <div style="padding:14px 20px;border-top:1px solid #fed7aa;background:#fffbf5;border-radius:0 0 16px 16px;flex-shrink:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <label style="font-size:0.75rem;font-weight:600;color:#374151;">Remark for selected people</label>
+                    <span id="bzrSelectedCount" style="font-size:0.7rem;color:#f97316;font-weight:700;"></span>
+                </div>
+                <textarea id="bulkZeroRemarkText" rows="2" placeholder="e.g. Logistics issue, Vehicle breakdown, RPU exercise..." style="width:100%;padding:8px 10px;border:1.5px solid #fed7aa;border-radius:8px;font-size:0.8rem;font-family:'DM Sans',sans-serif;resize:vertical;box-sizing:border-box;"></textarea>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button onclick="closeBulkZeroRemarkModal()" style="flex:1;padding:8px;background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;">Cancel</button>
+                    <button onclick="saveBulkZeroRemark()" style="flex:2;padding:8px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:8px;font-weight:600;font-size:0.8rem;cursor:pointer;box-shadow:0 2px 6px rgba(249,115,22,0.35);">💾 Apply to Selected</button>
+                </div>
             </div>
         </div>
     </div>
