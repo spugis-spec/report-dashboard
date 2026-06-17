@@ -125,12 +125,26 @@
         .upload-zone {
             border: 2px dashed #cbd5e1; border-radius: var(--radius-sm) !important;
             transition: all 0.25s ease; background: var(--surface-2);
+            position: relative;
         }
         .upload-zone:hover, .upload-zone.dragover {
             border-color: var(--primary); background: var(--primary-light);
             transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37,99,235,0.15);
         }
         .upload-zone.has-file { border-color: var(--success); background: #f0fdf4; }
+
+        /* ── Clear button on upload zones (only visible once a file is chosen) ── */
+        .clear-upload-btn {
+            position: absolute; top: 6px; right: 6px;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: rgba(220,38,38,0.1); color: #dc2626;
+            border: 1px solid rgba(220,38,38,0.3);
+            font-size: 12px; font-weight: 700; line-height: 1;
+            display: none; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.15s ease; z-index: 5;
+        }
+        .clear-upload-btn:hover { background: #dc2626; color: #fff; transform: scale(1.1); }
+        .upload-zone.has-file .clear-upload-btn { display: flex; }
 
         /* ── Action Buttons ── */
         .flex.flex-wrap.gap-2.mb-4.no-print button,
@@ -582,12 +596,12 @@
                     <div class="bg-white rounded-xl shadow-md p-6">
                         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2"><span>📁</span> Upload Data Files</h2>
                         <div class="grid md:grid-cols-2 gap-4">
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-dss" onclick="document.getElementById('file-dss').click()"><input type="file" id="file-dss" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'dss')"><div class="text-3xl mb-2">🏭</div><div class="font-medium text-gray-700">DT / Substation</div><div class="text-sm text-gray-500" id="status-dss">Click or drag to upload</div></div>
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-ht" onclick="document.getElementById('file-ht').click()"><input type="file" id="file-ht" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'ht')"><div class="text-3xl mb-2">🔌</div><div class="font-medium text-gray-700">HT Pole</div><div class="text-sm text-gray-500" id="status-ht">Click or drag to upload</div></div>
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-lt" onclick="document.getElementById('file-lt').click()"><input type="file" id="file-lt" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'lt')"><div class="text-3xl mb-2">💡</div><div class="font-medium text-gray-700">LT Pole</div><div class="text-sm text-gray-500" id="status-lt">Click or drag to upload</div></div>
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-cust" onclick="document.getElementById('file-cust').click()"><input type="file" id="file-cust" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'cust')"><div class="text-3xl mb-2">👥</div><div class="font-medium text-gray-700">Customer Enumeration</div><div class="text-sm text-gray-500" id="status-cust">Click or drag to upload</div></div>
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-issues" onclick="document.getElementById('file-issues').click()"><input type="file" id="file-issues" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'issues')"><div class="text-3xl mb-2">⚠️</div><div class="font-medium text-gray-700">Issue Log</div><div class="text-sm text-gray-500" id="status-issues">Click or drag to upload</div></div>
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-feeder-lookup" onclick="document.getElementById('file-feeder-lookup').click()"><input type="file" id="file-feeder-lookup" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFeederLookupUpload(this)"><div class="text-3xl mb-2">⚡</div><div class="font-medium text-gray-700">Feeder Lookup (Code → Name)</div><div class="text-sm text-gray-500" id="status-feeder-lookup">Upload feeder code lookup table (code, feeder_name)</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-dss" onclick="document.getElementById('file-dss').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('dss');">✕</button><input type="file" id="file-dss" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'dss')"><div class="text-3xl mb-2">🏭</div><div class="font-medium text-gray-700">DT / Substation</div><div class="text-sm text-gray-500" id="status-dss">Click or drag to upload</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-ht" onclick="document.getElementById('file-ht').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('ht');">✕</button><input type="file" id="file-ht" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'ht')"><div class="text-3xl mb-2">🔌</div><div class="font-medium text-gray-700">HT Pole</div><div class="text-sm text-gray-500" id="status-ht">Click or drag to upload</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-lt" onclick="document.getElementById('file-lt').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('lt');">✕</button><input type="file" id="file-lt" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'lt')"><div class="text-3xl mb-2">💡</div><div class="font-medium text-gray-700">LT Pole</div><div class="text-sm text-gray-500" id="status-lt">Click or drag to upload</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-cust" onclick="document.getElementById('file-cust').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('cust');">✕</button><input type="file" id="file-cust" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'cust')"><div class="text-3xl mb-2">👥</div><div class="font-medium text-gray-700">Customer Enumeration</div><div class="text-sm text-gray-500" id="status-cust">Click or drag to upload</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-issues" onclick="document.getElementById('file-issues').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('issues');">✕</button><input type="file" id="file-issues" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'issues')"><div class="text-3xl mb-2">⚠️</div><div class="font-medium text-gray-700">Issue Log</div><div class="text-sm text-gray-500" id="status-issues">Click or drag to upload</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-feeder-lookup" onclick="document.getElementById('file-feeder-lookup').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearFeederLookupZone();">✕</button><input type="file" id="file-feeder-lookup" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFeederLookupUpload(this)"><div class="text-3xl mb-2">⚡</div><div class="font-medium text-gray-700">Feeder Lookup (Code → Name)</div><div class="text-sm text-gray-500" id="status-feeder-lookup">Upload feeder code lookup table (code, feeder_name)</div></div>
                         </div>
                     </div>
                     <div class="flex gap-4 flex-wrap">
@@ -603,7 +617,7 @@
                         <div class="p-4 bg-gray-50 rounded-lg"><div class="text-sm text-gray-600">Total Records</div><div class="text-2xl font-bold text-blue-600" id="totalRecords">0</div></div>
                         <div class="p-4 bg-gray-50 rounded-lg"><div class="text-sm text-gray-600">Mapped Enumerators</div><div class="text-2xl font-bold text-green-600" id="mappedCount">0</div></div>
                         <div class="p-4 bg-gray-50 rounded-lg"><div class="text-sm text-gray-600">Saved Dashboards</div><div class="text-2xl font-bold text-purple-600" id="savedDashboardsCount">0</div></div>
-                        <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200"><div class="text-sm text-yellow-700 font-medium">Last FID (per asset)</div><div id="lastFidDisplay" class="mt-1 text-xs text-gray-700 space-y-1"><span class="text-gray-400 italic">Upload files to see Last FID</span></div></div>
+                        <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200"><div class="text-sm text-yellow-700 font-medium">Last FID (per asset)</div><div id="lastFidDisplay" class="mt-1 text-xs text-gray-700 space-y-1"><span class="text-gray-400 italic">Generate a report to see Last FID</span></div></div>
                     </div>
                     <button onclick="saveToCloud()" class="mt-4 w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>☁️</span> Save to Cloud</button>
                 </div>
@@ -1292,6 +1306,8 @@
 
     // Last FID per asset type
     let lastFidData = { dss: null, ht: null, lt: null, cust: null, issues: null };
+    // True once a report has been generated at least once (controls the "Last FID" placeholder message)
+    let lastFidReportGenerated = false;
 
     // Admin feeder overrides: username -> feeder name
     let feederOverrides = {};
@@ -1504,14 +1520,46 @@
                 const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:false,dateNF:'yyyy-mm-dd'});
                 uploadedData[type]=json; zone.classList.add('has-file');
                 status.innerHTML=`<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${json.length} rows</span>`;
-                // Extract Last FID
-                extractLastFid(json, type);
-                // Extract feeder data
-                extractFeederData(json, type);
+                // Rebuild feeder data from scratch across all currently uploaded files.
+                // (Re-extracting on top of old data without resetting was causing stale
+                // feeder counts from a previously uploaded file to linger after a new
+                // file was chosen for the same slot.)
+                rebuildUserFeederData();
+                // Reset the input's value so choosing the same file again later (e.g. after
+                // re-saving it) reliably fires the change event and reloads it.
+                input.value='';
                 updateStats(); showStatus(`Loaded ${json.length} rows from ${file.name}`,'success');
             } catch(err){status.textContent='Error loading file';showStatus('Error: '+err.message,'error');}
         };
         reader.readAsArrayBuffer(file);
+    }
+
+    // Clear a single upload slot: removes its data, resets the zone UI, and
+    // rebuilds any data (like feeder counts) that was derived from it.
+    function clearUploadZone(type) {
+        uploadedData[type]=null;
+        const zone=document.getElementById(`zone-${type}`), status=document.getElementById(`status-${type}`), input=document.getElementById(`file-${type}`);
+        if(zone) zone.classList.remove('has-file');
+        if(status) status.textContent='Click or drag to upload';
+        if(input) input.value='';
+        lastFidData[type]=null;
+        rebuildUserFeederData();
+        updateStats();
+        updateLastFidDisplay();
+        const labels={dss:'DT/Substation',ht:'HT Pole',lt:'LT Pole',cust:'Customer Enumeration',issues:'Issue Log'};
+        showStatus(`Cleared ${labels[type]||type} file`,'info');
+    }
+
+    // Rebuilds userFeederData from scratch using whatever files are currently
+    // uploaded. Always call this after any upload/clear/lookup change instead
+    // of merging into userFeederData directly, so removed/replaced files
+    // don't leave stale residue behind.
+    function rebuildUserFeederData() {
+        userFeederData={};
+        ['dss','ht','lt','cust','issues'].forEach(t=>{
+            const json=uploadedData[t];
+            if(json) extractFeederData(json,t);
+        });
     }
 
     function handleFeederLookupUpload(input) {
@@ -1536,6 +1584,10 @@
                 zone.classList.add('has-file');
                 const count=Object.keys(feederLookup).length;
                 status.innerHTML=`<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${count} feeder mappings</span>`;
+                // Re-translate any already-uploaded asset files against the new lookup table
+                rebuildUserFeederData();
+                // Allow re-selecting the same file later
+                input.value='';
                 // Save to Firebase
                 if(firebaseInitialized&&currentUser){
                     database.ref('feederLookup').set(feederLookup).catch(e=>console.error(e));
@@ -1546,23 +1598,56 @@
         reader.readAsArrayBuffer(file);
     }
 
-    function extractLastFid(json, type) {
-        if(!json||!json.length)return;
-        const cols=Object.keys(json[0]||{});
-        const fidCol=cols.find(c=>c.toUpperCase()==='FID'||c.toLowerCase()==='fid');
-        if(!fidCol)return;
-        let maxFid=null;
-        json.forEach(row=>{
-            const val=parseInt(row[fidCol]);
-            if(!isNaN(val)&&(maxFid===null||val>maxFid))maxFid=val;
-        });
-        if(maxFid!==null){
+    // Clear the feeder lookup table and re-translate any uploaded asset files without it
+    function clearFeederLookupZone() {
+        feederLookup={};
+        const zone=document.getElementById('zone-feeder-lookup'), status=document.getElementById('status-feeder-lookup'), input=document.getElementById('file-feeder-lookup');
+        if(zone) zone.classList.remove('has-file');
+        if(status) status.textContent='Upload feeder code lookup table (code, feeder_name)';
+        if(input) input.value='';
+        rebuildUserFeederData();
+        if(firebaseInitialized&&currentUser){
+            database.ref('feederLookup').remove().catch(e=>console.error(e));
+        }
+        showStatus('Cleared feeder lookup table','info');
+    }
+
+    // Computes Last FID per asset type, scoped to the date range of the
+    // currently generated report (rather than the whole uploaded file).
+    // Called from generateReport() — NOT on file upload — so the figure
+    // shown always reflects the report that's actually on screen.
+    function computeLastFidForReport(startDate, endDate) {
+        const sdStr = toLocalDateKey(startDate) || startDate.toISOString().substring(0,10);
+        const edStr = toLocalDateKey(endDate) || endDate.toISOString().substring(0,10);
+        ['dss','ht','lt','cust','issues'].forEach(type=>{
+            lastFidData[type]=null;
+            const json=uploadedData[type];
+            if(!json||!json.length)return;
+            const cols=Object.keys(json[0]||{});
+            const fidCol=cols.find(c=>c.toUpperCase()==='FID'||c.toLowerCase()==='fid');
+            if(!fidCol)return;
+            const timeCol=cols.find(c=>c.toLowerCase().includes('time')||c.toLowerCase().includes('date'));
+            let maxFid=null;
+            json.forEach(row=>{
+                // If the file has a date column, only consider rows that fall
+                // within the report's date range. If it doesn't, fall back to
+                // checking every row (nothing to scope by).
+                if(timeCol){
+                    const rowDk=toLocalDateKey(row[timeCol]);
+                    if(!rowDk||rowDk<sdStr||rowDk>edStr)return;
+                }
+                const val=parseInt(row[fidCol]);
+                if(!isNaN(val)&&(maxFid===null||val>maxFid))maxFid=val;
+            });
             lastFidData[type]=maxFid;
-            updateLastFidDisplay();
-            // Save to Firebase
-            if(firebaseInitialized&&currentUser){
-                database.ref(`lastFid/${type}`).set(maxFid).catch(e=>console.error(e));
-            }
+        });
+        lastFidReportGenerated=true;
+        updateLastFidDisplay();
+        // Save to Firebase
+        if(firebaseInitialized&&currentUser){
+            ['dss','ht','lt','cust','issues'].forEach(type=>{
+                database.ref(`lastFid/${type}`).set(lastFidData[type]).catch(e=>console.error(e));
+            });
         }
     }
 
@@ -1572,7 +1657,12 @@
         const labels={dss:'DT/Substation',ht:'HT Pole',lt:'LT Pole',cust:'Customer',issues:'Issue Log'};
         const colors={dss:'#3b82f6',ht:'#f97316',lt:'#22c55e',cust:'#eab308',issues:'#ef4444'};
         const entries=Object.entries(lastFidData).filter(([,v])=>v!==null);
-        if(!entries.length){el.innerHTML='<span class="text-gray-400 italic text-xs">No FID data yet</span>';return;}
+        if(!entries.length){
+            el.innerHTML = lastFidReportGenerated
+                ? '<span class="text-gray-400 italic text-xs">No FID found for the selected date(s)</span>'
+                : '<span class="text-gray-400 italic text-xs">Generate a report to see Last FID</span>';
+            return;
+        }
         el.innerHTML=entries.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #f3f4f6;"><span style="color:${colors[k]};font-weight:600;font-size:11px;">${labels[k]}</span><span style="background:${colors[k]}20;color:${colors[k]};font-weight:700;padding:1px 7px;border-radius:10px;font-size:12px;">FID: ${v}</span></div>`).join('');
     }
 
@@ -1930,6 +2020,10 @@
         const ltCounts=processDataSheet(uploadedData.lt,startDate,endDate);
         const custCounts=processDataSheet(uploadedData.cust,startDate,endDate);
         const issueCounts=processDataSheet(uploadedData.issues,startDate,endDate);
+
+        // Last FID (per asset) is tied to the report's date range, not to the
+        // moment a file was uploaded — compute/refresh it here.
+        computeLastFidForReport(startDate,endDate);
 
         ['aedc','bss','nysc'].forEach(group=>{
             const results=[]; let totals={dss:0,ht:0,cust:0,lt:0,issues:0,total:0};
@@ -3272,6 +3366,7 @@
             const data=snap.val();
             if(data){
                 Object.keys(lastFidData).forEach(k=>{ if(data[k]!==undefined)lastFidData[k]=data[k]; });
+                if(Object.values(lastFidData).some(v=>v!==null)) lastFidReportGenerated=true;
                 updateLastFidDisplay();
             }
         } catch(e){console.error('Last FID load error:',e);}
@@ -3482,6 +3577,7 @@
         Object.keys(uploadedData).forEach(k=>{uploadedData[k]=null;const z=document.getElementById(`zone-${k}`),s=document.getElementById(`status-${k}`),f=document.getElementById(`file-${k}`);if(z)z.classList.remove('has-file');if(s)s.textContent='Click or drag to upload';if(f)f.value='';});
         userFeederData = {};  // reset date-keyed feeder data
         lastFidData={dss:null,ht:null,lt:null,cust:null,issues:null};
+        lastFidReportGenerated=false;
         updateLastFidDisplay();
         reportResults={aedc:{results:[],totals:{}},bss:{results:[],totals:{}},nysc:{results:[],totals:{}},dateRange:'',formattedDate:'',dateKey:''};
         remarksData={};
