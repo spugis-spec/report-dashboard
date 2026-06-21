@@ -1309,6 +1309,40 @@
     // True once a report has been generated at least once (controls the "Last FID" placeholder message)
     let lastFidReportGenerated = false;
 
+    // Slash-date format hint used by parseDate() to resolve ambiguous dates
+    // (where both numbers are ≤12, e.g. "04/06/2026"). Detected per-file by
+    // detectDateFormatForRows() right before each scan, so older files
+    // exported as M/D/YYYY and newer ones exported as D/M/YYYY can both be
+    // read correctly in the same session. Defaults to day-first (DMY) to
+    // match this app's current/standard export format.
+    let dateFormatHint = 'DMY';
+
+    // Scans a column of date strings in a dataset and figures out whether
+    // the slash-separated values are Day/Month/Year or Month/Day/Year, using
+    // any UNAMBIGUOUS value as evidence (a value where one of the two
+    // numbers is >12 can only be the day, telling us which position the day
+    // is in for that whole file). Returns 'DMY', 'MDY', or null if no
+    // unambiguous evidence is found (in which case the existing/default
+    // hint is left as-is).
+    function detectDateFormatForRows(data, timeCol) {
+        if(!data || !timeCol) return null;
+        let dmyEvidence = 0, mdyEvidence = 0;
+        for(let i=0; i<data.length; i++){
+            const val = data[i][timeCol];
+            if(!val) continue;
+            const str = val.toString().trim();
+            const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+            if(!m) continue;
+            const a = parseInt(m[1]), b = parseInt(m[2]);
+            if(a > 12 && b <= 12) dmyEvidence++;
+            else if(b > 12 && a <= 12) mdyEvidence++;
+            if(dmyEvidence >= 5 || mdyEvidence >= 5) break; // confident enough
+        }
+        if(dmyEvidence > mdyEvidence) return 'DMY';
+        if(mdyEvidence > dmyEvidence) return 'MDY';
+        return null;
+    }
+
     // Admin feeder overrides: username -> feeder name
     let feederOverrides = {};
 
@@ -1620,13 +1654,16 @@
         const sdStr = toLocalDateKey(startDate) || startDate.toISOString().substring(0,10);
         const edStr = toLocalDateKey(endDate) || endDate.toISOString().substring(0,10);
         ['dss','ht','lt','cust','issues'].forEach(type=>{
-            lastFidData[type]=null;
             const json=uploadedData[type];
+            // No file uploaded for this asset on this report run — keep
+            // whatever Last FID is already known for it (from an earlier
+            // upload/report or loaded from the cloud) instead of wiping it.
             if(!json||!json.length)return;
             const cols=Object.keys(json[0]||{});
             const fidCol=cols.find(c=>c.toUpperCase()==='FID'||c.toLowerCase()==='fid');
-            if(!fidCol)return;
+            if(!fidCol)return; // file has no FID column — leave previous value alone
             const timeCol=cols.find(c=>c.toLowerCase().includes('time')||c.toLowerCase().includes('date'));
+            if(timeCol) dateFormatHint = detectDateFormatForRows(json,timeCol) || dateFormatHint;
             let maxFid=null;
             json.forEach(row=>{
                 // If the file has a date column, only consider rows that fall
@@ -1639,7 +1676,10 @@
                 const val=parseInt(row[fidCol]);
                 if(!isNaN(val)&&(maxFid===null||val>maxFid))maxFid=val;
             });
-            lastFidData[type]=maxFid;
+            // Only overwrite if this report's date range actually produced a
+            // FID for this asset; otherwise keep the last known value so it
+            // doesn't disappear just because today's range had no rows for it.
+            if(maxFid!==null) lastFidData[type]=maxFid;
         });
         lastFidReportGenerated=true;
         updateLastFidDisplay();
@@ -1694,6 +1734,7 @@
                    cl === 'submission_date' || cl === 'created' ||
                    cl === 'timestamp' || cl === 'today';
         });
+        if(timeCol) dateFormatHint = detectDateFormatForRows(json,timeCol) || dateFormatHint;
 
         json.forEach(row=>{
             const username = (row[userCol]||'').toString().trim().toLowerCase();
@@ -1906,41 +1947,61 @@
 
         const str = value.toString().trim();
 
-        // Format: M/D/YYYY H:MM:SS AM/PM  e.g. "4/27/2026 3:07:32 PM"
-        // or M/D/YYYY H:MM AM/PM  e.g. "4/27/2026 3:07 PM"
-        const mdyAmPm = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-        if(mdyAmPm){
-            let [,mo,dy,yr,hr,mn,,ampm] = mdyAmPm;
-            hr = parseInt(hr); mn = parseInt(mn);
-            if(ampm){ if(ampm.toUpperCase()==='PM' && hr!==12) hr+=12; if(ampm.toUpperCase()==='AM' && hr===12) hr=0; }
-            return new Date(parseInt(yr), parseInt(mo)-1, parseInt(dy), hr, mn, 0);
+        // Decide which slash-separated number is the day and which is the
+        // month. If one of the two numbers is >12 it can only be the day,
+        // regardless of position, so that's used to disambiguate safely. If
+        // both are ≤12 (genuinely ambiguous), fall back to the per-file
+        // format detected by detectDateFormatForRows() (dateFormatHint),
+        // which defaults to day-first (DMY) — this app's standard export
+        // format — unless evidence elsewhere in the same file indicates the
+        // older month-first (MDY) format was used instead.
+        function resolveDayMonth(a, b) {
+            const numA = parseInt(a), numB = parseInt(b);
+            if(numA > 12 && numB <= 12) return { day: numA, month: numB };
+            if(numB > 12 && numA <= 12) return { day: numB, month: numA };
+            if(dateFormatHint === 'MDY') return { day: numB, month: numA };
+            return { day: numA, month: numB };
         }
 
-        // Format: M/D/YY H:MM  e.g. "4/28/26 13:10" or "4/28/26 1:10 PM"
-        // (2-digit year — XLSX.js renders cells with number_format "m/d/yy h:mm" this way)
-        const mdyy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-        if(mdyy){
-            let [,mo,dy,yr2,hr,mn,,ampm] = mdyy;
+        // Format: D/M/YYYY H:MM:SS AM/PM  e.g. "19/06/2026 12:00:00 AM"
+        // or D/M/YYYY H:MM AM/PM
+        const dmyAmPm = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if(dmyAmPm){
+            let [,a,b,yr,hr,mn,,ampm] = dmyAmPm;
+            const {day,month} = resolveDayMonth(a,b);
+            hr = parseInt(hr); mn = parseInt(mn);
+            if(ampm){ if(ampm.toUpperCase()==='PM' && hr!==12) hr+=12; if(ampm.toUpperCase()==='AM' && hr===12) hr=0; }
+            return new Date(parseInt(yr), month-1, day, hr, mn, 0);
+        }
+
+        // Format: D/M/YY H:MM  e.g. "28/4/26 13:10" or "28/4/26 1:10 PM"
+        // (2-digit year — XLSX.js renders cells with number_format "d/m/yy h:mm" this way)
+        const dmyy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if(dmyy){
+            let [,a,b,yr2,hr,mn,,ampm] = dmyy;
+            const {day,month} = resolveDayMonth(a,b);
             hr = parseInt(hr); mn = parseInt(mn);
             // 2-digit year: 00-29 → 2000s, 30-99 → 1900s
             const fullYr = parseInt(yr2) < 30 ? 2000 + parseInt(yr2) : 1900 + parseInt(yr2);
             if(ampm){ if(ampm.toUpperCase()==='PM' && hr!==12) hr+=12; if(ampm.toUpperCase()==='AM' && hr===12) hr=0; }
-            return new Date(fullYr, parseInt(mo)-1, parseInt(dy), hr, mn, 0);
+            return new Date(fullYr, month-1, day, hr, mn, 0);
         }
 
-        // Format: M/D/YY  e.g. "4/28/26" (date only, 2-digit year)
-        const mdyyDate = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
-        if(mdyyDate){
-            const [,mo,dy,yr2] = mdyyDate;
+        // Format: D/M/YY  e.g. "28/4/26" (date only, 2-digit year)
+        const dmyyDate = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+        if(dmyyDate){
+            const [,a,b,yr2] = dmyyDate;
+            const {day,month} = resolveDayMonth(a,b);
             const fullYr = parseInt(yr2) < 30 ? 2000 + parseInt(yr2) : 1900 + parseInt(yr2);
-            return new Date(fullYr, parseInt(mo)-1, parseInt(dy));
+            return new Date(fullYr, month-1, day);
         }
 
-        // Format: M/D/YYYY  e.g. "4/27/2026"
-        const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if(mdy){
-            const [,mo,dy,yr] = mdy;
-            return new Date(parseInt(yr), parseInt(mo)-1, parseInt(dy));
+        // Format: D/M/YYYY  e.g. "19/06/2026"
+        const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(dmy){
+            const [,a,b,yr] = dmy;
+            const {day,month} = resolveDayMonth(a,b);
+            return new Date(parseInt(yr), month-1, day);
         }
 
         // Format: YYYY-MM-DD (with optional time)
@@ -1982,6 +2043,7 @@
         let timeCol=cols.find(c=>c.toLowerCase().includes('time')||c.toLowerCase().includes('date'));
         let userCol=cols.find(c=>c.toLowerCase().includes('username')||c.toLowerCase()==='user');
         if(!timeCol||!userCol)return counts;
+        dateFormatHint = detectDateFormatForRows(data,timeCol) || dateFormatHint;
         data.forEach(row=>{
             const username=(row[userCol]||'').toString().trim().toLowerCase(); if(!username)return;
             const rowDk = toLocalDateKey(row[timeCol]); if(!rowDk) return;
@@ -4024,6 +4086,7 @@
                 return cl.includes('time') || cl.includes('date') || cl === 'today';
             });
             if (!userCol || !structCol || !feederCols.length) return;
+            if (timeCol) dateFormatHint = detectDateFormatForRows(sheetData,timeCol) || dateFormatHint;
             sheetData.forEach(row => {
                 const username = (row[userCol] || '').toString().trim().toLowerCase();
                 const structNo = (row[structCol] || '').toString().trim();
