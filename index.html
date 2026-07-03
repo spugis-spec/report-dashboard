@@ -605,7 +605,7 @@
                         </div>
                     </div>
                     <div class="flex gap-4 flex-wrap">
-                        <button onclick="generateReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>📊</span> Generate Report</button>
+                        <button id="generateReportBtn" onclick="generateReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>📊</span> Generate Report</button>
                         <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>📥</span> Export Excel</button>
                         <button onclick="clearAll()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">Clear All</button>
                     </div>
@@ -1285,6 +1285,18 @@
     // DATA STORAGE
     // ============================================
     const uploadedData = { dss: null, ht: null, lt: null, cust: null, issues: null };
+    // Counts files currently being read/parsed (FileReader is async). Generate
+    // Report is blocked while this is > 0 so a click that lands between
+    // "file chosen" and "file finished parsing" can't silently produce a
+    // zero-row report from stale/empty uploadedData.
+    let pendingUploadReads = 0;
+    function setGenerateButtonBusy(busy) {
+        const btn = document.getElementById('generateReportBtn');
+        if(!btn) return;
+        btn.disabled = busy;
+        btn.style.opacity = busy ? '0.6' : '';
+        btn.style.cursor = busy ? 'not-allowed' : '';
+    }
     const usernameMappings = { aedc: new Map(), bss: new Map(), nysc: new Map() };
     const teamPairings = { aedcNysc: [], bssNysc: [] };
 
@@ -1546,6 +1558,7 @@
         const file=input.files[0]; if(!file)return;
         const zone=document.getElementById(`zone-${type}`), status=document.getElementById(`status-${type}`);
         status.textContent='Processing...';
+        pendingUploadReads++; setGenerateButtonBusy(true);
         const reader=new FileReader();
         reader.onload=e=>{
             try {
@@ -1564,7 +1577,9 @@
                 input.value='';
                 updateStats(); showStatus(`Loaded ${json.length} rows from ${file.name}`,'success');
             } catch(err){status.textContent='Error loading file';showStatus('Error: '+err.message,'error');}
+            finally { pendingUploadReads=Math.max(0,pendingUploadReads-1); if(pendingUploadReads===0) setGenerateButtonBusy(false); }
         };
+        reader.onerror=()=>{ status.textContent='Error reading file'; showStatus('Error reading '+file.name,'error'); pendingUploadReads=Math.max(0,pendingUploadReads-1); if(pendingUploadReads===0) setGenerateButtonBusy(false); };
         reader.readAsArrayBuffer(file);
     }
 
@@ -2068,6 +2083,10 @@
     // REPORT GENERATION
     // ============================================
     function generateReport() {
+        if(pendingUploadReads>0){
+            showStatus('Still reading uploaded file(s) — please wait a moment and try again','error');
+            return;
+        }
         ['aedc','bss','nysc'].forEach(g=>updateMappings(g));
         const startDateStr=document.getElementById('startDate').value;
         let endDateStr=document.getElementById('endDate').value;
@@ -3240,8 +3259,9 @@
             </div>`;
         }).join('');
 
-        // Auto-expand the most recent year
-        if(yearKeys.length) toggleYear(yearKeys[0]);
+        // Dropdown starts closed — user clicks a year to expand it manually.
+        // (Loading the last saved dashboard on startup is handled separately
+        // by loadLatestDashboard() and does not depend on this list being open.)
     }
 
     function toggleYear(yr){
