@@ -1339,6 +1339,7 @@
     function detectDateFormatForRows(data, timeCol) {
         if(!data || !timeCol) return null;
         let dmyEvidence = 0, mdyEvidence = 0;
+        const firstVals = new Set(), secondVals = new Set();
         for(let i=0; i<data.length; i++){
             const val = data[i][timeCol];
             if(!val) continue;
@@ -1348,10 +1349,20 @@
             const a = parseInt(m[1]), b = parseInt(m[2]);
             if(a > 12 && b <= 12) dmyEvidence++;
             else if(b > 12 && a <= 12) mdyEvidence++;
+            firstVals.add(m[1]); secondVals.add(m[2]);
             if(dmyEvidence >= 5 || mdyEvidence >= 5) break; // confident enough
         }
         if(dmyEvidence > mdyEvidence) return 'DMY';
         if(mdyEvidence > dmyEvidence) return 'MDY';
+        // No value >12 was found anywhere (e.g. every row falls within the
+        // first 12 days of the month, as happens with a file that's only a
+        // day or two of data). Fall back to variance: over any real dataset
+        // spanning more than a single day, the day-of-month slot changes
+        // row to row while the month slot stays put. Whichever slot varies
+        // LESS is most likely the month.
+        if(firstVals.size && secondVals.size && firstVals.size !== secondVals.size){
+            return firstVals.size < secondVals.size ? 'MDY' : 'DMY';
+        }
         return null;
     }
 
