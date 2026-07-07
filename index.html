@@ -730,6 +730,32 @@
                     <button onclick="saveMappingsToCloud()" class="flex-1 py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>☁️</span> Save Mappings to Cloud</button>
                     <button onclick="loadMappingsFromCloud()" class="py-3 px-6 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-colors">🔄 Reload from Cloud</button>
                 </div>
+
+                <!-- NEW / NOT-YET-ONBOARDED ENUMERATORS -->
+                <div class="mt-8 border-t-4 border-amber-300 pt-6">
+                    <div class="text-center mb-4">
+                        <h3 class="text-lg font-bold text-amber-700 flex items-center justify-center gap-2">🆕 New / Not-Yet-Onboarded Enumerators</h3>
+                        <p class="text-xs text-gray-500 max-w-2xl mx-auto mt-1">For enumerators who've joined but don't have a username yet. Log their performance manually, or automatically mirror ("shadow") an existing enumerator they worked alongside. They'll show up clearly flagged in their group's report, but their numbers are <b>never added to the totals</b> — until you click "Onboard" and give them a real username, after which their real uploaded data counts normally from the next report.</p>
+                    </div>
+                    <div class="grid lg:grid-cols-3 gap-6">
+                        <div class="border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
+                            <h4 class="text-base font-semibold text-amber-700 mb-3 flex items-center gap-2"><span class="w-4 h-4 bg-amber-500 rounded-full"></span> New AEDC Enumerators</h4>
+                            <div class="space-y-2 mb-4 max-h-72 overflow-y-auto" id="aedcProvisionalContainer"></div>
+                            <button onclick="addProvisionalEnumerator('aedc')" class="w-full py-2 px-4 border-2 border-dashed border-amber-400 rounded-lg text-amber-700 hover:bg-amber-100 transition-colors text-sm">+ Add New AEDC Enumerator</button>
+                        </div>
+                        <div class="border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
+                            <h4 class="text-base font-semibold text-amber-700 mb-3 flex items-center gap-2"><span class="w-4 h-4 bg-amber-500 rounded-full"></span> New BSS Enumerators</h4>
+                            <div class="space-y-2 mb-4 max-h-72 overflow-y-auto" id="bssProvisionalContainer"></div>
+                            <button onclick="addProvisionalEnumerator('bss')" class="w-full py-2 px-4 border-2 border-dashed border-amber-400 rounded-lg text-amber-700 hover:bg-amber-100 transition-colors text-sm">+ Add New BSS Enumerator</button>
+                        </div>
+                        <div class="border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
+                            <h4 class="text-base font-semibold text-amber-700 mb-3 flex items-center gap-2"><span class="w-4 h-4 bg-amber-500 rounded-full"></span> New NYSC Enumerators</h4>
+                            <div class="space-y-2 mb-4 max-h-72 overflow-y-auto" id="nyscProvisionalContainer"></div>
+                            <button onclick="addProvisionalEnumerator('nysc')" class="w-full py-2 px-4 border-2 border-dashed border-amber-400 rounded-lg text-amber-700 hover:bg-amber-100 transition-colors text-sm">+ Add New NYSC Enumerator</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- TEAM PAIRING -->
                 <div class="mt-8 border-t-4 border-purple-300 pt-6">
                     <div class="text-center mb-6">
@@ -1300,10 +1326,26 @@
     const usernameMappings = { aedc: new Map(), bss: new Map(), nysc: new Map() };
     const teamPairings = { aedcNysc: [], bssNysc: [] };
 
+    // ============================================
+    // NEW / NOT-YET-ONBOARDED ENUMERATORS
+    // ============================================
+    // These are enumerators who have joined but don't have a system username
+    // yet (e.g. awaiting their license). Admin can log their performance in
+    // one of two ways while they wait:
+    //   'manual' -> admin types in numbers by hand each report
+    //   'shadow' -> automatically mirrors the numbers of an existing,
+    //               already-onboarded enumerator they worked alongside
+    // They are always shown clearly flagged inside their group's table, but
+    // their figures are NEVER added into that group's totals/grand total
+    // until an admin "onboards" them by assigning a real username — at which
+    // point they become a normal mapped enumerator and their real uploaded
+    // data starts counting from the next generated report onward.
+    const provisionalEnumerators = { aedc: [], bss: [], nysc: [] };
+
     let reportResults = {
-        aedc: { results: [], totals: {} },
-        bss: { results: [], totals: {} },
-        nysc: { results: [], totals: {} },
+        aedc: { results: [], totals: {}, provisionalResults: [] },
+        bss: { results: [], totals: {}, provisionalResults: [] },
+        nysc: { results: [], totals: {}, provisionalResults: [] },
         dateRange: '', formattedDate: '', dateKey: ''
     };
 
@@ -1437,6 +1479,7 @@
         document.getElementById('publicStartDate').value = today;
         document.getElementById('publicEndDate').value = today;
         addMappingRow('aedc'); addMappingRow('bss'); addMappingRow('nysc');
+        renderAllProvisionalPanels();
         setupDragAndDrop();
         loadSavedDashboards();
     });
@@ -1491,7 +1534,7 @@
             document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
             ['data','mapping','dashboard','monthly'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
             switchTab('data');
-            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud()]).then(() => { renderSavedDatesList(); mpLoadSavedMonths(); });
+            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud(), loadProvisionalFromCloud()]).then(() => { renderSavedDatesList(); mpLoadSavedMonths(); });
             showStatus('Logged in as Admin','success');
             syncTargetInputMode();
         } catch(e) { errorDiv.textContent=e.message||'Invalid credentials'; errorDiv.classList.remove('hidden'); }
@@ -1860,6 +1903,7 @@
             if(u&&f) usernameMappings[group].set(u,f);
         });
         updateStats();
+        renderProvisionalContainer(group); // keep "shadow" dropdown choices in sync with current mappings
     }
 
     function importMappings(group) {
@@ -1868,6 +1912,110 @@
         updateMappings(group); document.getElementById(`${group}BulkMapping`).value='';
         showStatus(`Imported ${lines.length} ${group.toUpperCase()} mappings`,'success');
     }
+
+    // ============================================
+    // NEW / NOT-YET-ONBOARDED ENUMERATOR MANAGEMENT
+    // ============================================
+    function addProvisionalEnumerator(group) {
+        const name = prompt(`Name of the new ${group.toUpperCase()} enumerator (not yet licensed / no username yet):`);
+        if(!name || !name.trim()) return;
+        const id = 'prov_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+        provisionalEnumerators[group].push({ id, name: name.trim(), mode: 'manual', shadowGroup: '', shadowUsername: '', manual: {dss:0,ht:0,cust:0,lt:0,issues:0} });
+        renderProvisionalContainer(group);
+        showStatus(`${name.trim()} added as a new ${group.toUpperCase()} enumerator — set up their entries below, then Generate Report.`,'success');
+        saveProvisionalToCloud();
+    }
+
+    function removeProvisionalEnumerator(group, id) {
+        if(!confirm('Remove this new enumerator from the list? This cannot be undone.')) return;
+        provisionalEnumerators[group] = provisionalEnumerators[group].filter(p=>p.id!==id);
+        renderProvisionalContainer(group);
+        saveProvisionalToCloud();
+    }
+
+    function updateProvisionalField(group, id, field, value) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item) return;
+        if(field.startsWith('manual.')){
+            const key=field.split('.')[1];
+            item.manual[key]=Math.max(0, Number(value)||0);
+        } else if(field==='mode'){
+            item.mode = value;
+            renderProvisionalContainer(group); // re-render to swap manual-entry / shadow-picker inputs
+            saveProvisionalToCloud();
+            return;
+        } else {
+            item[field]=value;
+        }
+        saveProvisionalToCloud();
+    }
+
+    // Shadow target can be ANY enumerator in ANY group (AEDC, BSS, or NYSC) —
+    // not limited to the new enumerator's own group. value is "group::username".
+    function updateProvisionalShadow(group, id, value) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item) return;
+        if(!value){ item.shadowGroup=''; item.shadowUsername=''; }
+        else { const [g,u]=value.split('::'); item.shadowGroup=g; item.shadowUsername=u; }
+        saveProvisionalToCloud();
+    }
+
+    function onboardProvisional(group, id) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item) return;
+        const username = prompt(`Enter the system username to fully onboard "${item.name}" (${group.toUpperCase()}).\n\nFrom the next report you generate, their REAL uploaded-data entries under this username will count in the totals — they'll be removed from the "new enumerator" list.`);
+        if(username===null) return;
+        const uname = username.trim().toLowerCase();
+        if(!uname){ showStatus('Username cannot be empty','error'); return; }
+        if(usernameMappings[group].has(uname)){ showStatus('That username is already mapped to an enumerator in this group','error'); return; }
+        addMappingRow(group, uname, item.name);
+        updateMappings(group);
+        provisionalEnumerators[group] = provisionalEnumerators[group].filter(p=>p.id!==id);
+        renderProvisionalContainer(group);
+        saveProvisionalToCloud();
+        showStatus(`${item.name} onboarded as "${uname}". Click "Generate Report" again to bring in their real performance.`,'success');
+    }
+
+    function renderProvisionalRow(group, item) {
+        const modeOptions = `<option value="manual" ${item.mode==='manual'?'selected':''}>✍️ Manual entry</option><option value="shadow" ${item.mode==='shadow'?'selected':''}>🤝 Shadow existing enumerator (any group)</option>`;
+        let bodyHtml;
+        if(item.mode==='shadow'){
+            const groupLabels={aedc:'AEDC',bss:'BSS',nysc:'NYSC'};
+            const optgroups = ['aedc','bss','nysc'].map(g=>{
+                const opts=[];
+                usernameMappings[g].forEach((fullname,username)=>{
+                    const val=`${g}::${username}`;
+                    const sel = (item.shadowGroup===g && item.shadowUsername===username) ? 'selected' : '';
+                    opts.push(`<option value="${val}" ${sel}>${escapeHtml(fullname)} (${username})</option>`);
+                });
+                return opts.length ? `<optgroup label="${groupLabels[g]}">${opts.join('')}</optgroup>` : '';
+            }).join('');
+            bodyHtml = `<select onchange="updateProvisionalShadow('${group}','${item.id}',this.value)" class="w-full px-2 py-1 border border-amber-300 rounded text-xs">
+                <option value="">— choose who they worked with (any group) —</option>${optgroups}
+            </select>`;
+        } else {
+            const fields=[['dss','DSS'],['ht','HT'],['cust','Cust'],['lt','LT'],['issues','Iss']];
+            bodyHtml = `<div class="grid grid-cols-5 gap-1">${fields.map(([k,label])=>`<input type="number" min="0" value="${item.manual[k]||0}" title="${label}" oninput="updateProvisionalField('${group}','${item.id}','manual.${k}',this.value)" class="px-1 py-1 border border-amber-300 rounded text-xs text-center" placeholder="${label}">`).join('')}</div>`;
+        }
+        return `<div class="border border-amber-300 rounded-lg p-2 bg-white space-y-1 fade-in">
+            <div class="flex gap-1 items-center">
+                <input type="text" value="${escapeHtml(item.name)}" placeholder="Full name" oninput="updateProvisionalField('${group}','${item.id}','name',this.value)" class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs">
+                <button onclick="onboardProvisional('${group}','${item.id}')" title="Onboard with a real username" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-medium whitespace-nowrap">✓ Onboard</button>
+                <button onclick="removeProvisionalEnumerator('${group}','${item.id}')" class="px-2 text-red-500 hover:text-red-700 text-sm">✕</button>
+            </div>
+            <select onchange="updateProvisionalField('${group}','${item.id}','mode',this.value)" class="w-full px-2 py-1 border border-amber-300 rounded text-xs">${modeOptions}</select>
+            ${bodyHtml}
+        </div>`;
+    }
+
+    function renderProvisionalContainer(group) {
+        const el = document.getElementById(`${group}ProvisionalContainer`);
+        if(!el) return;
+        const list = provisionalEnumerators[group]||[];
+        el.innerHTML = list.length ? list.map(item=>renderProvisionalRow(group,item)).join('') : '<div class="text-xs text-gray-400 italic px-1">None yet — click "+ Add" below to add a new enumerator awaiting license.</div>';
+    }
+
+    function renderAllProvisionalPanels() { ['aedc','bss','nysc'].forEach(renderProvisionalContainer); }
 
     // ============================================
     // TEAM PAIRING MANAGEMENT
@@ -2117,6 +2265,12 @@
         // moment a file was uploaded — compute/refresh it here.
         computeLastFidForReport(startDate,endDate);
 
+        // Pass 1: compute real (mapped/uploaded) results for every group first.
+        // This must fully complete before Pass 2, because a new/provisional
+        // enumerator in one group (e.g. BSS) may be set to "shadow" an
+        // enumerator from a DIFFERENT group (e.g. AEDC or NYSC), and that
+        // buddy's numbers need to already be computed regardless of group order.
+        const groupResultsTemp = {};
         ['aedc','bss','nysc'].forEach(group=>{
             const results=[]; let totals={dss:0,ht:0,cust:0,lt:0,issues:0,total:0};
             usernameMappings[group].forEach((fullname,username)=>{
@@ -2142,7 +2296,43 @@
                 totals.dss+=dss;totals.ht+=ht;totals.cust+=cust;totals.lt+=lt;totals.issues+=issues;totals.total+=total;
             });
             results.sort((a,b)=>b.total-a.total);
-            reportResults[group]={results,totals};
+            groupResultsTemp[group]={results,totals};
+        });
+
+        // Pass 2: build rows for new/not-yet-onboarded enumerators. IMPORTANT:
+        // these live in a SEPARATE array (provisionalResults) and are never
+        // folded into `totals` above, so grand totals, charts, and the main
+        // exports remain completely unaffected by them until they're onboarded.
+        ['aedc','bss','nysc'].forEach(group=>{
+            const {results,totals}=groupResultsTemp[group];
+            const provisionalResults = (provisionalEnumerators[group]||[]).map(item=>{
+                let dss=0,ht=0,cust=0,lt=0,issues=0,feeder='';
+                let shadowName='';
+                if(item.mode==='shadow' && item.shadowUsername){
+                    const srcGroup = item.shadowGroup || group;
+                    const srcResults = (groupResultsTemp[srcGroup]||{}).results || [];
+                    const buddy = srcResults.find(r=>r.username===item.shadowUsername);
+                    shadowName = (usernameMappings[srcGroup] && usernameMappings[srcGroup].get(item.shadowUsername)) || item.shadowUsername;
+                    if(buddy){ dss=buddy.dss; ht=buddy.ht; cust=buddy.cust; lt=buddy.lt; issues=buddy.issues; feeder=buddy.savedFeeder||''; }
+                } else {
+                    dss=Number(item.manual&&item.manual.dss)||0;
+                    ht=Number(item.manual&&item.manual.ht)||0;
+                    cust=Number(item.manual&&item.manual.cust)||0;
+                    lt=Number(item.manual&&item.manual.lt)||0;
+                    issues=Number(item.manual&&item.manual.issues)||0;
+                }
+                const total=dss+ht+cust+lt+issues;
+                // Stable pseudo-username so this row can still be found in the
+                // Feeder Validation panel and in Excel exports, without ever
+                // being mistaken for a real onboarded username.
+                const pseudoUsername = 'NEW-'+item.id.slice(-6).toUpperCase();
+                return {
+                    id: item.id, username: pseudoUsername, isProvisional: true, mode: item.mode,
+                    fullname: item.name||'(unnamed)', dss, ht, cust, lt, issues, total,
+                    status: 'present', shadowGroup: item.shadowGroup||'', shadowUsername: item.shadowUsername||'', shadowName, savedFeeder: feeder
+                };
+            });
+            reportResults[group]={results,totals,provisionalResults};
         });
 
         reportResults.dateRange=startDateStr===endDateStr?`(${startDateStr})`:`(${startDateStr} to ${endDateStr})`;
@@ -2162,10 +2352,28 @@
     }
 
     function renderResultsTable(group) {
-        const {results,totals}=reportResults[group];
+        const {results,totals,provisionalResults}=reportResults[group];
         const tbody=document.getElementById(`${group}Body`), tfoot=document.getElementById(`${group}Foot`);
         tbody.innerHTML=results.map((r,i)=>`<tr class="${i%2===0?'bg-white':'bg-gray-50'}"><td class="px-3 py-1 border text-sm">${i+1}</td><td class="px-3 py-1 border font-mono text-xs">${escapeHtml(r.username)}</td><td class="px-3 py-1 border text-sm">${escapeHtml(r.fullname)}</td><td class="px-3 py-1 border text-center text-sm">${r.dss||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.ht||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td><td class="px-3 py-1 border text-center"><select class="status-select status-${r.status}" onchange="updateStatus('${group}',${i},this.value)"><option value="present" ${r.status==='present'?'selected':''}>✓ Present</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select></td></tr>`).join('');
-        tfoot.innerHTML=`<tr><td class="px-3 py-2 border" colspan="3">TOTAL (${results.length})</td><td class="px-3 py-2 border text-center">${totals.dss}</td><td class="px-3 py-2 border text-center">${totals.ht}</td><td class="px-3 py-2 border text-center">${totals.cust}</td><td class="px-3 py-2 border text-center">${totals.lt}</td><td class="px-3 py-2 border text-center">${totals.issues}</td><td class="px-3 py-2 border text-center font-bold">${totals.total}</td></tr>`;
+
+        // Append clearly-flagged rows for new/not-yet-onboarded enumerators.
+        // These are NOT included in the totals footer below.
+        if(provisionalResults && provisionalResults.length){
+            tbody.innerHTML += provisionalResults.map(r=>`<tr style="background:#fef9c3;border-top:2px dashed #f59e0b;">
+                <td class="px-3 py-1 border text-sm" style="text-align:center;">🆕</td>
+                <td class="px-3 py-1 border text-xs"><span style="background:#fbbf24;color:#78350f;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;white-space:nowrap;">PENDING LICENSE</span><div style="font-family:monospace;font-size:9px;color:#92400e;margin-top:2px;">${escapeHtml(r.username)}</div></td>
+                <td class="px-3 py-1 border text-sm">${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;">${r.mode==='shadow' ? `🤝 worked with ${escapeHtml(r.shadowName||r.shadowUsername||'—')}${r.shadowGroup?` (${r.shadowGroup.toUpperCase()})`:''}` : '✍️ manually entered'}</div></td>
+                <td class="px-3 py-1 border text-center text-sm">${r.dss||'-'}</td>
+                <td class="px-3 py-1 border text-center text-sm">${r.ht||'-'}</td>
+                <td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td>
+                <td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td>
+                <td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td>
+                <td class="px-3 py-1 border text-center text-xs" style="color:#92400e;font-weight:600;">Not counted</td>
+            </tr>`).join('');
+        }
+
+        tfoot.innerHTML=`<tr><td class="px-3 py-2 border" colspan="3">TOTAL (${results.length})</td><td class="px-3 py-2 border text-center">${totals.dss}</td><td class="px-3 py-2 border text-center">${totals.ht}</td><td class="px-3 py-2 border text-center">${totals.cust}</td><td class="px-3 py-2 border text-center">${totals.lt}</td><td class="px-3 py-2 border text-center">${totals.issues}</td><td class="px-3 py-2 border text-center font-bold">${totals.total}</td></tr>`
+            + (provisionalResults && provisionalResults.length ? `<tr><td colspan="9" style="padding:5px 10px;font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;">🆕 ${provisionalResults.length} new enumerator${provisionalResults.length>1?'s':''} shown above, awaiting license/username — excluded from the total above. Onboard them from the "New Enumerators" panel once their username is ready.</td></tr>` : '');
     }
 
     function updateStatus(group, index, status) {
@@ -3122,35 +3330,65 @@
         const rStartDate = reportResults.dateKey || null;
         const rEndDate = reportResults.endDateKey || rStartDate;
 
-        const buildSheet = (results) => (results||[]).map((r,i)=>({
-            'S/N':i+1,
-            'Username':r.username,
-            'Full Name':r.fullname,
-            'DT/DSS':r.dss||0,
-            'HT Pole':r.ht||0,
-            'Customer':r.cust||0,
-            'LT Pole':r.lt||0,
-            'Issues':r.issues||0,
-            'Total':r.total||0,
-            'Status':getStatusStr(r),
-            'Feeder': (r.total>0 && r.status==='present')
-                ? (isDateRange ? (getAllFeeders(r.username, rStartDate, rEndDate).join('; ')||'') : (getTopFeeder(r.username, rStartDate, rEndDate)||''))
-                : '',
-            'Excuse Reason':r.excuseRemark||'',
-            'Approval':r.excuseApproval||'',
-            'Zero Remark':r.zeroRemark||''
-        }));
+        const buildSheet = (results, provisional) => {
+            const rows = (results||[]).map((r,i)=>({
+                'S/N':i+1,
+                'Username':r.username,
+                'Full Name':r.fullname,
+                'DT/DSS':r.dss||0,
+                'HT Pole':r.ht||0,
+                'Customer':r.cust||0,
+                'LT Pole':r.lt||0,
+                'Issues':r.issues||0,
+                'Total':r.total||0,
+                'Status':getStatusStr(r),
+                'Feeder': (r.total>0 && r.status==='present')
+                    ? (isDateRange ? (getAllFeeders(r.username, rStartDate, rEndDate).join('; ')||'') : (getTopFeeder(r.username, rStartDate, rEndDate)||''))
+                    : '',
+                'Excuse Reason':r.excuseRemark||'',
+                'Approval':r.excuseApproval||'',
+                'Zero Remark':r.zeroRemark||'',
+                'Enumerator Type':'Onboarded'
+            }));
+            // Append new/not-yet-onboarded enumerators — clearly tagged, and
+            // excluded from the Grand Total sheet (which is built from `totals`
+            // directly and never touches these rows).
+            (provisional||[]).forEach(r=>{
+                const srcUsername = (r.mode==='shadow' && r.shadowUsername) ? r.shadowUsername : null;
+                const liveFeederStr = srcUsername
+                    ? (isDateRange ? (getAllFeeders(srcUsername, rStartDate, rEndDate).join('; ')||'') : (getTopFeeder(srcUsername, rStartDate, rEndDate)||''))
+                    : '';
+                rows.push({
+                    'S/N': rows.length+1,
+                    'Username': r.username,
+                    'Full Name': r.fullname,
+                    'DT/DSS': r.dss||0,
+                    'HT Pole': r.ht||0,
+                    'Customer': r.cust||0,
+                    'LT Pole': r.lt||0,
+                    'Issues': r.issues||0,
+                    'Total': r.total||0,
+                    'Status': 'Present (not counted)',
+                    'Feeder': liveFeederStr || r.savedFeeder || '',
+                    'Excuse Reason': '',
+                    'Approval': '',
+                    'Zero Remark': r.mode==='shadow' ? `Shadowing ${r.shadowName||r.shadowUsername}${r.shadowGroup?' ('+r.shadowGroup.toUpperCase()+')':''}` : 'Manual entry',
+                    'Enumerator Type': 'NEW — awaiting license (excluded from totals)'
+                });
+            });
+            return rows;
+        };
 
         if(shouldUsePaired){
-            const aedcData=buildSheet(reportResults.aedc.results);
+            const aedcData=buildSheet(reportResults.aedc.results, reportResults.aedc.provisionalResults);
             if(aedcData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(aedcData),'AEDC');
-            const bssData=buildSheet(reportResults.bss.results);
+            const bssData=buildSheet(reportResults.bss.results, reportResults.bss.provisionalResults);
             if(bssData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bssData),'BSS');
-            const nyscData=buildSheet(reportResults.nysc.results);
+            const nyscData=buildSheet(reportResults.nysc.results, reportResults.nysc.provisionalResults);
             if(nyscData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nyscData),'NYSC');
         } else {
             ['aedc','bss','nysc'].forEach(g=>{
-                const d=buildSheet(reportResults[g].results);
+                const d=buildSheet(reportResults[g].results, reportResults[g].provisionalResults);
                 if(d.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),g.toUpperCase());
             });
         }
@@ -3192,6 +3430,26 @@
                 ['aedc','bss','nysc'].forEach(g=>{document.getElementById(`${g}MappingContainer`).innerHTML='';if(data[g]){Object.entries(data[g]).forEach(([u,f])=>addMappingRow(g,u,f));updateMappings(g);}});
                 showStatus('Mappings loaded','success');
             }
+        } catch(e){console.error(e);}
+    }
+
+    async function saveProvisionalToCloud() {
+        if(!firebaseInitialized||!currentUser)return;
+        updateFirebaseStatus('syncing');
+        try {
+            await database.ref('provisionalEnumerators').set({aedc:provisionalEnumerators.aedc,bss:provisionalEnumerators.bss,nysc:provisionalEnumerators.nysc,timestamp:Date.now()});
+            updateFirebaseStatus('connected');
+        } catch(e){updateFirebaseStatus('disconnected');console.error(e);}
+    }
+
+    async function loadProvisionalFromCloud() {
+        if(!firebaseInitialized)return;
+        try {
+            const snap=await database.ref('provisionalEnumerators').once('value'), data=snap.val();
+            if(data){
+                ['aedc','bss','nysc'].forEach(g=>{ provisionalEnumerators[g] = toArray(data[g]); });
+            }
+            renderAllProvisionalPanels();
         } catch(e){console.error(e);}
     }
 
@@ -3293,8 +3551,8 @@
         return Object.keys(v).sort((a,b)=>Number(a)-Number(b)).map(k=>v[k]);
     }
     function normGroup(g) {
-        if (!g || typeof g !== 'object') return { results: [], totals: {} };
-        return { ...g, results: toArray(g.results), totals: (g.totals && typeof g.totals==='object') ? g.totals : {} };
+        if (!g || typeof g !== 'object') return { results: [], totals: {}, provisionalResults: [] };
+        return { ...g, results: toArray(g.results), totals: (g.totals && typeof g.totals==='object') ? g.totals : {}, provisionalResults: toArray(g.provisionalResults) };
     }
 
     async function loadDashboardByDate(dateKey) {
@@ -3768,6 +4026,41 @@
                     flag
                 });
             });
+
+            // Also list new/not-yet-onboarded enumerators for this group, clearly flagged.
+            // If they're in "shadow" mode, pull live feeder data from the buddy they're
+            // shadowing (which may be in a different group); manual entries have no
+            // live-uploaded source, so they show "no data" unless manually overridden here.
+            (reportResults[group].provisionalResults||[]).forEach(r => {
+                const sourceUsername = (r.mode==='shadow' && r.shadowUsername) ? r.shadowUsername : null;
+                const rawData = sourceUsername ? userFeederData[sourceUsername] : null;
+                const merged = rawData ? mergeFeederCounts(rawData, startDateStr, endDateStr) : {};
+                const entries = Object.entries(merged).sort((a,b) => b[1]-a[1]);
+                const liveTopFeeder = entries.length ? entries[0][0] : null;
+                const allFeeders = entries.map(([f,c]) => ({feeder:f, count:c}));
+
+                const rawOverride = fvSessionOverrides[r.username] || null;
+                const override = (rawOverride && rawOverride !== liveTopFeeder) ? rawOverride : null;
+                const savedFeeder = r.savedFeeder || null;
+
+                let flag = 'nodata';
+                if (override) flag = 'overridden';
+                else if (liveTopFeeder) flag = 'live';
+                if (liveTopFeeder && savedFeeder && liveTopFeeder !== savedFeeder && !override) flag = 'conflict';
+
+                fvRows.push({
+                    username: r.username,
+                    fullname: `🆕 ${r.fullname}`,
+                    group,
+                    total: r.total,
+                    liveTopFeeder,
+                    allFeeders,
+                    override,
+                    savedFeeder,
+                    flag,
+                    isProvisional: true
+                });
+            });
         });
 
         renderFeederValidationTable();
@@ -3850,7 +4143,7 @@
                 <td class="px-2 py-1.5 border-b border-amber-100 text-xs text-gray-500">${i+1}</td>
                 <td class="px-2 py-1.5 border-b border-amber-100"><span class="font-mono text-xs font-semibold text-gray-700">${escapeHtml(r.username)}</span></td>
                 <td class="px-2 py-1.5 border-b border-amber-100 text-sm font-medium text-gray-800">${escapeHtml(r.fullname)}</td>
-                <td class="px-2 py-1.5 border-b border-amber-100 text-center">${groupBadge[r.group]||r.group}</td>
+                <td class="px-2 py-1.5 border-b border-amber-100 text-center">${groupBadge[r.group]||r.group}${r.isProvisional?' <span style="background:#fef9c3;color:#92400e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;">NEW</span>':''}</td>
                 <td class="px-2 py-1.5 border-b border-amber-100 text-center font-bold text-sm ${r.total>0?'text-blue-700':'text-gray-400'}">${r.total||'-'}</td>
                 <td class="px-2 py-1.5 border-b border-amber-100">
                     ${r.liveTopFeeder
@@ -3997,6 +4290,12 @@
                     rec.savedFeeder = validated || '';
                     if (validated) applied++;
                 }
+                // Also check new/not-yet-onboarded rows (matched by their pseudo-username)
+                const provRec = (reportResults[group].provisionalResults||[]).find(x => x.username === r.username);
+                if (provRec) {
+                    provRec.savedFeeder = validated || '';
+                    if (validated) applied++;
+                }
             });
         });
 
@@ -4060,6 +4359,22 @@
                     applied++;
                 } else {
                     noData++;
+                }
+            });
+
+            // New/not-yet-onboarded rows (matched by their pseudo-username)
+            (reportResults[group].provisionalResults || []).forEach(rec => {
+                if ((rec.total || 0) === 0) return;
+                let validated = null;
+                if (fvSessionOverrides[rec.username]) {
+                    validated = fvSessionOverrides[rec.username];
+                } else {
+                    const fvRow = fvRows.find(r => r.username === rec.username);
+                    if (fvRow && fvRow.liveTopFeeder) validated = fvRow.liveTopFeeder;
+                }
+                if (validated) {
+                    rec.savedFeeder = validated;
+                    applied++;
                 }
             });
         });
