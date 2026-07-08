@@ -735,7 +735,7 @@
                 <div class="mt-8 border-t-4 border-amber-300 pt-6">
                     <div class="text-center mb-4">
                         <h3 class="text-lg font-bold text-amber-700 flex items-center justify-center gap-2">🆕 New / Not-Yet-Onboarded Enumerators</h3>
-                        <p class="text-xs text-gray-500 max-w-2xl mx-auto mt-1">For enumerators who've joined but don't have a username yet. Log their performance manually, or automatically mirror ("shadow") an existing enumerator they worked alongside. They'll show up clearly flagged in their group's report, but their numbers are <b>never added to the totals</b> — until you click "Onboard" and give them a real username, after which their real uploaded data counts normally from the next report.</p>
+                        <p class="text-xs text-gray-500 max-w-2xl mx-auto mt-1">For enumerators who've joined but don't have a username yet. Set a <b>usual work plan</b> (manual entry, or "shadow" any onboarded enumerator from any group they worked alongside) and add <b>day-specific overrides</b> for dates they worked with someone different. They'll show up clearly flagged in their group's report, but their numbers are <b>never added to the totals</b> — until you click "Onboard" and give them a real username, after which their real uploaded data counts normally from the next report.</p>
                     </div>
                     <div class="grid lg:grid-cols-3 gap-6">
                         <div class="border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
@@ -1916,13 +1916,21 @@
     // ============================================
     // NEW / NOT-YET-ONBOARDED ENUMERATOR MANAGEMENT
     // ============================================
+    // Each new enumerator has a "default" (usual) work assignment, plus an
+    // optional day-by-day schedule of overrides for dates where they worked
+    // with someone different (or logged manual numbers instead). Any date
+    // not explicitly scheduled falls back to the default assignment.
+    function blankAssignment() {
+        return { mode:'manual', shadowGroup:'', shadowUsername:'', manual:{dss:0,ht:0,cust:0,lt:0,issues:0} };
+    }
+
     function addProvisionalEnumerator(group) {
         const name = prompt(`Name of the new ${group.toUpperCase()} enumerator (not yet licensed / no username yet):`);
         if(!name || !name.trim()) return;
         const id = 'prov_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-        provisionalEnumerators[group].push({ id, name: name.trim(), mode: 'manual', shadowGroup: '', shadowUsername: '', manual: {dss:0,ht:0,cust:0,lt:0,issues:0} });
+        provisionalEnumerators[group].push({ id, name: name.trim(), default: blankAssignment(), schedule: [] });
         renderProvisionalContainer(group);
-        showStatus(`${name.trim()} added as a new ${group.toUpperCase()} enumerator — set up their entries below, then Generate Report.`,'success');
+        showStatus(`${name.trim()} added as a new ${group.toUpperCase()} enumerator — set up their work plan below, then Generate Report.`,'success');
         saveProvisionalToCloud();
     }
 
@@ -1933,21 +1941,23 @@
         saveProvisionalToCloud();
     }
 
+    // field is 'name', 'default.mode', or 'default.manual.<dss|ht|cust|lt|issues>'
     function updateProvisionalField(group, id, field, value) {
         const item = provisionalEnumerators[group].find(p=>p.id===id);
         if(!item) return;
-        if(field.startsWith('manual.')){
-            const key=field.split('.')[1];
-            item.manual[key]=Math.max(0, Number(value)||0);
-        } else if(field==='mode'){
-            item.mode = value;
+        if(field==='name'){ item.name=value; saveProvisionalToCloud(); return; }
+        if(field==='default.mode'){
+            item.default.mode = value;
             renderProvisionalContainer(group); // re-render to swap manual-entry / shadow-picker inputs
             saveProvisionalToCloud();
             return;
-        } else {
-            item[field]=value;
         }
-        saveProvisionalToCloud();
+        if(field.startsWith('default.manual.')){
+            const key=field.split('.')[2];
+            item.default.manual[key]=Math.max(0, Number(value)||0);
+            saveProvisionalToCloud();
+            return;
+        }
     }
 
     // Shadow target can be ANY enumerator in ANY group (AEDC, BSS, or NYSC) —
@@ -1955,8 +1965,46 @@
     function updateProvisionalShadow(group, id, value) {
         const item = provisionalEnumerators[group].find(p=>p.id===id);
         if(!item) return;
-        if(!value){ item.shadowGroup=''; item.shadowUsername=''; }
-        else { const [g,u]=value.split('::'); item.shadowGroup=g; item.shadowUsername=u; }
+        if(!value){ item.default.shadowGroup=''; item.default.shadowUsername=''; }
+        else { const [g,u]=value.split('::'); item.default.shadowGroup=g; item.default.shadowUsername=u; }
+        saveProvisionalToCloud();
+    }
+
+    // ---- Day-specific schedule overrides ----
+    function addScheduleDay(group, id) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item) return;
+        const suggestedDate = document.getElementById('startDate')?.value || new Date().toISOString().split('T')[0];
+        if(!item.schedule) item.schedule=[];
+        item.schedule.push({ date: suggestedDate, ...blankAssignment(), mode:'shadow' });
+        renderProvisionalContainer(group);
+        saveProvisionalToCloud();
+    }
+
+    function removeScheduleDay(group, id, idx) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item || !item.schedule) return;
+        item.schedule.splice(idx,1);
+        renderProvisionalContainer(group);
+        saveProvisionalToCloud();
+    }
+
+    function updateScheduleField(group, id, idx, field, value) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item || !item.schedule || !item.schedule[idx]) return;
+        const s = item.schedule[idx];
+        if(field==='date'){ s.date = value; }
+        else if(field==='mode'){ s.mode = value; renderProvisionalContainer(group); saveProvisionalToCloud(); return; }
+        else if(field.startsWith('manual.')){ const key=field.split('.')[1]; s.manual[key]=Math.max(0, Number(value)||0); }
+        saveProvisionalToCloud();
+    }
+
+    function updateScheduleShadow(group, id, idx, value) {
+        const item = provisionalEnumerators[group].find(p=>p.id===id);
+        if(!item || !item.schedule || !item.schedule[idx]) return;
+        const s = item.schedule[idx];
+        if(!value){ s.shadowGroup=''; s.shadowUsername=''; }
+        else { const [g,u]=value.split('::'); s.shadowGroup=g; s.shadowUsername=u; }
         saveProvisionalToCloud();
     }
 
@@ -1976,35 +2024,68 @@
         showStatus(`${item.name} onboarded as "${uname}". Click "Generate Report" again to bring in their real performance.`,'success');
     }
 
-    function renderProvisionalRow(group, item) {
-        const modeOptions = `<option value="manual" ${item.mode==='manual'?'selected':''}>✍️ Manual entry</option><option value="shadow" ${item.mode==='shadow'?'selected':''}>🤝 Shadow existing enumerator (any group)</option>`;
-        let bodyHtml;
-        if(item.mode==='shadow'){
+    // Renders the mode selector + (shadow picker OR manual number inputs) for
+    // either the "default" assignment or one specific "schedule" day entry.
+    function renderAssignmentControls(group, id, scope, idx, assign) {
+        const modeOptions = `<option value="manual" ${assign.mode==='manual'?'selected':''}>✍️ Manual</option><option value="shadow" ${assign.mode==='shadow'?'selected':''}>🤝 Shadow (any group)</option>`;
+        const modeOnchange = scope==='default'
+            ? `updateProvisionalField('${group}','${id}','default.mode',this.value)`
+            : `updateScheduleField('${group}','${id}',${idx},'mode',this.value)`;
+        let body;
+        if(assign.mode==='shadow'){
             const groupLabels={aedc:'AEDC',bss:'BSS',nysc:'NYSC'};
             const optgroups = ['aedc','bss','nysc'].map(g=>{
                 const opts=[];
                 usernameMappings[g].forEach((fullname,username)=>{
                     const val=`${g}::${username}`;
-                    const sel = (item.shadowGroup===g && item.shadowUsername===username) ? 'selected' : '';
+                    const sel = (assign.shadowGroup===g && assign.shadowUsername===username) ? 'selected' : '';
                     opts.push(`<option value="${val}" ${sel}>${escapeHtml(fullname)} (${username})</option>`);
                 });
                 return opts.length ? `<optgroup label="${groupLabels[g]}">${opts.join('')}</optgroup>` : '';
             }).join('');
-            bodyHtml = `<select onchange="updateProvisionalShadow('${group}','${item.id}',this.value)" class="w-full px-2 py-1 border border-amber-300 rounded text-xs">
-                <option value="">— choose who they worked with (any group) —</option>${optgroups}
-            </select>`;
+            const shadowOnchange = scope==='default'
+                ? `updateProvisionalShadow('${group}','${id}',this.value)`
+                : `updateScheduleShadow('${group}','${id}',${idx},this.value)`;
+            body = `<select onchange="${shadowOnchange}" class="w-full px-2 py-1 border border-amber-300 rounded text-xs"><option value="">— choose who they worked with —</option>${optgroups}</select>`;
         } else {
             const fields=[['dss','DSS'],['ht','HT'],['cust','Cust'],['lt','LT'],['issues','Iss']];
-            bodyHtml = `<div class="grid grid-cols-5 gap-1">${fields.map(([k,label])=>`<input type="number" min="0" value="${item.manual[k]||0}" title="${label}" oninput="updateProvisionalField('${group}','${item.id}','manual.${k}',this.value)" class="px-1 py-1 border border-amber-300 rounded text-xs text-center" placeholder="${label}">`).join('')}</div>`;
+            body = `<div class="grid grid-cols-5 gap-1">${fields.map(([k,label])=>{
+                const oninput = scope==='default'
+                    ? `updateProvisionalField('${group}','${id}','default.manual.${k}',this.value)`
+                    : `updateScheduleField('${group}','${id}',${idx},'manual.${k}',this.value)`;
+                return `<input type="number" min="0" value="${(assign.manual&&assign.manual[k])||0}" title="${label}" oninput="${oninput}" class="px-1 py-1 border border-amber-300 rounded text-xs text-center" placeholder="${label}">`;
+            }).join('')}</div>`;
         }
-        return `<div class="border border-amber-300 rounded-lg p-2 bg-white space-y-1 fade-in">
+        return `<select onchange="${modeOnchange}" class="w-full px-2 py-1 border border-amber-300 rounded text-xs mb-1">${modeOptions}</select>${body}`;
+    }
+
+    function renderProvisionalRow(group, item) {
+        const scheduleRows = (item.schedule||[]).map((s,idx)=>`
+            <div class="border border-amber-200 rounded p-2 bg-amber-50 space-y-1">
+                <div class="flex gap-1 items-center">
+                    <input type="date" value="${s.date||''}" onchange="updateScheduleField('${group}','${item.id}',${idx},'date',this.value)" class="px-2 py-1 border border-amber-300 rounded text-xs flex-1">
+                    <button onclick="removeScheduleDay('${group}','${item.id}',${idx})" title="Remove this day" class="px-2 text-red-500 hover:text-red-700 text-sm">✕</button>
+                </div>
+                ${renderAssignmentControls(group,item.id,'schedule',idx,s)}
+            </div>`).join('');
+
+        return `<div class="border border-amber-300 rounded-lg p-2 bg-white space-y-2 fade-in">
             <div class="flex gap-1 items-center">
                 <input type="text" value="${escapeHtml(item.name)}" placeholder="Full name" oninput="updateProvisionalField('${group}','${item.id}','name',this.value)" class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs">
                 <button onclick="onboardProvisional('${group}','${item.id}')" title="Onboard with a real username" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-medium whitespace-nowrap">✓ Onboard</button>
                 <button onclick="removeProvisionalEnumerator('${group}','${item.id}')" class="px-2 text-red-500 hover:text-red-700 text-sm">✕</button>
             </div>
-            <select onchange="updateProvisionalField('${group}','${item.id}','mode',this.value)" class="w-full px-2 py-1 border border-amber-300 rounded text-xs">${modeOptions}</select>
-            ${bodyHtml}
+            <div>
+                <div class="text-[10px] font-semibold text-amber-700 mb-1 uppercase tracking-wide">Usual work plan (applies on any day without an override below)</div>
+                ${renderAssignmentControls(group,item.id,'default',null,item.default)}
+            </div>
+            <div>
+                <div class="text-[10px] font-semibold text-amber-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                    <span>📅 Day-specific overrides</span>
+                    <button onclick="addScheduleDay('${group}','${item.id}')" class="text-[10px] px-2 py-0.5 bg-amber-200 hover:bg-amber-300 rounded text-amber-800 font-semibold">+ Add day</button>
+                </div>
+                <div class="space-y-1">${scheduleRows || '<div class="text-[10px] text-gray-400 italic">None yet — every day currently uses the usual work plan above. Add a day here for a date they worked with someone different (or logged different numbers).</div>'}</div>
+            </div>
         </div>`;
     }
 
@@ -2212,20 +2293,38 @@
     // DATA PROCESSING
     // ============================================
     function processDataSheet(data, startDate, endDate) {
-        const counts=new Map(); if(!data||!Array.isArray(data))return counts;
+        const totals=new Map(); const daily=new Map(); // daily: username -> Map(dateKey -> count)
+        if(!data||!Array.isArray(data))return {totals,daily};
         const cols=Object.keys(data[0]||{});
         let timeCol=cols.find(c=>c.toLowerCase().includes('time')||c.toLowerCase().includes('date'));
         let userCol=cols.find(c=>c.toLowerCase().includes('username')||c.toLowerCase()==='user');
-        if(!timeCol||!userCol)return counts;
+        if(!timeCol||!userCol)return {totals,daily};
         dateFormatHint = detectDateFormatForRows(data,timeCol) || dateFormatHint;
         data.forEach(row=>{
             const username=(row[userCol]||'').toString().trim().toLowerCase(); if(!username)return;
             const rowDk = toLocalDateKey(row[timeCol]); if(!rowDk) return;
             const sdStr = toLocalDateKey(startDate) || startDate.toISOString().substring(0,10);
             const edStr = toLocalDateKey(endDate) || endDate.toISOString().substring(0,10);
-            if(rowDk >= sdStr && rowDk <= edStr) counts.set(username,(counts.get(username)||0)+1);
+            if(rowDk >= sdStr && rowDk <= edStr){
+                totals.set(username,(totals.get(username)||0)+1);
+                if(!daily.has(username)) daily.set(username, new Map());
+                const dm = daily.get(username);
+                dm.set(rowDk, (dm.get(rowDk)||0)+1);
+            }
         });
-        return counts;
+        return {totals, daily};
+    }
+
+    // Inclusive list of YYYY-MM-DD date-key strings between two date strings
+    function enumerateDateKeys(startDateStr, endDateStr) {
+        const keys=[];
+        let cur=new Date(startDateStr+'T00:00:00');
+        const end=new Date((endDateStr||startDateStr)+'T00:00:00');
+        while(cur<=end){
+            keys.push(toLocalDateKey(cur) || cur.toISOString().substring(0,10));
+            cur.setDate(cur.getDate()+1);
+        }
+        return keys;
     }
 
     function getDayCode(dateStr) {
@@ -2255,11 +2354,11 @@
         const startDate=new Date(startDateStr), endDate=new Date(endDateStr);
         if(!Object.values(uploadedData).some(d=>d)){showStatus('Please upload at least one data file','error');return;}
 
-        const dssCounts=processDataSheet(uploadedData.dss,startDate,endDate);
-        const htCounts=processDataSheet(uploadedData.ht,startDate,endDate);
-        const ltCounts=processDataSheet(uploadedData.lt,startDate,endDate);
-        const custCounts=processDataSheet(uploadedData.cust,startDate,endDate);
-        const issueCounts=processDataSheet(uploadedData.issues,startDate,endDate);
+        const dssData=processDataSheet(uploadedData.dss,startDate,endDate);
+        const htData=processDataSheet(uploadedData.ht,startDate,endDate);
+        const ltData=processDataSheet(uploadedData.lt,startDate,endDate);
+        const custData=processDataSheet(uploadedData.cust,startDate,endDate);
+        const issueData=processDataSheet(uploadedData.issues,startDate,endDate);
 
         // Last FID (per asset) is tied to the report's date range, not to the
         // moment a file was uploaded — compute/refresh it here.
@@ -2274,7 +2373,7 @@
         ['aedc','bss','nysc'].forEach(group=>{
             const results=[]; let totals={dss:0,ht:0,cust:0,lt:0,issues:0,total:0};
             usernameMappings[group].forEach((fullname,username)=>{
-                const dss=dssCounts.get(username)||0, ht=htCounts.get(username)||0, cust=custCounts.get(username)||0, lt=ltCounts.get(username)||0, issues=issueCounts.get(username)||0;
+                const dss=dssData.totals.get(username)||0, ht=htData.totals.get(username)||0, cust=custData.totals.get(username)||0, lt=ltData.totals.get(username)||0, issues=issueData.totals.get(username)||0;
                 const total=dss+ht+cust+lt+issues;
                 let status='present';
                 let autoExcuseRemark='', autoExcuseApproval='pending';
@@ -2303,33 +2402,62 @@
         // these live in a SEPARATE array (provisionalResults) and are never
         // folded into `totals` above, so grand totals, charts, and the main
         // exports remain completely unaffected by them until they're onboarded.
+        //
+        // Each new enumerator has a day-by-day work plan: a "default" (usual)
+        // assignment plus optional day-specific overrides for dates where they
+        // worked with someone different (or logged manual numbers instead).
+        // We walk every date in the report's range and resolve each day
+        // independently, so someone can shadow a different enumerator each day.
+        const dateKeysInRange = enumerateDateKeys(startDateStr, endDateStr);
+        const dayCount = (dataObj, username, dateKey) => {
+            const um = dataObj.daily.get(username);
+            return um ? (um.get(dateKey)||0) : 0;
+        };
+
         ['aedc','bss','nysc'].forEach(group=>{
             const {results,totals}=groupResultsTemp[group];
             const provisionalResults = (provisionalEnumerators[group]||[]).map(item=>{
-                let dss=0,ht=0,cust=0,lt=0,issues=0,feeder='';
-                let shadowName='';
-                if(item.mode==='shadow' && item.shadowUsername){
-                    const srcGroup = item.shadowGroup || group;
-                    const srcResults = (groupResultsTemp[srcGroup]||{}).results || [];
-                    const buddy = srcResults.find(r=>r.username===item.shadowUsername);
-                    shadowName = (usernameMappings[srcGroup] && usernameMappings[srcGroup].get(item.shadowUsername)) || item.shadowUsername;
-                    if(buddy){ dss=buddy.dss; ht=buddy.ht; cust=buddy.cust; lt=buddy.lt; issues=buddy.issues; feeder=buddy.savedFeeder||''; }
-                } else {
-                    dss=Number(item.manual&&item.manual.dss)||0;
-                    ht=Number(item.manual&&item.manual.ht)||0;
-                    cust=Number(item.manual&&item.manual.cust)||0;
-                    lt=Number(item.manual&&item.manual.lt)||0;
-                    issues=Number(item.manual&&item.manual.issues)||0;
-                }
+                let dss=0,ht=0,cust=0,lt=0,issues=0;
+                const feederCounts={};
+                const dayLabels=[];
+
+                dateKeysInRange.forEach(dateKey=>{
+                    const sched = (item.schedule||[]).find(s=>s.date===dateKey);
+                    const assign = sched || item.default || {mode:'manual',manual:{}};
+                    if(assign.mode==='shadow' && assign.shadowUsername){
+                        const su = assign.shadowUsername;
+                        dss+=dayCount(dssData,su,dateKey); ht+=dayCount(htData,su,dateKey);
+                        cust+=dayCount(custData,su,dateKey); lt+=dayCount(ltData,su,dateKey);
+                        issues+=dayCount(issueData,su,dateKey);
+                        const srcGroup = assign.shadowGroup || group;
+                        const label = (usernameMappings[srcGroup] && usernameMappings[srcGroup].get(su)) || su;
+                        dayLabels.push({date:dateKey, text:`${label}${srcGroup?` (${srcGroup.toUpperCase()})`:''}`});
+                        const dayFeeder = getTopFeeder(su, dateKey, dateKey);
+                        if(dayFeeder) feederCounts[dayFeeder]=(feederCounts[dayFeeder]||0)+1;
+                    } else {
+                        const m=assign.manual||{};
+                        dss+=Number(m.dss)||0; ht+=Number(m.ht)||0; cust+=Number(m.cust)||0; lt+=Number(m.lt)||0; issues+=Number(m.issues)||0;
+                        dayLabels.push({date:dateKey, text:'manual entry'});
+                    }
+                });
+
                 const total=dss+ht+cust+lt+issues;
-                // Stable pseudo-username so this row can still be found in the
-                // Feeder Validation panel and in Excel exports, without ever
-                // being mistaken for a real onboarded username.
+                const feederEntries=Object.entries(feederCounts).sort((a,b)=>b[1]-a[1]);
+                const savedFeeder = feederEntries.length ? feederEntries[0][0] : '';
+                const allFeeders = feederEntries.map(([f])=>f);
+
+                // Build a compact summary line for the results table
+                const uniqueTexts = [...new Set(dayLabels.map(d=>d.text))];
+                let summaryLabel;
+                if(dayLabels.length===0) summaryLabel='No work-plan entries yet';
+                else if(uniqueTexts.length===1) summaryLabel = uniqueTexts[0]==='manual entry' ? '✍️ manually entered' : `🤝 worked with ${uniqueTexts[0]}`;
+                else summaryLabel = `🔀 varies day-to-day (${uniqueTexts.length} assignments this period — see Work Plan)`;
+
                 const pseudoUsername = 'NEW-'+item.id.slice(-6).toUpperCase();
                 return {
-                    id: item.id, username: pseudoUsername, isProvisional: true, mode: item.mode,
+                    id: item.id, username: pseudoUsername, isProvisional: true,
                     fullname: item.name||'(unnamed)', dss, ht, cust, lt, issues, total,
-                    status: 'present', shadowGroup: item.shadowGroup||'', shadowUsername: item.shadowUsername||'', shadowName, savedFeeder: feeder
+                    status: 'present', savedFeeder, allFeeders, summaryLabel, dayLabels
                 };
             });
             reportResults[group]={results,totals,provisionalResults};
@@ -2362,7 +2490,7 @@
             tbody.innerHTML += provisionalResults.map(r=>`<tr style="background:#fef9c3;border-top:2px dashed #f59e0b;">
                 <td class="px-3 py-1 border text-sm" style="text-align:center;">🆕</td>
                 <td class="px-3 py-1 border text-xs"><span style="background:#fbbf24;color:#78350f;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;white-space:nowrap;">PENDING LICENSE</span><div style="font-family:monospace;font-size:9px;color:#92400e;margin-top:2px;">${escapeHtml(r.username)}</div></td>
-                <td class="px-3 py-1 border text-sm">${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;">${r.mode==='shadow' ? `🤝 worked with ${escapeHtml(r.shadowName||r.shadowUsername||'—')}${r.shadowGroup?` (${r.shadowGroup.toUpperCase()})`:''}` : '✍️ manually entered'}</div></td>
+                <td class="px-3 py-1 border text-sm">${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;">${escapeHtml(r.summaryLabel||'')}</div></td>
                 <td class="px-3 py-1 border text-center text-sm">${r.dss||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.ht||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td>
@@ -3352,12 +3480,9 @@
             }));
             // Append new/not-yet-onboarded enumerators — clearly tagged, and
             // excluded from the Grand Total sheet (which is built from `totals`
-            // directly and never touches these rows).
+            // directly and never touches these rows). Feeder and work-plan
+            // summary were already resolved day-by-day in generateReport().
             (provisional||[]).forEach(r=>{
-                const srcUsername = (r.mode==='shadow' && r.shadowUsername) ? r.shadowUsername : null;
-                const liveFeederStr = srcUsername
-                    ? (isDateRange ? (getAllFeeders(srcUsername, rStartDate, rEndDate).join('; ')||'') : (getTopFeeder(srcUsername, rStartDate, rEndDate)||''))
-                    : '';
                 rows.push({
                     'S/N': rows.length+1,
                     'Username': r.username,
@@ -3369,10 +3494,10 @@
                     'Issues': r.issues||0,
                     'Total': r.total||0,
                     'Status': 'Present (not counted)',
-                    'Feeder': liveFeederStr || r.savedFeeder || '',
+                    'Feeder': isDateRange ? ((r.allFeeders||[]).join('; ')||'') : (r.savedFeeder||''),
                     'Excuse Reason': '',
                     'Approval': '',
-                    'Zero Remark': r.mode==='shadow' ? `Shadowing ${r.shadowName||r.shadowUsername}${r.shadowGroup?' ('+r.shadowGroup.toUpperCase()+')':''}` : 'Manual entry',
+                    'Zero Remark': r.summaryLabel || '',
                     'Enumerator Type': 'NEW — awaiting license (excluded from totals)'
                 });
             });
@@ -3442,12 +3567,30 @@
         } catch(e){updateFirebaseStatus('disconnected');console.error(e);}
     }
 
+    // Ensures a provisional-enumerator item has the current { default, schedule }
+    // shape, migrating any older saved shape (flat mode/shadowUsername/manual)
+    // into item.default so previously-saved rosters keep working.
+    function normalizeProvisionalItem(item) {
+        if(!item.default){
+            item.default = {
+                mode: item.mode || 'manual',
+                shadowGroup: item.shadowGroup || '',
+                shadowUsername: item.shadowUsername || '',
+                manual: item.manual || {dss:0,ht:0,cust:0,lt:0,issues:0}
+            };
+        }
+        if(!item.default.manual) item.default.manual = {dss:0,ht:0,cust:0,lt:0,issues:0};
+        item.schedule = Array.isArray(item.schedule) ? item.schedule : toArray(item.schedule);
+        item.schedule.forEach(s=>{ if(!s.manual) s.manual={dss:0,ht:0,cust:0,lt:0,issues:0}; });
+        return item;
+    }
+
     async function loadProvisionalFromCloud() {
         if(!firebaseInitialized)return;
         try {
             const snap=await database.ref('provisionalEnumerators').once('value'), data=snap.val();
             if(data){
-                ['aedc','bss','nysc'].forEach(g=>{ provisionalEnumerators[g] = toArray(data[g]); });
+                ['aedc','bss','nysc'].forEach(g=>{ provisionalEnumerators[g] = toArray(data[g]).map(normalizeProvisionalItem); });
             }
             renderAllProvisionalPanels();
         } catch(e){console.error(e);}
@@ -4028,16 +4171,12 @@
             });
 
             // Also list new/not-yet-onboarded enumerators for this group, clearly flagged.
-            // If they're in "shadow" mode, pull live feeder data from the buddy they're
-            // shadowing (which may be in a different group); manual entries have no
-            // live-uploaded source, so they show "no data" unless manually overridden here.
+            // Their feeder was already resolved day-by-day in generateReport() (since a
+            // "shadow" assignment can point to a different enumerator on different days),
+            // so we just surface that precomputed result here rather than recalculating.
             (reportResults[group].provisionalResults||[]).forEach(r => {
-                const sourceUsername = (r.mode==='shadow' && r.shadowUsername) ? r.shadowUsername : null;
-                const rawData = sourceUsername ? userFeederData[sourceUsername] : null;
-                const merged = rawData ? mergeFeederCounts(rawData, startDateStr, endDateStr) : {};
-                const entries = Object.entries(merged).sort((a,b) => b[1]-a[1]);
-                const liveTopFeeder = entries.length ? entries[0][0] : null;
-                const allFeeders = entries.map(([f,c]) => ({feeder:f, count:c}));
+                const liveTopFeeder = r.savedFeeder || null;
+                const allFeeders = (r.allFeeders||[]).map(f => ({feeder:f, count:1}));
 
                 const rawOverride = fvSessionOverrides[r.username] || null;
                 const override = (rawOverride && rawOverride !== liveTopFeeder) ? rawOverride : null;
@@ -4046,7 +4185,6 @@
                 let flag = 'nodata';
                 if (override) flag = 'overridden';
                 else if (liveTopFeeder) flag = 'live';
-                if (liveTopFeeder && savedFeeder && liveTopFeeder !== savedFeeder && !override) flag = 'conflict';
 
                 fvRows.push({
                     username: r.username,
