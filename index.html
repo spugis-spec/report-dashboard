@@ -736,6 +736,7 @@
                     <div class="text-center mb-4">
                         <h3 class="text-lg font-bold text-amber-700 flex items-center justify-center gap-2">🆕 New / Not-Yet-Onboarded Enumerators</h3>
                         <p class="text-xs text-gray-500 max-w-2xl mx-auto mt-1">For enumerators who've joined but don't have a username yet. Set a <b>usual work plan</b> (manual entry, or "shadow" any onboarded enumerator from any group they worked alongside) and add <b>day-specific overrides</b> for dates they worked with someone different. They'll show up clearly flagged in their group's report, but their numbers are <b>never added to the totals</b> — until you click "Onboard" and give them a real username, after which their real uploaded data counts normally from the next report.</p>
+                        <p class="text-xs text-gray-400 mt-1">Every add / edit / remove here is saved to the database automatically — <span id="provisionalSaveIndicator">not saved yet this session</span>. Use the button below any time you want to force-sync or confirm it went through.</p>
                     </div>
                     <div class="grid lg:grid-cols-3 gap-6">
                         <div class="border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
@@ -754,6 +755,7 @@
                             <button onclick="addProvisionalEnumerator('nysc')" class="w-full py-2 px-4 border-2 border-dashed border-amber-400 rounded-lg text-amber-700 hover:bg-amber-100 transition-colors text-sm">+ Add New NYSC Enumerator</button>
                         </div>
                     </div>
+                    <button onclick="saveAllProvisionalManually()" class="w-full mt-4 py-3 px-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>💾</span> Save New Enumerators to Database</button>
                 </div>
 
                 <!-- TEAM PAIRING -->
@@ -2678,6 +2680,28 @@
         return `<span contenteditable="true" class="editable-cell" style="display:inline-block;min-width:28px;text-align:center;font-weight:600;padding:2px 4px;" onblur="updateFieldValue('${group}',${index},'${field}',this.textContent.trim())">${value||0}</span>`;
     }
 
+    // Builds the "who did they work with" dropdown for a provisional row on
+    // the Dashboard tab. Options are drawn from this dashboard's own already-
+    // computed `results` (real, onboarded enumerators across all 3 groups),
+    // so whatever gets picked has real numbers for this exact date/range
+    // ready to copy over immediately.
+    function buildDashboardShadowSelect(group, provRow) {
+        const groupLabels = {aedc:'AEDC', bss:'BSS', nysc:'NYSC'};
+        const optgroups = ['aedc','bss','nysc'].map(g=>{
+            const rows = (reportResults[g]||{}).results || [];
+            if (!rows.length) return '';
+            const opts = rows.map(r=>{
+                const val = `${g}::${r.username}`;
+                const sel = (provRow.summaryLabel||'').includes(r.fullname) ? 'selected' : '';
+                return `<option value="${val}" ${sel}>${escapeHtml(r.fullname)} (${r.username})</option>`;
+            }).join('');
+            return `<optgroup label="${groupLabels[g]}">${opts}</optgroup>`;
+        }).join('');
+        return `<select onchange="updateDashboardProvisionalShadow('${group}','${provRow.id}',this.value)" style="font-size:9px;padding:2px 4px;border:1px solid #fbbf24;border-radius:4px;max-width:220px;" title="Who did they work with on this date?">
+            <option value="">— who did they work with? —</option>${optgroups}
+        </select>`;
+    }
+
     function updateFieldValue(group, index, field, newVal) {
         if (!isAdminMode || !reportResults[group] || !reportResults[group].results[index]) return;
         const r = reportResults[group].results[index];
@@ -2690,6 +2714,57 @@
         reportResults[group].results.forEach(row=>{ totals.dss+=row.dss||0;totals.ht+=row.ht||0;totals.cust+=row.cust||0;totals.lt+=row.lt||0;totals.issues+=row.issues||0;totals.total+=row.total||0; });
         reportResults[group].totals = totals;
         updateDashboard();
+    }
+
+    // Admin picks "who did they work with" for a new/not-yet-onboarded
+    // enumerator directly from the Dashboard table (right on the currently
+    // loaded day/date-range), instead of having to go back to the Enumerator
+    // Mapping tab. This does two things:
+    //  1. Updates the row shown on THIS dashboard immediately, by copying the
+    //     chosen buddy's already-computed numbers for this exact date/range
+    //     (the buddy's `results` row already reflects this dashboard's dates).
+    //  2. Writes a matching day-specific override into that enumerator's
+    //     saved work plan (provisionalEnumerators) for every date covered by
+    //     this dashboard, so the pairing sticks the next time a report is
+    //     regenerated for those dates too.
+    // Nothing is written to the database until "💾 Update & Save" is clicked.
+    function updateDashboardProvisionalShadow(group, provId, value) {
+        if (!isAdminMode) return;
+        const provRow = (reportResults[group] && reportResults[group].provisionalResults || []).find(p=>p.id===provId);
+        if (!provRow) return;
+        const item = (provisionalEnumerators[group]||[]).find(p=>p.id===provId);
+        const dateKey = reportResults.dateKey;
+        const endDateKey = reportResults.endDateKey || dateKey;
+        if (!dateKey) return;
+        const dates = enumerateDateKeys(dateKey, endDateKey);
+
+        if (!value) {
+            if (item) {
+                item.schedule = (item.schedule||[]).filter(s=>!dates.includes(s.date));
+                saveProvisionalToCloud();
+            }
+            provRow.dss=provRow.ht=provRow.cust=provRow.lt=provRow.issues=provRow.total=0;
+            provRow.summaryLabel = 'No one picked yet for this date — click "Generate Report" again once you\'ve reselected, for exact numbers.';
+        } else {
+            const [srcGroup, srcUsername] = value.split('::');
+            const buddyRow = ((reportResults[srcGroup]||{}).results||[]).find(r=>r.username===srcUsername);
+            if (!buddyRow) { showStatus("Could not find that enumerator's numbers for this date", 'error'); return; }
+            provRow.dss = buddyRow.dss||0; provRow.ht = buddyRow.ht||0; provRow.cust = buddyRow.cust||0;
+            provRow.lt = buddyRow.lt||0; provRow.issues = buddyRow.issues||0;
+            provRow.total = provRow.dss+provRow.ht+provRow.cust+provRow.lt+provRow.issues;
+            provRow.savedFeeder = buddyRow.savedFeeder || provRow.savedFeeder || '';
+            provRow.summaryLabel = `🤝 worked with ${buddyRow.fullname||srcUsername} (${srcGroup.toUpperCase()})`;
+
+            if (item) {
+                item.schedule = (item.schedule||[]).filter(s=>!dates.includes(s.date));
+                dates.forEach(d=>{
+                    item.schedule.push({ date: d, mode: 'shadow', shadowGroup: srcGroup, shadowUsername: srcUsername, manual: {dss:0,ht:0,cust:0,lt:0,issues:0} });
+                });
+                saveProvisionalToCloud();
+            }
+        }
+        updateDashboard();
+        showStatus('Updated on this dashboard — click "💾 Update & Save" below to save it.', 'success');
     }
 
     // ============================================
@@ -2869,6 +2944,31 @@
             let remarkCell = buildRemarkCell(r, group, i, colors[group].border);
             return `<tr style="background:${i%2===0?colors[group].bg:'#fff'};"><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${i+1}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${escapeHtml(r.fullname)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.dss,group,i,'dss',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.ht,group,i,'ht',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.cust,group,i,'cust',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.lt,group,i,'lt',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.issues,group,i,'issues',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;font-weight:600;">${r.total}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:100px;max-width:160px;word-break:break-word;">${feederCell}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:120px;">${remarkCell}</td></tr>`;
         }).join('');
+
+        // Append clearly-flagged rows for new/not-yet-onboarded enumerators —
+        // never counted in the totals below. Admins get a live "who did they
+        // work with" picker right here; the public view shows read-only text.
+        const provisionalResults = (reportResults[group]||{}).provisionalResults || [];
+        if (provisionalResults.length) {
+            tbody.innerHTML += provisionalResults.map(r => {
+                const nameCell = isAdminMode
+                    ? `${escapeHtml(r.fullname)}<div style="margin-top:3px;">${buildDashboardShadowSelect(group, r)}</div>`
+                    : `${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;margin-top:2px;">${escapeHtml(r.summaryLabel||'')}</div>`;
+                return `<tr style="background:#fef9c3;border-top:2px dashed #f59e0b;">
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">🆕</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;">${nameCell}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.dss||'-'}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.ht||'-'}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.cust||'-'}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.lt||'-'}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.issues||'-'}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-weight:600;">${r.total||0}</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:10px;color:#92400e;font-weight:600;">Not counted</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:9px;color:#9ca3af;">—</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:9px;color:#9ca3af;">—</td>
+                </tr>`;
+            }).join('');
+        }
 
         const t=totals||{};
         tfoot.innerHTML=`<tr><td style="border:1px solid ${colors[group].border};padding:6px 8px;" colspan="2">TOTAL (${(results||[]).length})</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.dss||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.ht||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.cust||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.lt||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.issues||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;text-align:center;">${t.total||0}</td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td><td style="border:1px solid ${colors[group].border};padding:6px 8px;"></td></tr>`;
@@ -3564,7 +3664,28 @@
         try {
             await database.ref('provisionalEnumerators').set({aedc:provisionalEnumerators.aedc,bss:provisionalEnumerators.bss,nysc:provisionalEnumerators.nysc,timestamp:Date.now()});
             updateFirebaseStatus('connected');
+            const ind=document.getElementById('provisionalSaveIndicator');
+            if(ind) ind.textContent = 'last saved ' + new Date().toLocaleTimeString();
         } catch(e){updateFirebaseStatus('disconnected');console.error(e);}
+    }
+
+    // Explicit "Save to Database" button handler — same save as the auto-save
+    // above, but with a visible toast so it's obvious the click worked (and a
+    // clear error if it didn't, e.g. not logged in as admin).
+    async function saveAllProvisionalManually() {
+        if(!firebaseInitialized){ showStatus('Not connected to the database yet — please wait a moment and try again','error'); return; }
+        if(!currentUser){ showStatus('Please login as admin to save new enumerators to the database','error'); return; }
+        try {
+            await database.ref('provisionalEnumerators').set({aedc:provisionalEnumerators.aedc,bss:provisionalEnumerators.bss,nysc:provisionalEnumerators.nysc,timestamp:Date.now()});
+            updateFirebaseStatus('connected');
+            const ind=document.getElementById('provisionalSaveIndicator');
+            if(ind) ind.textContent = 'last saved ' + new Date().toLocaleTimeString();
+            const total = (provisionalEnumerators.aedc?.length||0)+(provisionalEnumerators.bss?.length||0)+(provisionalEnumerators.nysc?.length||0);
+            showStatus(`Saved ${total} new enumerator(s) to the database`,'success');
+        } catch(e){
+            updateFirebaseStatus('disconnected');
+            showStatus('Failed to save: '+e.message,'error');
+        }
     }
 
     // Ensures a provisional-enumerator item has the current { default, schedule }
