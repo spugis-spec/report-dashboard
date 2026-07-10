@@ -1620,7 +1620,7 @@
             try {
                 const data=new Uint8Array(e.target.result);
                 const wb=XLSX.read(data,{type:'array',cellDates:true});
-                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:false,dateNF:'yyyy-mm-dd'});
+                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:true});
                 uploadedData[type]=json; zone.classList.add('has-file');
                 status.innerHTML=`<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${json.length} rows</span>`;
                 // Rebuild feeder data from scratch across all currently uploaded files.
