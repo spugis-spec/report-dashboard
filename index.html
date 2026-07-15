@@ -1327,6 +1327,10 @@
     }
     const usernameMappings = { aedc: new Map(), bss: new Map(), nysc: new Map() };
     const teamPairings = { aedcNysc: [], bssNysc: [] };
+    // Holds the candidate list for each rendered "who did they work with"
+    // search picker, keyed by its datalist id, so the typed/selected label
+    // can be resolved back to a concrete group::username pair.
+    const shadowPickerCandidates = {};
 
     // ============================================
     // NEW / NOT-YET-ONBOARDED ENUMERATORS
@@ -2001,6 +2005,20 @@
         saveProvisionalToCloud();
     }
 
+    // Companion to buildDashboardShadowSelect's pickDashboardShadow, but for
+    // the work-plan panel's shadow picker, which can target either the
+    // "default" assignment or one specific "schedule" day entry.
+    function pickAssignmentShadow(listId, group, id, inputEl, scope, idx) {
+        const candidates = shadowPickerCandidates[listId] || [];
+        const typed = inputEl.value.trim();
+        const apply = (value) => scope==='default'
+            ? updateProvisionalShadow(group, id, value)
+            : updateScheduleShadow(group, id, idx, value);
+        if (!typed) { apply(''); return; }
+        const match = candidates.find(c=>c.label===typed);
+        if (match) apply(`${match.group}::${match.username}`);
+    }
+
     function updateScheduleShadow(group, id, idx, value) {
         const item = provisionalEnumerators[group].find(p=>p.id===id);
         if(!item || !item.schedule || !item.schedule[idx]) return;
@@ -2036,19 +2054,25 @@
         let body;
         if(assign.mode==='shadow'){
             const groupLabels={aedc:'AEDC',bss:'BSS',nysc:'NYSC'};
-            const optgroups = ['aedc','bss','nysc'].map(g=>{
-                const opts=[];
+            const candidates=[];
+            ['aedc','bss','nysc'].forEach(g=>{
                 usernameMappings[g].forEach((fullname,username)=>{
-                    const val=`${g}::${username}`;
-                    const sel = (assign.shadowGroup===g && assign.shadowUsername===username) ? 'selected' : '';
-                    opts.push(`<option value="${val}" ${sel}>${escapeHtml(fullname)} (${username})</option>`);
+                    candidates.push({group:g, username, fullname, label:`${fullname} (${username}) — ${groupLabels[g]}`});
                 });
-                return opts.length ? `<optgroup label="${groupLabels[g]}">${opts.join('')}</optgroup>` : '';
-            }).join('');
-            const shadowOnchange = scope==='default'
-                ? `updateProvisionalShadow('${group}','${id}',this.value)`
-                : `updateScheduleShadow('${group}','${id}',${idx},this.value)`;
-            body = `<select onchange="${shadowOnchange}" class="w-full px-2 py-1 border border-amber-300 rounded text-xs"><option value="">— choose who they worked with —</option>${optgroups}</select>`;
+            });
+            const match = candidates.find(c=>c.group===assign.shadowGroup && c.username===assign.shadowUsername);
+            const selectedLabel = match ? match.label : '';
+            const listId = `assignShadowList-${group}-${id}-${scope}${scope==='default'?'':('-'+idx)}`;
+            shadowPickerCandidates[listId]=candidates;
+            const datalistOpts = candidates.map(c=>`<option value="${escapeHtml(c.label)}">`).join('');
+            const shadowPickHandler = scope==='default'
+                ? `pickAssignmentShadow('${listId}','${group}','${id}',this,'default')`
+                : `pickAssignmentShadow('${listId}','${group}','${id}',this,'schedule',${idx})`;
+            const shadowBlurHandler = `revertDashboardShadowIfInvalid('${listId}',this)`;
+            body = `<input type="text" list="${listId}" value="${escapeHtml(selectedLabel)}" placeholder="type a name to search…" autocomplete="off"
+                oninput="${shadowPickHandler}" onblur="${shadowBlurHandler}"
+                class="w-full px-2 py-1 border border-amber-300 rounded text-xs">
+                <datalist id="${listId}">${datalistOpts}</datalist>`;
         } else {
             const fields=[['dss','DSS'],['ht','HT'],['cust','Cust'],['lt','LT'],['issues','Iss']];
             body = `<div class="grid grid-cols-5 gap-1">${fields.map(([k,label])=>{
@@ -2687,19 +2711,46 @@
     // ready to copy over immediately.
     function buildDashboardShadowSelect(group, provRow) {
         const groupLabels = {aedc:'AEDC', bss:'BSS', nysc:'NYSC'};
-        const optgroups = ['aedc','bss','nysc'].map(g=>{
+        const candidates = [];
+        ['aedc','bss','nysc'].forEach(g=>{
             const rows = (reportResults[g]||{}).results || [];
-            if (!rows.length) return '';
-            const opts = rows.map(r=>{
-                const val = `${g}::${r.username}`;
-                const sel = (provRow.summaryLabel||'').includes(r.fullname) ? 'selected' : '';
-                return `<option value="${val}" ${sel}>${escapeHtml(r.fullname)} (${r.username})</option>`;
-            }).join('');
-            return `<optgroup label="${groupLabels[g]}">${opts}</optgroup>`;
-        }).join('');
-        return `<select onchange="updateDashboardProvisionalShadow('${group}','${provRow.id}',this.value)" style="font-size:9px;padding:2px 4px;border:1px solid #fbbf24;border-radius:4px;max-width:220px;" title="Who did they work with on this date?">
-            <option value="">— who did they work with? —</option>${optgroups}
-        </select>`;
+            rows.forEach(r=>{
+                candidates.push({ group:g, username:r.username, fullname:r.fullname,
+                    label:`${r.fullname} (${r.username}) — ${groupLabels[g]}` });
+            });
+        });
+        const match = candidates.find(c=>(provRow.summaryLabel||'').includes(c.fullname));
+        const selectedLabel = match ? match.label : '';
+        const listId = `shadowList-${group}-${provRow.id}`;
+        shadowPickerCandidates[listId] = candidates;
+        const datalistOpts = candidates.map(c=>`<option value="${escapeHtml(c.label)}">`).join('');
+        return `<input type="text" list="${listId}" value="${escapeHtml(selectedLabel)}"
+            placeholder="type a name to search…" autocomplete="off"
+            oninput="pickDashboardShadow('${listId}','${group}','${provRow.id}',this)"
+            onblur="revertDashboardShadowIfInvalid('${listId}',this)"
+            style="font-size:9px;padding:2px 4px;border:1px solid #fbbf24;border-radius:4px;max-width:220px;width:100%;"
+            title="Start typing part of a name to filter the list, then pick who they worked with">
+            <datalist id="${listId}">${datalistOpts}</datalist>`;
+    }
+
+    // Fires on every keystroke. Once the typed text exactly matches one of
+    // the datalist options (i.e. the admin picked it, rather than just
+    // typing), resolve it to group::username and apply it the same way the
+    // old <select> did.
+    function pickDashboardShadow(listId, group, provId, inputEl) {
+        const candidates = shadowPickerCandidates[listId] || [];
+        const typed = inputEl.value.trim();
+        if (!typed) { updateDashboardProvisionalShadow(group, provId, ''); return; }
+        const match = candidates.find(c=>c.label===typed);
+        if (match) updateDashboardProvisionalShadow(group, provId, `${match.group}::${match.username}`);
+    }
+
+    // If the admin clicks away without landing on a real option, clear the
+    // half-typed text rather than leaving a misleading value in the box.
+    function revertDashboardShadowIfInvalid(listId, inputEl) {
+        const candidates = shadowPickerCandidates[listId] || [];
+        const typed = inputEl.value.trim();
+        if (typed && !candidates.find(c=>c.label===typed)) inputEl.value = '';
     }
 
     function updateFieldValue(group, index, field, newVal) {
@@ -3903,6 +3954,7 @@
         if(isRange&&startDate!==endDate){
             const aggregated={aedc:{results:[],totals:{dss:0,ht:0,cust:0,lt:0,issues:0,total:0}},bss:{results:[],totals:{dss:0,ht:0,cust:0,lt:0,issues:0,total:0}},nysc:{results:[],totals:{dss:0,ht:0,cust:0,lt:0,issues:0,total:0}},dateRange:`(${startDate} to ${endDate})`,formattedDate:`${formatDateFull(startDate)} to ${formatDateFull(endDate)}`,dateKey:`${startDate}_to_${endDate}`,isDateRange:true};
             const personData={aedc:{},bss:{},nysc:{}};
+            const personProvData={aedc:{},bss:{},nysc:{}};
             const start=new Date(startDate),end=new Date(endDate);
             let loaded=0,totalDays=0;
             let latestPairings=null;
@@ -3938,10 +3990,27 @@
                                 }
                             }
                         });
+                        const savedProv=toArray(dayRaw[g]?.provisionalResults);
+                        savedProv.forEach(r=>{
+                            const key=r.id||r.username||r.fullname;
+                            if(!personProvData[g][key])personProvData[g][key]={id:r.id,username:r.username,isProvisional:true,fullname:r.fullname,dss:0,ht:0,cust:0,lt:0,issues:0,total:0,dayLabels:[]};
+                            personProvData[g][key].dss+=r.dss||0;personProvData[g][key].ht+=r.ht||0;personProvData[g][key].cust+=r.cust||0;personProvData[g][key].lt+=r.lt||0;personProvData[g][key].issues+=r.issues||0;personProvData[g][key].total+=r.total||0;
+                            personProvData[g][key].dayLabels.push(...(r.dayLabels||[]));
+                        });
                     });
                 } catch(e){ console.warn(`Could not load ${dk}:`,e); }
             }
-            ['aedc','bss','nysc'].forEach(g=>{aggregated[g].results=Object.values(personData[g]).map(p=>({...p,status:'present',statusBreakdown:p.statusCounts,statusBreakdownWeekdayOnly:p.weekdayStatusCounts||p.statusCounts}));aggregated[g].results.sort((a,b)=>b.total-a.total);});
+            ['aedc','bss','nysc'].forEach(g=>{aggregated[g].results=Object.values(personData[g]).map(p=>({...p,status:'present',statusBreakdown:p.statusCounts,statusBreakdownWeekdayOnly:p.weekdayStatusCounts||p.statusCounts}));aggregated[g].results.sort((a,b)=>b.total-a.total);
+                aggregated[g].provisionalResults=Object.values(personProvData[g]).map(p=>{
+                    const uniqueTexts=[...new Set(p.dayLabels.map(d=>d.text))];
+                    let summaryLabel;
+                    if(p.dayLabels.length===0) summaryLabel='No work-plan entries yet';
+                    else if(uniqueTexts.length===1) summaryLabel = uniqueTexts[0]==='manual entry' ? '✍️ manually entered' : `🤝 worked with ${uniqueTexts[0]}`;
+                    else summaryLabel = `🔀 varies day-to-day (${uniqueTexts.length} assignments this period — see Work Plan)`;
+                    return {...p, status:'present', summaryLabel};
+                });
+                aggregated[g].provisionalResults.sort((a,b)=>b.total-a.total);
+            });
             if(latestPairings)aggregated.pairings=latestPairings;
             if(loaded>0){reportResults=aggregated;currentViewMode='legacy';updateDashboard();setTimeout(()=>initCharts(),100);showStatus(`Loaded ${loaded} of ${totalDays} days`,'success');}
             else showStatus('No saved dashboards in range','warning');
