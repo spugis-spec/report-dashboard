@@ -807,6 +807,7 @@
                 <div class="flex flex-wrap gap-2 mb-4 no-print">
                     <button onclick="refreshDashboard()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>🔄</span> Refresh Data</button>
                     <button onclick="exportToHTML()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm"><span>📄</span> Export HTML</button>
+                    <button onclick="shareHTMLToWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm"><span>💬</span> Share to WhatsApp</button>
                     <button onclick="exportToPNG()" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition-colors flex items-center gap-1 text-sm"><span>🖼️</span> Export PNG</button>
                     <button onclick="window.print()" class="py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>🖨️</span> Print</button>
                     <button onclick="exportDashboardToExcel()" class="py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>📥</span> Export Excel</button>
@@ -2522,7 +2523,7 @@
                 <td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td>
-                <td class="px-3 py-1 border text-center text-xs" style="color:#92400e;font-weight:600;">Not counted</td>
+                <td class="px-3 py-1 border text-center text-xs" style="color:#92400e;font-weight:600;">-</td>
             </tr>`).join('');
         }
 
@@ -3014,7 +3015,7 @@
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.lt||'-'}</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.issues||'-'}</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-weight:600;">${r.total||0}</td>
-                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:10px;color:#92400e;font-weight:600;">Not counted</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:10px;color:#92400e;font-weight:600;">-</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:9px;color:#9ca3af;">—</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:9px;color:#9ca3af;">—</td>
                 </tr>`;
@@ -3366,15 +3367,18 @@
     // ============================================
     // HTML EXPORT  (replaces PNG export)
     // ============================================
-    function exportToHTML() {
+    // Builds the self-contained exported dashboard HTML + its filename.
+    // Shared by exportToHTML() (download) and shareHTMLToWhatsApp() (share sheet)
+    // so both always produce byte-for-byte the same file and name.
+    function buildDashboardExportHTML() {
         const hasData = (reportResults.aedc.results||[]).length
                       || (reportResults.bss.results||[]).length
                       || (reportResults.nysc.results||[]).length;
-        if (!hasData) { showStatus('No dashboard data to export. Load a dashboard first.', 'error'); return; }
+        if (!hasData) { showStatus('No dashboard data to export. Load a dashboard first.', 'error'); return null; }
 
         // ── 1. Clone the dashboardCapture div ──────────────────────────────
         const source = document.getElementById('dashboardCapture');
-        if (!source) { showStatus('Dashboard capture area not found.', 'error'); return; }
+        if (!source) { showStatus('Dashboard capture area not found.', 'error'); return null; }
         const clone = source.cloneNode(true);
 
         // ── 2. Remove the two chart sections (Group Distribution & Asset Distribution) ──
@@ -3502,7 +3506,15 @@
 </body>
 </html>`;
 
-        // ── 5. Trigger download ─────────────────────────────────────────────
+        return { htmlContent, filename, pageTitleDisplay };
+    }
+
+    function exportToHTML() {
+        const built = buildDashboardExportHTML();
+        if (!built) return;
+        const { htmlContent, filename } = built;
+
+        // ── Trigger download ─────────────────────────────────────────────
         const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
@@ -3513,6 +3525,45 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showStatus(`✅ HTML exported as ${filename}`, 'success');
+    }
+
+    // Shares the exact same exported HTML file (same filename as Export HTML)
+    // straight to WhatsApp via the device/browser share sheet. Available on
+    // both the Admin Dashboard and the Public View since they share this button.
+    async function shareHTMLToWhatsApp() {
+        const built = buildDashboardExportHTML();
+        if (!built) return;
+        const { htmlContent, filename, pageTitleDisplay } = built;
+
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const file = new File([blob], filename, { type: 'text/html' });
+        const shareText = pageTitleDisplay || 'GIS Enumeration & Asset Mapping Performance Dashboard';
+
+        // Preferred path: native share sheet with the file attached — on phones
+        // the user picks WhatsApp and the file goes straight into the chat.
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: filename, text: shareText });
+                showStatus(`✅ Shared ${filename}`, 'success');
+                return;
+            } catch (err) {
+                if (err && err.name === 'AbortError') return; // user cancelled the share sheet
+                console.error('Web Share failed:', err);
+                // fall through to the fallback below
+            }
+        }
+
+        // Fallback for desktop / browsers without file-sharing support: download
+        // the file (same name as Export HTML) and open WhatsApp Web/App so the
+        // user can attach it manually — a browser page can't auto-attach a file
+        // to WhatsApp without the native share sheet.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' — file "' + filename + '" downloaded, attach it in the chat.')}`, '_blank');
+        showStatus(`📥 Downloaded ${filename} — attach it to WhatsApp manually (your browser doesn't support direct file sharing)`, 'info');
     }
 
     // ============================================
