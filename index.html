@@ -3003,9 +3003,10 @@
         const provisionalResults = (reportResults[group]||{}).provisionalResults || [];
         if (provisionalResults.length) {
             tbody.innerHTML += provisionalResults.map(r => {
+                const publicSummaryLabel = (r.summaryLabel === '✍️ manually entered') ? '' : (r.summaryLabel || '');
                 const nameCell = isAdminMode
                     ? `${escapeHtml(r.fullname)}<div style="margin-top:3px;">${buildDashboardShadowSelect(group, r)}</div>`
-                    : `${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;margin-top:2px;">${escapeHtml(r.summaryLabel||'')}</div>`;
+                    : `${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;margin-top:2px;">${escapeHtml(publicSummaryLabel)}</div>`;
                 return `<tr style="background:#fef9c3;border-top:2px dashed #f59e0b;">
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">🆕</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;">${nameCell}</td>
@@ -3553,16 +3554,27 @@
             }
         }
 
-        // Fallback for desktop / browsers without file-sharing support: download
-        // the file (same name as Export HTML) and open WhatsApp Web/App so the
-        // user can attach it manually — a browser page can't auto-attach a file
-        // to WhatsApp without the native share sheet.
+        // Fallback for browsers without file-sharing support: download the file
+        // (same name as Export HTML) then open WhatsApp so the user can attach
+        // it manually — a browser page can't auto-attach a file to WhatsApp
+        // without the native share sheet used above.
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' — file "' + filename + '" downloaded, attach it in the chat.')}`, '_blank');
+
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const noteText = `${shareText}\n\nFile "${filename}" was just downloaded — please attach it here from your Downloads folder.`;
+        const params = new URLSearchParams({ text: noteText });
+        // wa.me auto-routes to the WhatsApp app on phones; on desktop it's more
+        // reliable to go straight to WhatsApp Web rather than the app.whatsapp.com
+        // redirector, which can mangle the query string when the desktop app
+        // intercepts it.
+        const waUrl = isMobile
+            ? `https://wa.me/?${params.toString()}`
+            : `https://web.whatsapp.com/send?${params.toString()}`;
+        window.open(waUrl, '_blank', 'noopener');
         showStatus(`📥 Downloaded ${filename} — attach it to WhatsApp manually (your browser doesn't support direct file sharing)`, 'info');
     }
 
