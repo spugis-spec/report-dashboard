@@ -465,6 +465,26 @@
         </div>
     </div>
 
+    <!-- Staff History Lookup Modal -->
+    <div id="staffHistoryModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden" style="padding:16px;">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-3xl w-full mx-4 fade-in" style="max-height:88vh;overflow-y:auto;">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">📜 Staff Work History</h2>
+                    <p class="text-gray-500 text-xs mt-1">Every enumerator's history is kept permanently here — even after they're onboarded, renamed, or removed from mapping/provisional lists. This is separate from live mappings, so nothing here is ever lost.</p>
+                </div>
+                <button onclick="closeStaffHistoryModal()" style="background:#f1f5f9;border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:1rem;color:#64748b;flex-shrink:0;">✕</button>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="staffHistorySearch" placeholder="Type a name to search their history…" oninput="renderStaffHistoryResults()" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+                <button onclick="loadStaffHistoryFromCloud(true)" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg text-sm">🔄 Refresh</button>
+            </div>
+            <div id="staffHistoryResults" class="space-y-4 text-sm">
+                <div class="text-gray-400 italic text-center py-6">Loading history…</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Zero Remark Modal -->
     <div id="zeroRemarkModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 fade-in">
@@ -729,13 +749,14 @@
                 <div class="mt-6 flex gap-4">
                     <button onclick="saveMappingsToCloud()" class="flex-1 py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>☁️</span> Save Mappings to Cloud</button>
                     <button onclick="loadMappingsFromCloud()" class="py-3 px-6 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-colors">🔄 Reload from Cloud</button>
+                    <button onclick="openStaffHistoryModal()" class="py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-colors">📜 Staff History</button>
                 </div>
 
                 <!-- NEW / NOT-YET-ONBOARDED ENUMERATORS -->
                 <div class="mt-8 border-t-4 border-amber-300 pt-6">
                     <div class="text-center mb-4">
                         <h3 class="text-lg font-bold text-amber-700 flex items-center justify-center gap-2">🆕 New / Not-Yet-Onboarded Enumerators</h3>
-                        <p class="text-xs text-gray-500 max-w-2xl mx-auto mt-1">For enumerators who've joined but don't have a username yet. Set a <b>usual work plan</b> (manual entry, or "shadow" any onboarded enumerator from any group they worked alongside) and add <b>day-specific overrides</b> for dates they worked with someone different. They'll show up clearly flagged in their group's report, but their numbers are <b>never added to the totals</b> — until you click "Onboard" and give them a real username, after which their real uploaded data counts normally from the next report.</p>
+                        <p class="text-xs text-gray-500 max-w-2xl mx-auto mt-1">For enumerators who've joined but don't have a username yet. Set a <b>usual work plan</b> (manual entry, or "shadow" any onboarded enumerator from any group they worked alongside) and add <b>day-specific overrides</b> for dates they worked with someone different. They'll show up clearly flagged in their group's report, but their numbers are <b>never added to the totals</b> — until you click "Onboard" and give them a real username, after which their real uploaded data counts normally from the next report. Onboarding now saves the new mapping automatically. You can also set or change their usual partner right from the Dashboard table each day it's generated — leave "just this date" unchecked and it becomes their standing default going forward; check it to only affect that one date. Their full work history (numbers and who they worked with, every day) is kept permanently under <b>📜 Staff History</b> above, even after onboarding or removal.</p>
                         <p class="text-xs text-gray-400 mt-1">Every add / edit / remove here is saved to the database automatically — <span id="provisionalSaveIndicator">not saved yet this session</span>. Use the button below any time you want to force-sync or confirm it went through.</p>
                     </div>
                     <div class="grid lg:grid-cols-3 gap-6">
@@ -1430,6 +1451,156 @@
     let pieChart=null, barChart=null, pairedPieChart=null, pairedBarChart=null;
     let savedDashboards = {}, deleteAction = null;
 
+    // ============================================
+    // PERMANENT STAFF HISTORY LOG
+    // ============================================
+    // Keeps a record of every enumerator's work, per date, keyed by a stable
+    // "historyId" that is NEVER reused/reassigned and never deleted — even
+    // when the person is onboarded, renamed, or removed from the live
+    // mapping/provisional lists. This is intentionally separate from
+    // `provisionalEnumerators` / `usernameMappings` (which only reflect the
+    // CURRENT state) and from per-date dashboard snapshots (which can be
+    // overwritten by a later re-save of the same date). Structure:
+    //   staffHistory[historyId] = { currentName, group, entries: { [dateKey]: {…} } }
+    // A provisional enumerator's own `id` (e.g. "prov_...") IS its historyId
+    // for life. When they're onboarded, `historyLinks[group][username]`
+    // remembers that link so their real, post-onboarding entries keep
+    // landing in the SAME history record instead of starting a new one.
+    let staffHistory = {};
+    let historyLinks = { aedc:{}, bss:{}, nysc:{} };
+
+    async function loadHistoryLinksFromCloud() {
+        if(!firebaseInitialized) return;
+        try {
+            const snap = await database.ref('historyLinks').once('value');
+            const data = snap.val();
+            if(data){ ['aedc','bss','nysc'].forEach(g=>{ historyLinks[g] = data[g] || {}; }); }
+        } catch(e){ console.error(e); }
+    }
+
+    async function saveHistoryLinksToCloud() {
+        if(!firebaseInitialized) return;
+        try { await database.ref('historyLinks').set(historyLinks); } catch(e){ console.error(e); }
+    }
+
+    // Loads the full history log. Only called when the lookup modal is
+    // opened (or force-refreshed) — not needed for normal report generation.
+    async function loadStaffHistoryFromCloud(forceStatus) {
+        if(!firebaseInitialized){ if(forceStatus) showStatus('Firebase not connected','error'); return; }
+        try {
+            const snap = await database.ref('staffHistory').once('value');
+            staffHistory = snap.val() || {};
+            renderStaffHistoryResults();
+            if(forceStatus) showStatus('Staff history refreshed','success');
+        } catch(e){ console.error(e); if(forceStatus) showStatus('Failed to load history: '+e.message,'error'); }
+    }
+
+    // Writes/merges one history entry for a given person for a given date.
+    // Never removes prior entries — purely additive/overwriting-by-date, so
+    // re-generating the same date just updates that one day's numbers.
+    async function recordStaffHistoryEntry(historyId, group, name, dateKey, entry) {
+        if(!firebaseInitialized || !historyId || !dateKey) return;
+        try {
+            await database.ref(`staffHistory/${historyId}/currentName`).set(name);
+            await database.ref(`staffHistory/${historyId}/group`).set(group);
+            await database.ref(`staffHistory/${historyId}/entries/${dateKey}`).set(entry);
+            // Keep the in-memory copy in sync so the modal (if open) reflects it
+            if(!staffHistory[historyId]) staffHistory[historyId] = { currentName:name, group, entries:{} };
+            staffHistory[historyId].currentName = name;
+            staffHistory[historyId].group = group;
+            if(!staffHistory[historyId].entries) staffHistory[historyId].entries = {};
+            staffHistory[historyId].entries[dateKey] = entry;
+        } catch(e){ console.error('recordStaffHistoryEntry failed', e); }
+    }
+
+    // Called right after a dashboard is successfully saved — appends a
+    // history entry for every provisional enumerator (keyed by their own
+    // permanent id) AND for every regular/onboarded result row that is
+    // linked back to a provisional history record via historyLinks.
+    async function appendStaffHistoryForCurrentSave() {
+        if(!firebaseInitialized) return;
+        const dateKey = reportResults.dateKey;
+        if(!dateKey) return;
+        const jobs = [];
+        ['aedc','bss','nysc'].forEach(group=>{
+            const g = reportResults[group] || {};
+            (g.provisionalResults||[]).forEach(r=>{
+                jobs.push(recordStaffHistoryEntry(r.id, group, r.fullname, dateKey, {
+                    status: 'provisional', username: r.username, workedWith: r.summaryLabel || '',
+                    dss: r.dss||0, ht: r.ht||0, cust: r.cust||0, lt: r.lt||0, issues: r.issues||0, total: r.total||0
+                }));
+            });
+            (g.results||[]).forEach(r=>{
+                const historyId = (historyLinks[group]||{})[r.username];
+                if(!historyId) return; // only enumerators that came up through the provisional pipeline get a log
+                jobs.push(recordStaffHistoryEntry(historyId, group, r.fullname, dateKey, {
+                    status: 'onboarded', username: r.username, workedWith: '',
+                    dss: r.dss||0, ht: r.ht||0, cust: r.cust||0, lt: r.lt||0, issues: r.issues||0, total: r.total||0
+                }));
+            });
+        });
+        try { await Promise.all(jobs); } catch(e){ console.error(e); }
+    }
+
+    function openStaffHistoryModal() {
+        document.getElementById('staffHistoryModal').classList.remove('hidden');
+        loadStaffHistoryFromCloud();
+    }
+    function closeStaffHistoryModal() {
+        document.getElementById('staffHistoryModal').classList.add('hidden');
+    }
+
+    function renderStaffHistoryResults() {
+        const container = document.getElementById('staffHistoryResults');
+        if(!container) return;
+        const query = (document.getElementById('staffHistorySearch')?.value || '').trim().toLowerCase();
+        const groupLabels = {aedc:'AEDC', bss:'BSS', nysc:'NYSC'};
+        let ids = Object.keys(staffHistory);
+        if(query) ids = ids.filter(id => (staffHistory[id].currentName||'').toLowerCase().includes(query));
+        ids.sort((a,b)=>(staffHistory[a].currentName||'').localeCompare(staffHistory[b].currentName||''));
+        if(!ids.length){
+            container.innerHTML = `<div class="text-gray-400 italic text-center py-6">${query ? 'No history found for that name.' : 'No history recorded yet — it fills in automatically as you save dashboards.'}</div>`;
+            return;
+        }
+        container.innerHTML = ids.map(id=>{
+            const rec = staffHistory[id];
+            const entries = rec.entries || {};
+            const dates = Object.keys(entries).sort().reverse();
+            const rows = dates.map(dk=>{
+                const e = entries[dk];
+                const badge = e.status==='provisional'
+                    ? '<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">PROVISIONAL</span>'
+                    : '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">ONBOARDED</span>';
+                return `<tr class="border-b border-gray-100">
+                    <td class="py-1 pr-3 whitespace-nowrap text-xs text-gray-600">${escapeHtml(dk)}</td>
+                    <td class="py-1 pr-3">${badge}</td>
+                    <td class="py-1 pr-3 text-xs text-gray-700">${escapeHtml(e.workedWith || '—')}</td>
+                    <td class="py-1 pr-2 text-center text-xs">${e.dss||0}</td>
+                    <td class="py-1 pr-2 text-center text-xs">${e.ht||0}</td>
+                    <td class="py-1 pr-2 text-center text-xs">${e.cust||0}</td>
+                    <td class="py-1 pr-2 text-center text-xs">${e.lt||0}</td>
+                    <td class="py-1 pr-2 text-center text-xs">${e.issues||0}</td>
+                    <td class="py-1 text-center text-xs font-bold">${e.total||0}</td>
+                </tr>`;
+            }).join('');
+            return `<div class="border border-gray-200 rounded-lg p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="font-bold text-gray-800">${escapeHtml(rec.currentName||'(unnamed)')}</div>
+                    <div class="text-xs text-gray-500">${groupLabels[rec.group]||''} · ${dates.length} day${dates.length!==1?'s':''} on record</div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead><tr class="text-left text-[10px] text-gray-400 uppercase">
+                            <th class="pr-3 pb-1">Date</th><th class="pr-3 pb-1">Status</th><th class="pr-3 pb-1">Worked with / notes</th>
+                            <th class="pr-2 pb-1 text-center">DSS</th><th class="pr-2 pb-1 text-center">HT</th><th class="pr-2 pb-1 text-center">Cust</th><th class="pr-2 pb-1 text-center">LT</th><th class="pr-2 pb-1 text-center">Iss</th><th class="pb-1 text-center">Total</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
     // Current view mode for paired dates: 'paired' or 'legacy'
     let currentViewMode = 'legacy';
 
@@ -1541,7 +1712,7 @@
             document.getElementById('accessBadge').className = 'px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800';
             ['data','mapping','dashboard','monthly'].forEach(t => { document.getElementById(`content-${t}`).classList.add('hidden'); document.getElementById(`content-${t}`).style.display='none'; });
             switchTab('data');
-            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud(), loadProvisionalFromCloud()]).then(() => { renderSavedDatesList(); mpLoadSavedMonths(); });
+            Promise.all([loadMappingsFromCloud(), loadPairingsFromCloud(), loadSavedDashboards(), loadFeederLookupFromCloud(), loadLastFidFromCloud(), loadFeederOverridesFromCloud(), loadFeederCompletionStatusFromCloud(), loadProvisionalFromCloud(), loadHistoryLinksFromCloud()]).then(() => { renderSavedDatesList(); mpLoadSavedMonths(); });
             showStatus('Logged in as Admin','success');
             syncTargetInputMode();
         } catch(e) { errorDiv.textContent=e.message||'Invalid credentials'; errorDiv.classList.remove('hidden'); }
@@ -2039,10 +2210,21 @@
         if(usernameMappings[group].has(uname)){ showStatus('That username is already mapped to an enumerator in this group','error'); return; }
         addMappingRow(group, uname, item.name);
         updateMappings(group);
+        // Link this new username back to the provisional record's permanent
+        // history id, so their work history (numbers + who they worked
+        // with) keeps accumulating under the SAME record after onboarding,
+        // instead of starting over or disappearing.
+        historyLinks[group][uname] = item.id;
         provisionalEnumerators[group] = provisionalEnumerators[group].filter(p=>p.id!==id);
         renderProvisionalContainer(group);
         saveProvisionalToCloud();
-        showStatus(`${item.name} onboarded as "${uname}". Click "Generate Report" again to bring in their real performance.`,'success');
+        saveHistoryLinksToCloud();
+        // Persist the mapping to the cloud immediately — previously this
+        // required a separate manual "Save Mappings to Cloud" click, and if
+        // that step was skipped the newly onboarded name would vanish again
+        // on the next reload/sync.
+        saveMappingsToCloud();
+        showStatus(`${item.name} onboarded as "${uname}" — mapping saved automatically. Click "Generate Report" again to bring in their real performance.`,'success');
     }
 
     // Renders the mode selector + (shadow picker OR manual number inputs) for
@@ -2710,6 +2892,14 @@
     // computed `results` (real, onboarded enumerators across all 3 groups),
     // so whatever gets picked has real numbers for this exact date/range
     // ready to copy over immediately.
+    //
+    // By default, picking a name here sets that person as the enumerator's
+    // USUAL partner — it's saved as their permanent default work-plan
+    // assignment, so it keeps applying automatically every time a report is
+    // generated for ANY date, with no further action needed. Checking
+    // "just this date" instead records it as a one-off override for only
+    // the date(s) currently loaded on this dashboard, leaving the usual
+    // partner untouched for every other day.
     function buildDashboardShadowSelect(group, provRow) {
         const groupLabels = {aedc:'AEDC', bss:'BSS', nysc:'NYSC'};
         const candidates = [];
@@ -2723,6 +2913,7 @@
         const match = candidates.find(c=>(provRow.summaryLabel||'').includes(c.fullname));
         const selectedLabel = match ? match.label : '';
         const listId = `shadowList-${group}-${provRow.id}`;
+        const onceId = `${listId}-onceOnly`;
         shadowPickerCandidates[listId] = candidates;
         const datalistOpts = candidates.map(c=>`<option value="${escapeHtml(c.label)}">`).join('');
         return `<input type="text" list="${listId}" value="${escapeHtml(selectedLabel)}"
@@ -2731,7 +2922,11 @@
             onblur="revertDashboardShadowIfInvalid('${listId}',this)"
             style="font-size:9px;padding:2px 4px;border:1px solid #fbbf24;border-radius:4px;max-width:220px;width:100%;"
             title="Start typing part of a name to filter the list, then pick who they worked with">
-            <datalist id="${listId}">${datalistOpts}</datalist>`;
+            <datalist id="${listId}">${datalistOpts}</datalist>
+            <label style="display:flex;align-items:center;gap:3px;margin-top:2px;font-size:9px;color:#92400e;cursor:pointer;" title="Leave unchecked to make this their usual partner going forward. Check it to only change this specific date.">
+                <input type="checkbox" id="${onceId}" style="width:10px;height:10px;">
+                just this date (don't change their usual partner)
+            </label>`;
     }
 
     // Fires on every keystroke. Once the typed text exactly matches one of
@@ -2741,9 +2936,10 @@
     function pickDashboardShadow(listId, group, provId, inputEl) {
         const candidates = shadowPickerCandidates[listId] || [];
         const typed = inputEl.value.trim();
-        if (!typed) { updateDashboardProvisionalShadow(group, provId, ''); return; }
+        const onceOnly = document.getElementById(`${listId}-onceOnly`)?.checked || false;
+        if (!typed) { updateDashboardProvisionalShadow(group, provId, '', onceOnly); return; }
         const match = candidates.find(c=>c.label===typed);
-        if (match) updateDashboardProvisionalShadow(group, provId, `${match.group}::${match.username}`);
+        if (match) updateDashboardProvisionalShadow(group, provId, `${match.group}::${match.username}`, onceOnly);
     }
 
     // If the admin clicks away without landing on a real option, clear the
@@ -2775,12 +2971,18 @@
     //  1. Updates the row shown on THIS dashboard immediately, by copying the
     //     chosen buddy's already-computed numbers for this exact date/range
     //     (the buddy's `results` row already reflects this dashboard's dates).
-    //  2. Writes a matching day-specific override into that enumerator's
-    //     saved work plan (provisionalEnumerators) for every date covered by
-    //     this dashboard, so the pairing sticks the next time a report is
-    //     regenerated for those dates too.
-    // Nothing is written to the database until "💾 Update & Save" is clicked.
-    function updateDashboardProvisionalShadow(group, provId, value) {
+    //  2. Saves the pairing so it keeps applying automatically:
+    //       - By default (onceOnly=false), it's written to `item.default` —
+    //         their USUAL partner — so every future report, for any date,
+    //         picks this up automatically without needing to be re-set.
+    //       - If the admin checked "just this date" (onceOnly=true), it's
+    //         instead written as a day-specific `item.schedule` override for
+    //         only the date(s) covered by this dashboard, leaving their
+    //         usual partner untouched for every other day.
+    // Nothing is written to the database until "💾 Update & Save" is clicked
+    // (aside from the underlying work-plan change, which auto-saves like the
+    // rest of the New Enumerators panel).
+    function updateDashboardProvisionalShadow(group, provId, value, onceOnly) {
         if (!isAdminMode) return;
         const provRow = (reportResults[group] && reportResults[group].provisionalResults || []).find(p=>p.id===provId);
         if (!provRow) return;
@@ -2792,7 +2994,11 @@
 
         if (!value) {
             if (item) {
-                item.schedule = (item.schedule||[]).filter(s=>!dates.includes(s.date));
+                if (onceOnly) {
+                    item.schedule = (item.schedule||[]).filter(s=>!dates.includes(s.date));
+                } else {
+                    item.default = blankAssignment();
+                }
                 saveProvisionalToCloud();
             }
             provRow.dss=provRow.ht=provRow.cust=provRow.lt=provRow.issues=provRow.total=0;
@@ -2808,15 +3014,22 @@
             provRow.summaryLabel = `🤝 worked with ${buddyRow.fullname||srcUsername} (${srcGroup.toUpperCase()})`;
 
             if (item) {
-                item.schedule = (item.schedule||[]).filter(s=>!dates.includes(s.date));
-                dates.forEach(d=>{
-                    item.schedule.push({ date: d, mode: 'shadow', shadowGroup: srcGroup, shadowUsername: srcUsername, manual: {dss:0,ht:0,cust:0,lt:0,issues:0} });
-                });
+                if (onceOnly) {
+                    item.schedule = (item.schedule||[]).filter(s=>!dates.includes(s.date));
+                    dates.forEach(d=>{
+                        item.schedule.push({ date: d, mode: 'shadow', shadowGroup: srcGroup, shadowUsername: srcUsername, manual: {dss:0,ht:0,cust:0,lt:0,issues:0} });
+                    });
+                } else {
+                    item.default = { mode:'shadow', shadowGroup: srcGroup, shadowUsername: srcUsername, manual: {dss:0,ht:0,cust:0,lt:0,issues:0} };
+                }
                 saveProvisionalToCloud();
+                renderProvisionalContainer(group); // keep the Enumerator Mapping panel in sync
             }
         }
         updateDashboard();
-        showStatus('Updated on this dashboard — click "💾 Update & Save" below to save it.', 'success');
+        showStatus(onceOnly
+            ? 'Updated for this date only — click "💾 Update & Save" below to save it.'
+            : `Set as their usual partner — will show up automatically on every future report. Click "💾 Update & Save" below to save today's numbers too.`, 'success');
     }
 
     // ============================================
@@ -3844,6 +4057,7 @@
                 unauthManualEntries: unauthManualEntries};
             if(isPairedMode(reportResults.dateKey)){collectPairings();dashData.pairings={aedcNysc:teamPairings.aedcNysc,bssNysc:teamPairings.bssNysc};dashData.isPairedMode=true;}
             await database.ref(`dashboards/${reportResults.dateKey}`).set(dashData);
+            await appendStaffHistoryForCurrentSave();
             updateFirebaseStatus('connected');loadSavedDashboards();
             showStatus(`Dashboard saved for ${reportResults.dateKey}`,'success');
         } catch(e){updateFirebaseStatus('disconnected');showStatus('Failed: '+e.message,'error');}
