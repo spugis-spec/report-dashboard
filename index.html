@@ -621,7 +621,7 @@
                             <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-lt" onclick="document.getElementById('file-lt').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('lt');">✕</button><input type="file" id="file-lt" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'lt')"><div class="text-3xl mb-2">💡</div><div class="font-medium text-gray-700">LT Pole</div><div class="text-sm text-gray-500" id="status-lt">Click or drag to upload</div></div>
                             <div class="upload-zone rounded-lg p-4 text-center cursor-pointer" id="zone-cust" onclick="document.getElementById('file-cust').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('cust');">✕</button><input type="file" id="file-cust" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'cust')"><div class="text-3xl mb-2">👥</div><div class="font-medium text-gray-700">Customer Enumeration</div><div class="text-sm text-gray-500" id="status-cust">Click or drag to upload</div></div>
                             <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-issues" onclick="document.getElementById('file-issues').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearUploadZone('issues');">✕</button><input type="file" id="file-issues" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(this, 'issues')"><div class="text-3xl mb-2">⚠️</div><div class="font-medium text-gray-700">Issue Log</div><div class="text-sm text-gray-500" id="status-issues">Click or drag to upload</div></div>
-                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-feeder-lookup" onclick="document.getElementById('file-feeder-lookup').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearFeederLookupZone();">✕</button><input type="file" id="file-feeder-lookup" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFeederLookupUpload(this)"><div class="text-3xl mb-2">⚡</div><div class="font-medium text-gray-700">Feeder Lookup (Code → Name)</div><div class="text-sm text-gray-500" id="status-feeder-lookup">Upload feeder code lookup table (code, feeder_name)</div></div>
+                            <div class="upload-zone rounded-lg p-4 text-center cursor-pointer md:col-span-2" id="zone-feeder-lookup" onclick="document.getElementById('file-feeder-lookup').click()"><button type="button" class="clear-upload-btn" title="Clear file" onclick="event.stopPropagation(); clearFeederLookupZone();">✕</button><button type="button" title="Download saved feeder lookup" onclick="event.stopPropagation(); downloadFeederLookup();" style="position:absolute;top:6px;right:34px;width:22px;height:22px;border-radius:50%;background:rgba(37,99,235,0.1);color:#2563eb;border:1px solid rgba(37,99,235,0.3);font-size:12px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;">⬇</button><input type="file" id="file-feeder-lookup" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFeederLookupUpload(this)"><div class="text-3xl mb-2">⚡</div><div class="font-medium text-gray-700">Feeder Lookup (Code → Name)</div><div class="text-sm text-gray-500" id="status-feeder-lookup">Upload feeder code lookup table (code, feeder_name) — use ⬇ above to download what's saved</div></div>
                         </div>
                     </div>
                     <div class="flex gap-4 flex-wrap">
@@ -1879,6 +1879,20 @@
         reader.readAsArrayBuffer(file);
     }
 
+    // Download the currently saved feeder lookup table (code -> feeder name) as an .xlsx file,
+    // so it can be backed up, edited, and re-uploaded via the same upload zone.
+    function downloadFeederLookup() {
+        const codes = Object.keys(feederLookup);
+        if(!codes.length){ showStatus('No saved feeder lookup data to download yet','warning'); return; }
+        const rows = [['code','feeder_name'], ...codes.sort().map(c=>[c, feederLookup[c]])];
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{wch:20},{wch:35}];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Feeder Lookup');
+        XLSX.writeFile(wb, `feeder_lookup_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showStatus(`Downloaded ${codes.length} saved feeder lookup entries`,'success');
+    }
+
     // Clear the feeder lookup table and re-translate any uploaded asset files without it
     function clearFeederLookupZone() {
         feederLookup={};
@@ -2705,7 +2719,7 @@
                 <td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td>
-                <td class="px-3 py-1 border text-center text-xs" style="color:#92400e;font-weight:600;">-</td>
+                <td class="px-3 py-1 border text-center"><select class="status-select status-${r.status}" onchange="updateProvisionalStatus('${group}','${r.id}',this.value)"><option value="present" ${r.status==='present'?'selected':''}>✓ Present</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select></td>
             </tr>`).join('');
         }
 
@@ -2719,6 +2733,25 @@
             if(status==='excused' && isAdminMode){ openExcuseModal(group, index); }
             updateDashboard();
         }
+    }
+
+    // Status tracking for new / not-yet-onboarded enumerators (present/absent/sick/excused),
+    // matched by their permanent provisional id rather than array index (safer since these
+    // rows can be reordered by total). Saved automatically as part of reportResults[group].provisionalResults
+    // whenever the dashboard is saved to cloud, same as regular enumerator statuses.
+    function updateProvisionalStatus(group, id, status) {
+        const arr = reportResults[group] && reportResults[group].provisionalResults;
+        if(!arr) return;
+        const r = arr.find(p=>p.id===id);
+        if(!r) return;
+        r.status = status;
+        if(status==='excused' && isAdminMode){
+            const reason = prompt(`Reason for excusing ${r.fullname}? (optional)`, r.excuseRemark||'');
+            if(reason!==null) r.excuseRemark = reason.trim();
+            r.excuseApproval = r.excuseApproval || 'pending';
+        }
+        updateDashboard();
+        showStatus(`Status set to "${status}" for ${r.fullname}`,'success');
     }
 
     function escapeHtml(text){const d=document.createElement('div');d.textContent=text;return d.innerHTML;}
@@ -3220,6 +3253,14 @@
                 const nameCell = isAdminMode
                     ? `${escapeHtml(r.fullname)}<div style="margin-top:3px;">${buildDashboardShadowSelect(group, r)}</div>`
                     : `${escapeHtml(r.fullname)}<div style="font-size:10px;color:#92400e;font-weight:500;margin-top:2px;">${escapeHtml(publicSummaryLabel)}</div>`;
+                const psc=statusColors[r.status]||statusColors.present;
+                const pLabel=r.status==='present'?`${r.total||0} ✓`:r.status.charAt(0).toUpperCase()+r.status.slice(1);
+                const provStatusDisplay = isAdminMode
+                    ? `<select class="status-select" style="background:${psc.bg};color:${psc.color};padding:2px 6px;border-radius:4px;font-size:10px;" onchange="updateProvisionalStatus('${group}','${r.id}',this.value)"><option value="present" ${r.status==='present'?'selected':''}>${r.total||0} ✓</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select>`
+                    : `<span style="background:${psc.bg};color:${psc.color};padding:2px 6px;border-radius:4px;font-size:10px;">${pLabel}</span>`;
+                const provRemarkCell = r.status==='excused'
+                    ? (r.excuseRemark ? `<span style="font-size:9px;color:#4f46e5;">${escapeHtml(r.excuseRemark.substring(0,35))}${r.excuseRemark.length>35?'...':''}</span>` : `<span style="font-size:9px;color:#9ca3af;">—</span>`)
+                    : `<span style="font-size:9px;color:#9ca3af;">—</span>`;
                 return `<tr style="background:#fef9c3;border-top:2px dashed #f59e0b;">
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">🆕</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;">${nameCell}</td>
@@ -3229,9 +3270,9 @@
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.lt||'-'}</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${r.issues||'-'}</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-weight:600;">${r.total||0}</td>
-                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:10px;color:#92400e;font-weight:600;">-</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${provStatusDisplay}</td>
                     <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:9px;color:#9ca3af;">—</td>
-                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;font-size:9px;color:#9ca3af;">—</td>
+                    <td style="border:1px solid #fde68a;padding:4px 8px;text-align:center;">${provRemarkCell}</td>
                 </tr>`;
             }).join('');
         }
@@ -4270,9 +4311,11 @@
                         const savedProv=toArray(dayRaw[g]?.provisionalResults);
                         savedProv.forEach(r=>{
                             const key=r.id||r.username||r.fullname;
-                            if(!personProvData[g][key])personProvData[g][key]={id:r.id,username:r.username,isProvisional:true,fullname:r.fullname,dss:0,ht:0,cust:0,lt:0,issues:0,total:0,dayLabels:[]};
+                            if(!personProvData[g][key])personProvData[g][key]={id:r.id,username:r.username,isProvisional:true,fullname:r.fullname,dss:0,ht:0,cust:0,lt:0,issues:0,total:0,dayLabels:[],statusCounts:{present:0,absent:0,sick:0,excused:0},excuseRemark:r.excuseRemark||'',excuseApproval:r.excuseApproval||'pending'};
                             personProvData[g][key].dss+=r.dss||0;personProvData[g][key].ht+=r.ht||0;personProvData[g][key].cust+=r.cust||0;personProvData[g][key].lt+=r.lt||0;personProvData[g][key].issues+=r.issues||0;personProvData[g][key].total+=r.total||0;
                             personProvData[g][key].dayLabels.push(...(r.dayLabels||[]));
+                            personProvData[g][key].statusCounts[r.status||'present']++;
+                            if(r.status==='excused'&&r.excuseRemark){personProvData[g][key].excuseRemark=r.excuseRemark;personProvData[g][key].excuseApproval=r.excuseApproval||'pending';}
                         });
                     });
                 } catch(e){ console.warn(`Could not load ${dk}:`,e); }
@@ -4284,7 +4327,10 @@
                     if(p.dayLabels.length===0) summaryLabel='No work-plan entries yet';
                     else if(uniqueTexts.length===1) summaryLabel = uniqueTexts[0]==='manual entry' ? '✍️ manually entered' : `🤝 worked with ${uniqueTexts[0]}`;
                     else summaryLabel = `🔀 varies day-to-day (${uniqueTexts.length} assignments this period — see Work Plan)`;
-                    return {...p, status:'present', summaryLabel};
+                    // Represent the range with whichever status was most common across the days loaded
+                    const sc = p.statusCounts || {present:0,absent:0,sick:0,excused:0};
+                    const overallStatus = Object.keys(sc).reduce((a,b)=>sc[b]>sc[a]?b:a,'present');
+                    return {...p, status:overallStatus, statusBreakdown:sc, summaryLabel};
                 });
                 aggregated[g].provisionalResults.sort((a,b)=>b.total-a.total);
             });
@@ -4458,7 +4504,10 @@
         let count=0;
         groups.forEach(g=>{
             const zeroResults=(reportResults[g].results||[]).filter(r=>r.total===0&&r.status==='present');
-            if(!zeroResults.length)return;
+            // Also include new / not-yet-onboarded staff with no submission, so they can
+            // be marked absent/sick/excused instead of being left blank.
+            const zeroProvResults=((reportResults[g]||{}).provisionalResults||[]).filter(r=>(r.total||0)===0&&r.status==='present');
+            if(!zeroResults.length && !zeroProvResults.length)return;
             zeroResults.forEach(r=>{
                 count++;
                 html+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;background:#f9fafb;margin-bottom:2px;" class="bulk-person-row">
@@ -4466,6 +4515,16 @@
                     <span style="background:${groupColors[g]};color:white;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">${g.toUpperCase()}</span>
                     <span style="font-size:12px;font-weight:500;">${escapeHtml(r.fullname)}</span>
                     <span style="font-size:10px;color:#9ca3af;">(${r.username})</span>
+                </label>`;
+            });
+            zeroProvResults.forEach(r=>{
+                count++;
+                html+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;background:#fffbeb;margin-bottom:2px;" class="bulk-person-row">
+                    <input type="checkbox" class="bulk-check" data-group="${g}" data-provid="${r.id}" style="width:16px;height:16px;cursor:pointer;" onchange="updateBulkCount()">
+                    <span style="background:${groupColors[g]};color:white;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">${g.toUpperCase()}</span>
+                    <span style="background:#fbbf24;color:#78350f;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">NEW</span>
+                    <span style="font-size:12px;font-weight:500;">${escapeHtml(r.fullname)}</span>
+                    <span style="font-size:10px;color:#9ca3af;">(not yet onboarded)</span>
                 </label>`;
             });
         });
@@ -4493,6 +4552,18 @@
         const approval=document.getElementById('bulkApprovalStatus').value;
         checked.forEach(cb=>{
             const group=cb.dataset.group;
+            // New / not-yet-onboarded staff are checked via data-provid instead of data-username
+            if(cb.dataset.provid){
+                const arr=(reportResults[group]||{}).provisionalResults||[];
+                const r=arr.find(p=>p.id===cb.dataset.provid);
+                if(!r)return;
+                r.status=status;
+                if(status==='excused'){
+                    r.excuseRemark=reason||r.excuseRemark||'';
+                    r.excuseApproval=approval;
+                }
+                return;
+            }
             const username=cb.dataset.username;
             const idx=(reportResults[group].results||[]).findIndex(r=>r.username===username);
             if(idx<0)return;
