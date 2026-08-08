@@ -337,6 +337,11 @@
     <button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top"
         style="display:none;position:fixed;bottom:24px;right:24px;z-index:90;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,0.4);font-size:18px;line-height:1;transition:all 0.2s;align-items:center;justify-content:center;"
         onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">↑</button>
+
+    <!-- Jump to Dashboard button (shown once a report has been generated on the Data Upload tab) -->
+    <button id="goToDashboardBtn" onclick="goToDashboardFromUpload()" title="Skip scrolling back up — jump straight to the Dashboard tab"
+        style="display:none;position:fixed;bottom:24px;left:24px;z-index:90;padding:12px 18px;border-radius:9999px;background:linear-gradient(135deg,#059669,#0d9488);color:white;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(5,150,105,0.45);font-size:14px;font-weight:700;transition:all 0.2s;align-items:center;gap:8px;"
+        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📊 Take me to Dashboard</button>
     <script>
         window.addEventListener('scroll', () => {
             const btn = document.getElementById('scrollTopBtn');
@@ -664,6 +669,7 @@
                             <button onclick="recalculateFeeders()" style="background:#fff;color:#b45309;border:1.5px solid #fde68a;" class="flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow hover:bg-amber-50 transition-colors text-sm">&#x1F504; Recalculate</button>
                             <button onclick="applyValidatedFeeders()" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition-colors text-sm">&#x2705; Apply to Dashboard</button>
                             <button onclick="toggleFeederPanel()" id="fvToggleBtn" class="flex items-center gap-2 px-3 py-2 font-bold rounded-lg shadow transition-colors text-sm" style="background:rgba(0,0,0,0.2);color:#fff;">&#x1F53C; Collapse</button>
+                            <button onclick="goToDashboardFromUpload()" title="Skip scrolling back up — jump straight to the Dashboard tab" class="flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow transition-colors text-sm" style="background:#fff;color:#0d9488;border:1.5px solid #99f6e4;">&#x1F4CA; Take me to Dashboard</button>
                         </div>
                     </div>
                     <div id="fvBody" class="px-5 pb-5">
@@ -1369,6 +1375,12 @@
     // point they become a normal mapped enumerator and their real uploaded
     // data starts counting from the next generated report onward.
     const provisionalEnumerators = { aedc: [], bss: [], nysc: [] };
+
+    // Tracks which provisional-enumerator cards are currently expanded (arrow
+    // opened) in the "New / Not-Yet-Onboarded Enumerators" panel, so the
+    // usual work plan + day-specific overrides stay hidden behind the arrow
+    // by default and re-renders don't collapse a card the admin just opened.
+    const expandedProvisionalIds = new Set();
 
     let reportResults = {
         aedc: { results: [], totals: {}, provisionalResults: [] },
@@ -2175,10 +2187,21 @@
 
     function removeScheduleDay(group, id, idx) {
         const item = provisionalEnumerators[group].find(p=>p.id===id);
-        if(!item || !item.schedule) return;
+        if(!item || !item.schedule || !item.schedule[idx]) return;
+        const s = item.schedule[idx];
+        const dateLabel = s.date || '(no date set)';
+        const who = describeAssignment(s);
+        const confirmed = confirm(
+            `Remove the ${dateLabel} override for "${item.name}"?\n\n` +
+            `They are currently set to: ${who}\n\n` +
+            `Once removed, ${dateLabel} will fall back to their usual work plan. ` +
+            `If that date is on the currently loaded dashboard, it will be updated right away.`
+        );
+        if(!confirmed) return;
         item.schedule.splice(idx,1);
         renderProvisionalContainer(group);
         saveProvisionalToCloud();
+        refreshProvisionalRowLive(group, id, dateLabel);
     }
 
     function updateScheduleField(group, id, idx, field, value) {
@@ -2282,33 +2305,71 @@
         return `<select onchange="${modeOnchange}" class="w-full px-2 py-1 border border-amber-300 rounded text-xs mb-1">${modeOptions}</select>${body}`;
     }
 
+    // Opens/closes one provisional enumerator's card (the arrow toggle).
+    // Expanded state is kept in `expandedProvisionalIds` so it survives
+    // re-renders triggered elsewhere (e.g. saving, onboarding a different row).
+    function toggleProvisionalExpand(group, id) {
+        if(expandedProvisionalIds.has(id)) expandedProvisionalIds.delete(id);
+        else expandedProvisionalIds.add(id);
+        renderProvisionalContainer(group);
+    }
+
+    // Human-readable one-liner for a "default" or "schedule day" assignment,
+    // used both in the collapsed-card summary and next to each date in the
+    // day-specific overrides list, so an admin can tell who someone is
+    // attached to without having to open the shadow picker.
+    function describeAssignment(assign) {
+        if(assign && assign.mode==='shadow' && assign.shadowUsername){
+            const g = assign.shadowGroup;
+            const name = (usernameMappings[g] && usernameMappings[g].get(assign.shadowUsername)) || assign.shadowUsername;
+            return `🤝 worked with ${name}${g?` (${g.toUpperCase()})`:''}`;
+        }
+        return '✍️ manual entry';
+    }
+
     function renderProvisionalRow(group, item) {
-        const scheduleRows = (item.schedule||[]).map((s,idx)=>`
+        const isOpen = expandedProvisionalIds.has(item.id);
+        const schedule = item.schedule || [];
+        // Show overrides in date order, but keep each entry's original array
+        // index (needed by the update/remove handlers) attached alongside it.
+        const scheduleEntries = schedule.map((s,idx)=>({s,idx})).sort((a,b)=>(a.s.date||'').localeCompare(b.s.date||''));
+        const scheduleRows = scheduleEntries.map(({s,idx})=>`
             <div class="border border-amber-200 rounded p-2 bg-amber-50 space-y-1">
-                <div class="flex gap-1 items-center">
-                    <input type="date" value="${s.date||''}" onchange="updateScheduleField('${group}','${item.id}',${idx},'date',this.value)" class="px-2 py-1 border border-amber-300 rounded text-xs flex-1">
-                    <button onclick="removeScheduleDay('${group}','${item.id}',${idx})" title="Remove this day" class="px-2 text-red-500 hover:text-red-700 text-sm">✕</button>
+                <div class="flex gap-2 items-center justify-between flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <input type="date" value="${s.date||''}" onchange="updateScheduleField('${group}','${item.id}',${idx},'date',this.value)" class="px-2 py-1 border border-amber-300 rounded text-xs">
+                        <span class="text-[10px] text-amber-800 font-semibold">${describeAssignment(s)}</span>
+                    </div>
+                    <button onclick="removeScheduleDay('${group}','${item.id}',${idx})" title="Remove this day — will ask to confirm" class="px-2 py-0.5 text-red-600 hover:text-white hover:bg-red-500 border border-red-300 rounded text-[10px] font-bold transition-colors">✕ Clear</button>
                 </div>
                 ${renderAssignmentControls(group,item.id,'schedule',idx,s)}
             </div>`).join('');
 
+        const arrowStyle = `display:inline-block;transition:transform 0.15s;${isOpen?'transform:rotate(90deg);':''}`;
+
         return `<div class="border border-amber-300 rounded-lg p-2 bg-white space-y-2 fade-in">
             <div class="flex gap-1 items-center">
+                <button onclick="toggleProvisionalExpand('${group}','${item.id}')" title="${isOpen?'Collapse':'Expand'} work plan" class="px-1.5 py-1 text-amber-600 hover:text-amber-800 text-sm font-bold"><span style="${arrowStyle}">▶</span></button>
                 <input type="text" value="${escapeHtml(item.name)}" placeholder="Full name" oninput="updateProvisionalField('${group}','${item.id}','name',this.value)" class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs">
                 <button onclick="onboardProvisional('${group}','${item.id}')" title="Onboard with a real username" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-medium whitespace-nowrap">✓ Onboard</button>
                 <button onclick="removeProvisionalEnumerator('${group}','${item.id}')" class="px-2 text-red-500 hover:text-red-700 text-sm">✕</button>
             </div>
+            <div class="flex items-center gap-2 flex-wrap cursor-pointer" style="padding-left:26px;" onclick="toggleProvisionalExpand('${group}','${item.id}')">
+                <span class="text-[10px] text-amber-700 font-medium">${describeAssignment(item.default)}</span>
+                ${schedule.length ? `<span class="text-[10px] px-1.5 py-0.5 bg-amber-200 rounded-full text-amber-800 font-semibold">📅 ${schedule.length} date${schedule.length>1?'s':''} temporarily attached — click arrow to view</span>` : ''}
+            </div>
+            ${isOpen ? `
             <div>
                 <div class="text-[10px] font-semibold text-amber-700 mb-1 uppercase tracking-wide">Usual work plan (applies on any day without an override below)</div>
                 ${renderAssignmentControls(group,item.id,'default',null,item.default)}
             </div>
             <div>
                 <div class="text-[10px] font-semibold text-amber-700 mb-1 uppercase tracking-wide flex items-center justify-between">
-                    <span>📅 Day-specific overrides</span>
+                    <span>📅 Days temporarily attached to someone (overrides)</span>
                     <button onclick="addScheduleDay('${group}','${item.id}')" class="text-[10px] px-2 py-0.5 bg-amber-200 hover:bg-amber-300 rounded text-amber-800 font-semibold">+ Add day</button>
                 </div>
                 <div class="space-y-1">${scheduleRows || '<div class="text-[10px] text-gray-400 italic">None yet — every day currently uses the usual work plan above. Add a day here for a date they worked with someone different (or logged different numbers).</div>'}</div>
-            </div>
+            </div>` : ''}
         </div>`;
     }
 
@@ -2560,6 +2621,92 @@
         return [new RegExp(`\\(${dc}\\)\\s*$`,'i'),new RegExp(`\\[${dc}\\]\\s*$`,'i'),new RegExp(`-${dc}\\s*$`,'i'),new RegExp(`\\s${dc}\\s*$`,'i')].some(p=>p.test(fullname.trim()));
     }
 
+    // Resolves ONE new/not-yet-onboarded enumerator's numbers across a date
+    // range by walking each day and picking that day's schedule override (if
+    // any) or falling back to their default/usual assignment. Shared by
+    // generateReport()'s pass 2 and by refreshProvisionalRowLive() (used to
+    // live-update a single row right after a day-specific override is
+    // cleared, without needing to click "Generate Report" again).
+    function computeProvisionalRow(group, item, dateKeysInRange, dssData, htData, custData, ltData, issueData) {
+        const dayCount = (dataObj, username, dateKey) => {
+            const um = dataObj.daily.get(username);
+            return um ? (um.get(dateKey)||0) : 0;
+        };
+        let dss=0,ht=0,cust=0,lt=0,issues=0;
+        const feederCounts={};
+        const dayLabels=[];
+
+        dateKeysInRange.forEach(dateKey=>{
+            const sched = (item.schedule||[]).find(s=>s.date===dateKey);
+            const assign = sched || item.default || {mode:'manual',manual:{}};
+            if(assign.mode==='shadow' && assign.shadowUsername){
+                const su = assign.shadowUsername;
+                dss+=dayCount(dssData,su,dateKey); ht+=dayCount(htData,su,dateKey);
+                cust+=dayCount(custData,su,dateKey); lt+=dayCount(ltData,su,dateKey);
+                issues+=dayCount(issueData,su,dateKey);
+                const srcGroup = assign.shadowGroup || group;
+                const label = (usernameMappings[srcGroup] && usernameMappings[srcGroup].get(su)) || su;
+                dayLabels.push({date:dateKey, text:`${label}${srcGroup?` (${srcGroup.toUpperCase()})`:''}`});
+                const dayFeeder = getTopFeeder(su, dateKey, dateKey);
+                if(dayFeeder) feederCounts[dayFeeder]=(feederCounts[dayFeeder]||0)+1;
+            } else {
+                const m=assign.manual||{};
+                dss+=Number(m.dss)||0; ht+=Number(m.ht)||0; cust+=Number(m.cust)||0; lt+=Number(m.lt)||0; issues+=Number(m.issues)||0;
+                dayLabels.push({date:dateKey, text:'manual entry'});
+            }
+        });
+
+        const total=dss+ht+cust+lt+issues;
+        const feederEntries=Object.entries(feederCounts).sort((a,b)=>b[1]-a[1]);
+        const savedFeeder = feederEntries.length ? feederEntries[0][0] : '';
+        const allFeeders = feederEntries.map(([f])=>f);
+
+        // Build a compact summary line for the results table
+        const uniqueTexts = [...new Set(dayLabels.map(d=>d.text))];
+        let summaryLabel;
+        if(dayLabels.length===0) summaryLabel='No work-plan entries yet';
+        else if(uniqueTexts.length===1) summaryLabel = uniqueTexts[0]==='manual entry' ? '✍️ manually entered' : `🤝 worked with ${uniqueTexts[0]}`;
+        else summaryLabel = `🔀 varies day-to-day (${uniqueTexts.length} assignments this period — see Work Plan)`;
+
+        const pseudoUsername = 'NEW-'+item.id.slice(-6).toUpperCase();
+        return {
+            id: item.id, username: pseudoUsername, isProvisional: true,
+            fullname: item.name||'(unnamed)', dss, ht, cust, lt, issues, total,
+            status: 'present', savedFeeder, allFeeders, summaryLabel, dayLabels
+        };
+    }
+
+    // Called right after a day-specific override is cleared from the
+    // "New / Not-Yet-Onboarded Enumerators" panel. If a report is currently
+    // loaded and the cleared date falls inside its range, recomputes just
+    // that one enumerator's row (now falling back to their usual work plan
+    // for that date) and refreshes both the Data Upload results table and
+    // the Dashboard immediately — no need to re-generate the whole report.
+    function refreshProvisionalRowLive(group, id, changedDate) {
+        if(!reportResults.dateKey || !reportResults[group]) return; // no report loaded yet
+        const startDateStr = reportResults.dateKey, endDateStr = reportResults.endDateKey || startDateStr;
+        if(changedDate && changedDate!=='(no date set)' && (changedDate < startDateStr || changedDate > endDateStr)) return;
+        const item = (provisionalEnumerators[group]||[]).find(p=>p.id===id);
+        if(!item) return;
+
+        const startDate=new Date(startDateStr), endDate=new Date(endDateStr);
+        const dssData=processDataSheet(uploadedData.dss,startDate,endDate);
+        const htData=processDataSheet(uploadedData.ht,startDate,endDate);
+        const ltData=processDataSheet(uploadedData.lt,startDate,endDate);
+        const custData=processDataSheet(uploadedData.cust,startDate,endDate);
+        const issueData=processDataSheet(uploadedData.issues,startDate,endDate);
+        const dateKeysInRange = enumerateDateKeys(startDateStr, endDateStr);
+
+        const row = computeProvisionalRow(group, item, dateKeysInRange, dssData, htData, custData, ltData, issueData);
+        const list = reportResults[group].provisionalResults || (reportResults[group].provisionalResults=[]);
+        const i = list.findIndex(r=>r.id===id);
+        if(i>=0){ row.status = list[i].status || row.status; list[i]=row; } else list.push(row);
+
+        renderResultsTable(group);
+        updateDashboard();
+        showStatus(`Updated ${item.name||'this enumerator'}'s numbers on the loaded dashboard for ${changedDate}.`, 'success');
+    }
+
     // ============================================
     // REPORT GENERATION
     // ============================================
@@ -2632,57 +2779,11 @@
         // We walk every date in the report's range and resolve each day
         // independently, so someone can shadow a different enumerator each day.
         const dateKeysInRange = enumerateDateKeys(startDateStr, endDateStr);
-        const dayCount = (dataObj, username, dateKey) => {
-            const um = dataObj.daily.get(username);
-            return um ? (um.get(dateKey)||0) : 0;
-        };
 
         ['aedc','bss','nysc'].forEach(group=>{
             const {results,totals}=groupResultsTemp[group];
-            const provisionalResults = (provisionalEnumerators[group]||[]).map(item=>{
-                let dss=0,ht=0,cust=0,lt=0,issues=0;
-                const feederCounts={};
-                const dayLabels=[];
-
-                dateKeysInRange.forEach(dateKey=>{
-                    const sched = (item.schedule||[]).find(s=>s.date===dateKey);
-                    const assign = sched || item.default || {mode:'manual',manual:{}};
-                    if(assign.mode==='shadow' && assign.shadowUsername){
-                        const su = assign.shadowUsername;
-                        dss+=dayCount(dssData,su,dateKey); ht+=dayCount(htData,su,dateKey);
-                        cust+=dayCount(custData,su,dateKey); lt+=dayCount(ltData,su,dateKey);
-                        issues+=dayCount(issueData,su,dateKey);
-                        const srcGroup = assign.shadowGroup || group;
-                        const label = (usernameMappings[srcGroup] && usernameMappings[srcGroup].get(su)) || su;
-                        dayLabels.push({date:dateKey, text:`${label}${srcGroup?` (${srcGroup.toUpperCase()})`:''}`});
-                        const dayFeeder = getTopFeeder(su, dateKey, dateKey);
-                        if(dayFeeder) feederCounts[dayFeeder]=(feederCounts[dayFeeder]||0)+1;
-                    } else {
-                        const m=assign.manual||{};
-                        dss+=Number(m.dss)||0; ht+=Number(m.ht)||0; cust+=Number(m.cust)||0; lt+=Number(m.lt)||0; issues+=Number(m.issues)||0;
-                        dayLabels.push({date:dateKey, text:'manual entry'});
-                    }
-                });
-
-                const total=dss+ht+cust+lt+issues;
-                const feederEntries=Object.entries(feederCounts).sort((a,b)=>b[1]-a[1]);
-                const savedFeeder = feederEntries.length ? feederEntries[0][0] : '';
-                const allFeeders = feederEntries.map(([f])=>f);
-
-                // Build a compact summary line for the results table
-                const uniqueTexts = [...new Set(dayLabels.map(d=>d.text))];
-                let summaryLabel;
-                if(dayLabels.length===0) summaryLabel='No work-plan entries yet';
-                else if(uniqueTexts.length===1) summaryLabel = uniqueTexts[0]==='manual entry' ? '✍️ manually entered' : `🤝 worked with ${uniqueTexts[0]}`;
-                else summaryLabel = `🔀 varies day-to-day (${uniqueTexts.length} assignments this period — see Work Plan)`;
-
-                const pseudoUsername = 'NEW-'+item.id.slice(-6).toUpperCase();
-                return {
-                    id: item.id, username: pseudoUsername, isProvisional: true,
-                    fullname: item.name||'(unnamed)', dss, ht, cust, lt, issues, total,
-                    status: 'present', savedFeeder, allFeeders, summaryLabel, dayLabels
-                };
-            });
+            const provisionalResults = (provisionalEnumerators[group]||[]).map(item=>
+                computeProvisionalRow(group, item, dateKeysInRange, dssData, htData, custData, ltData, issueData));
             reportResults[group]={results,totals,provisionalResults};
         });
 
@@ -2693,6 +2794,8 @@
 
         renderResultsTable('aedc'); renderResultsTable('bss'); renderResultsTable('nysc');
         document.getElementById('resultsSection').style.display='block';
+        const goToDashBtn = document.getElementById('goToDashboardBtn');
+        if(goToDashBtn) goToDashBtn.style.display='flex';
         document.getElementById('dateRangeDisplay').textContent=reportResults.dateRange;
         updateDashboard();
         showStatus(`Report generated: ${reportResults.aedc.totals.total+reportResults.bss.totals.total+reportResults.nysc.totals.total} total entries`,'success');
@@ -4614,7 +4717,17 @@
         reportResults={aedc:{results:[],totals:{}},bss:{results:[],totals:{}},nysc:{results:[],totals:{}},dateRange:'',formattedDate:'',dateKey:''};
         remarksData={};
         document.getElementById('resultsSection').style.display='none';
+        const goToDashBtn = document.getElementById('goToDashboardBtn');
+        if(goToDashBtn) goToDashBtn.style.display='none';
         updateStats();updateDashboard();showStatus('All data cleared','info');
+    }
+
+    // Jumps straight to the Dashboard tab from wherever the admin scrolled to
+    // on the Data Upload tab (e.g. after auto-scrolling down to the Feeder
+    // Validation panel) — saves having to scroll back up to click the tab.
+    function goToDashboardFromUpload() {
+        switchTab('dashboard');
+        window.scrollTo({top:0, behavior:'smooth'});
     }
 
     function showStatus(message, type='info'){
