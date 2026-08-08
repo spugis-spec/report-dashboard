@@ -2354,9 +2354,10 @@
                 <button onclick="onboardProvisional('${group}','${item.id}')" title="Onboard with a real username" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-medium whitespace-nowrap">✓ Onboard</button>
                 <button onclick="removeProvisionalEnumerator('${group}','${item.id}')" class="px-2 text-red-500 hover:text-red-700 text-sm">✕</button>
             </div>
-            <div class="flex items-center gap-2 flex-wrap cursor-pointer" style="padding-left:26px;" onclick="toggleProvisionalExpand('${group}','${item.id}')">
-                <span class="text-[10px] text-amber-700 font-medium">${describeAssignment(item.default)}</span>
-                ${schedule.length ? `<span class="text-[10px] px-1.5 py-0.5 bg-amber-200 rounded-full text-amber-800 font-semibold">📅 ${schedule.length} date${schedule.length>1?'s':''} temporarily attached — click arrow to view</span>` : ''}
+            <div class="flex items-center gap-2 flex-wrap" style="padding-left:26px;">
+                <span class="text-[10px] text-amber-700 font-medium cursor-pointer" onclick="toggleProvisionalExpand('${group}','${item.id}')">${describeAssignment(item.default)}</span>
+                ${schedule.length ? `<span class="text-[10px] px-1.5 py-0.5 bg-amber-200 rounded-full text-amber-800 font-semibold cursor-pointer" onclick="toggleProvisionalExpand('${group}','${item.id}')">📅 ${schedule.length} date${schedule.length>1?'s':''} temporarily attached — click arrow to view</span>` : ''}
+                <button onclick="recheckSavedDashboardsForProvisional('${group}','${item.id}')" title="Scan every saved dashboard for dates this person was recorded working with someone, and pull in any that are missing here" class="text-[10px] px-1.5 py-0.5 bg-white border border-amber-300 rounded-full text-amber-700 hover:bg-amber-100 font-semibold whitespace-nowrap">🔄 Recheck saved dashboards</button>
             </div>
             ${isOpen ? `
             <div>
@@ -2371,6 +2372,69 @@
                 <div class="space-y-1">${scheduleRows || '<div class="text-[10px] text-gray-400 italic">None yet — every day currently uses the usual work plan above. Add a day here for a date they worked with someone different (or logged different numbers).</div>'}</div>
             </div>` : ''}
         </div>`;
+    }
+
+    // Scans EVERY saved dashboard (not just the currently loaded one) for
+    // dates where this provisional enumerator was recorded as having worked
+    // with someone — e.g. set via the Dashboard tab's own "who did they work
+    // with" picker and saved with "💾 Update & Save" — and pulls any dates
+    // missing from their local `schedule` back in. This recovers cases where
+    // a pairing was saved to a specific dashboard date but, for whatever
+    // reason (page reload before autosave, etc.), never made it into this
+    // panel's own override list. Never overwrites a date that's already in
+    // the schedule — only fills in gaps.
+    async function recheckSavedDashboardsForProvisional(group, id) {
+        if(!firebaseInitialized){ showStatus('Firebase not connected','error'); return; }
+        const item = (provisionalEnumerators[group]||[]).find(p=>p.id===id);
+        if(!item) return;
+        showStatus(`Scanning saved dashboards for ${item.name||'this enumerator'}…`,'info');
+        try {
+            const snap = await database.ref('dashboards').once('value');
+            const all = snap.val() || {};
+            savedDashboards = all; // keep the shared cache in sync too
+
+            if(!item.schedule) item.schedule = [];
+            const existingDates = new Set(item.schedule.map(s=>s.date));
+            let recovered = 0, skipped = 0;
+
+            Object.values(all).forEach(dash=>{
+                const g = dash && dash[group];
+                const row = g && g.provisionalResults && g.provisionalResults.find(r=>r.id===id);
+                if(!row || !row.dayLabels) return;
+                row.dayLabels.forEach(dl=>{
+                    if(!dl || !dl.date || dl.text==='manual entry' || existingDates.has(dl.date)) return;
+                    const m = /^(.*)\s\(([A-Z]+)\)$/.exec(dl.text||'');
+                    if(!m){ skipped++; return; }
+                    const [, namePart, groupCode] = m;
+                    const srcGroup = groupCode.toLowerCase();
+                    const map = usernameMappings[srcGroup];
+                    let shadowUsername = '';
+                    if(map){
+                        if(map.has(namePart)) shadowUsername = namePart; // label was already a raw username
+                        else { for(const [uname,fullname] of map.entries()){ if(fullname===namePart){ shadowUsername=uname; break; } } }
+                    }
+                    if(!shadowUsername){ skipped++; return; }
+                    item.schedule.push({date:dl.date, mode:'shadow', shadowGroup:srcGroup, shadowUsername, manual:{dss:0,ht:0,cust:0,lt:0,issues:0}});
+                    existingDates.add(dl.date);
+                    recovered++;
+                });
+            });
+
+            if(recovered>0){
+                item.schedule.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+                expandedProvisionalIds.add(id); // open it up so the recovered dates are visible right away
+                renderProvisionalContainer(group);
+                saveProvisionalToCloud();
+            }
+            const skippedNote = skipped ? ` (${skipped} entr${skipped>1?'ies':'y'} in saved dashboards couldn't be matched to a current username and were skipped.)` : '';
+            showStatus(recovered>0
+                ? `Recovered ${recovered} date${recovered>1?'s':''} from saved dashboards for ${item.name||'this enumerator'}.${skippedNote}`
+                : `No missing dates found in saved dashboards for ${item.name||'this enumerator'}.${skippedNote}`,
+                recovered>0 ? 'success' : 'info');
+        } catch(e){
+            console.error(e);
+            showStatus('Failed to scan saved dashboards: '+e.message,'error');
+        }
     }
 
     function renderProvisionalContainer(group) {
