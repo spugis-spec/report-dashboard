@@ -3031,7 +3031,77 @@
         });
         if(refreshedAny){ renderResultsTable(group); updateDashboard(); }
 
+        // The block above only updates what's on screen right now. Any of
+        // the ticked dates that were ALREADY saved to the cloud as their own
+        // single-day dashboard (from a previous "Update & Save") won't be
+        // touched by that — so opening one of those saved dates later would
+        // still show the old Absent/blank numbers. Patch and re-save each
+        // already-saved day directly here, so the fix reaches every date
+        // that was ticked, not just the one currently on screen — with no
+        // extra click required.
+        let patchedCount = 0;
+        Promise.all(dates.map(dateKey=>patchProvisionalDateInCloud(dateKey, group, id).then(didPatch=>{ if(didPatch) patchedCount++; })))
+            .then(()=>{
+                if(patchedCount>0){
+                    showStatus(`${item.name||'This enumerator'}: also updated and saved ${patchedCount} already-saved dashboard day${patchedCount>1?'s':''} in the cloud.`, 'success');
+                }
+            });
+
         showStatus(`${item.name||'This enumerator'} was assigned across ${dates.length} date${dates.length>1?'s':''}.${refreshedAny?' Loaded dashboard updated.':''}`, 'success');
+    }
+
+    // Patches ONE provisional enumerator's numbers/status for ONE date
+    // directly into that date's already-saved dashboards/{date} cloud record
+    // (if one exists) and re-saves it — without needing that date to be the
+    // currently loaded report, and without needing an admin to click
+    // "Update & Save". Used by Bulk Assign so previously-saved days actually
+    // pick up the new work-plan instead of silently staying stale. Returns
+    // true if a saved record for that date existed and was patched, false
+    // otherwise (nothing to do — that day was never saved, so it will
+    // compute correctly from the current schedule whenever it IS generated
+    // and saved for the first time).
+    async function patchProvisionalDateInCloud(dateKey, group, id) {
+        if(!firebaseInitialized || !currentUser) return false;
+        try {
+            const ref = database.ref(`dashboards/${dateKey}`);
+            const snap = await ref.once('value');
+            const saved = snap.val();
+            if(!saved) return false; // that day was never saved — nothing to patch
+
+            const item = (provisionalEnumerators[group]||[]).find(p=>p.id===id);
+            if(!item) return false;
+
+            const d = new Date(dateKey+'T00:00:00');
+            const dssData=processDataSheet(uploadedData.dss,d,d);
+            const htData=processDataSheet(uploadedData.ht,d,d);
+            const ltData=processDataSheet(uploadedData.lt,d,d);
+            const custData=processDataSheet(uploadedData.cust,d,d);
+            const issueData=processDataSheet(uploadedData.issues,d,d);
+            const row = computeProvisionalRow(group, item, [dateKey], dssData, htData, custData, ltData, issueData);
+
+            if(!saved[group]) saved[group] = {results:[], totals:{}, provisionalResults:[]};
+            const list = toArray(saved[group].provisionalResults);
+            const i = list.findIndex(r=>r.id===id);
+            if(i>=0){
+                const prevStatus = list[i].status;
+                // Same rule used everywhere else: a bulk-assigned day that now
+                // has real numbers (total > 0) clears a stale "Absent" status.
+                // Sick/Excused stay untouched.
+                row.status = (prevStatus==='absent' && row.total>0) ? 'present' : (prevStatus || row.status);
+                list[i] = row;
+            } else {
+                list.push(row);
+            }
+            saved[group].provisionalResults = list;
+            saved.savedAt = Date.now();
+            saved.savedBy = currentUser.email;
+
+            await ref.set(saved);
+            return true;
+        } catch(e) {
+            console.error('patchProvisionalDateInCloud error:', e);
+            return false;
+        }
     }
 
     // Same recompute as refreshProvisionalRowLive() but without its own
@@ -3473,7 +3543,7 @@
     // Nothing is written to the database until "💾 Update & Save" is clicked
     // (aside from the underlying work-plan change, which auto-saves like the
     // rest of the New Enumerators panel).
-    function updateDashboardProvisionalShadow(group, provId, value, onceOnly) {
+    async function updateDashboardProvisionalShadow(group, provId, value, onceOnly) {
         if (!isAdminMode) return;
         const provRow = (reportResults[group] && reportResults[group].provisionalResults || []).find(p=>p.id===provId);
         if (!provRow) return;
@@ -3518,9 +3588,24 @@
             }
         }
         updateDashboard();
-        showStatus(onceOnly
-            ? 'Updated for this date only — click "💾 Update & Save" below to save it.'
-            : `Set as their usual partner — will show up automatically on every future report. Click "💾 Update & Save" below to save today's numbers too.`, 'success');
+
+        // Auto-save the loaded dashboard's numbers too, instead of making the
+        // admin click "💾 Update & Save" separately. Only do this when a
+        // single day is loaded (dateKey === endDateKey) — that's the shape
+        // dashboards/{date} actually stores; a multi-day range is a computed
+        // view, not something a single save can persist correctly, so for
+        // ranges the manual "💾 Update & Save" is still needed.
+        const isSingleDayLoaded = reportResults.dateKey && (reportResults.endDateKey||reportResults.dateKey)===reportResults.dateKey;
+        if (isSingleDayLoaded && firebaseInitialized && currentUser) {
+            await saveDashboardToCloud();
+            showStatus(onceOnly
+                ? 'Updated for this date only and saved.'
+                : 'Set as their usual partner and saved — will show up automatically on every future report.', 'success');
+        } else {
+            showStatus(onceOnly
+                ? 'Updated for this date only — click "💾 Update & Save" below to save it.'
+                : `Set as their usual partner — will show up automatically on every future report. Click "💾 Update & Save" below to save today's numbers too.`, 'success');
+        }
     }
 
     // ============================================
