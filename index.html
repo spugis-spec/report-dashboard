@@ -2827,7 +2827,15 @@
         const row = computeProvisionalRow(group, item, dateKeysInRange, dssData, htData, custData, ltData, issueData);
         const list = reportResults[group].provisionalResults || (reportResults[group].provisionalResults=[]);
         const i = list.findIndex(r=>r.id===id);
-        if(i>=0){ row.status = list[i].status || row.status; list[i]=row; } else list.push(row);
+        if(i>=0){
+            const prevStatus = list[i].status;
+            // Keep a manually-set Sick/Excused as-is. But if they were marked
+            // Absent and this refresh now shows real work (total > 0), flip
+            // them back to Present — otherwise the dashboard would keep
+            // showing "Absent" forever even after real numbers are filled in.
+            row.status = (prevStatus==='absent' && row.total>0) ? 'present' : (prevStatus || row.status);
+            list[i]=row;
+        } else list.push(row);
 
         renderResultsTable(group);
         updateDashboard();
@@ -3044,7 +3052,14 @@
         const row = computeProvisionalRow(group, item, dateKeysInRange, dssData, htData, custData, ltData, issueData);
         const list = reportResults[group].provisionalResults || (reportResults[group].provisionalResults=[]);
         const i = list.findIndex(r=>r.id===id);
-        if(i>=0){ row.status = list[i].status || row.status; list[i]=row; } else list.push(row);
+        if(i>=0){
+            const prevStatus = list[i].status;
+            // Same rule as refreshProvisionalRowLive(): a bulk-assigned day
+            // that now has real numbers (total > 0) should clear a stale
+            // "Absent" status. Sick/Excused stay untouched.
+            row.status = (prevStatus==='absent' && row.total>0) ? 'present' : (prevStatus || row.status);
+            list[i]=row;
+        } else list.push(row);
     }
 
     // ============================================
