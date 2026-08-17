@@ -490,6 +490,65 @@
         </div>
     </div>
 
+    <!-- Bulk Assign Work Days Modal (New / Not-Yet-Onboarded Enumerators) -->
+    <div id="bulkAssignModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden" style="padding:16px;">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4 fade-in" style="max-height:92vh;overflow-y:auto;">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">🗓️ Bulk Assign Work Days</h2>
+                    <p class="text-gray-500 text-xs mt-1">Pick a new enumerator, choose who they worked with, tick every date it applies to, then apply. Repeat with a different name and/or partner for as many rounds as you like — nothing closes in between.</p>
+                </div>
+                <button onclick="closeBulkAssignModal()" style="background:#f1f5f9;border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:1rem;color:#64748b;flex-shrink:0;">✕</button>
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">New / Not-Yet-Onboarded Enumerator</label>
+                <select id="bulkAssignPersonSelect" onchange="onBulkAssignPersonChange()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="">— select a name —</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Assignment for the ticked dates</label>
+                <select id="bulkAssignMode" onchange="renderBulkAssignBody()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="shadow">🤝 Worked with someone (shadow their numbers)</option>
+                    <option value="manual">✍️ Manual numbers (type it in)</option>
+                </select>
+                <div id="bulkAssignBody"></div>
+            </div>
+
+            <div class="mb-3">
+                <div class="flex items-end gap-3 flex-wrap mb-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                        <input type="date" id="bulkAssignRangeStart" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                        <input type="date" id="bulkAssignRangeEnd" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <button onclick="loadBulkAssignDateRange()" class="py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg text-sm">Load Dates</button>
+                    <label class="flex items-center gap-1 text-xs text-gray-600 ml-1"><input type="checkbox" id="bulkAssignSkipWeekends" onchange="loadBulkAssignDateRange()"> Skip weekends</label>
+                </div>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm font-medium text-gray-700">Tick the dates to apply this to</span>
+                    <div class="flex gap-2">
+                        <button onclick="setAllBulkAssignDates(true)" class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">Select All</button>
+                        <button onclick="setAllBulkAssignDates(false)" class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">Clear All</button>
+                    </div>
+                </div>
+                <div id="bulkAssignDateList" class="grid grid-cols-3 sm:grid-cols-4 gap-1 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50">
+                    <div class="text-gray-400 italic text-xs col-span-4 py-2">Pick a "From" and "To" date above, then click "Load Dates".</div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-4">
+                <button onclick="closeBulkAssignModal()" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-all">Close</button>
+                <button onclick="applyBulkAssign()" class="flex-1 py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-lg transition-all">✅ Apply to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Zero Remark Modal -->
     <div id="zeroRemarkModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 login-modal hidden">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 fade-in">
@@ -782,7 +841,10 @@
                             <button onclick="addProvisionalEnumerator('nysc')" class="w-full py-2 px-4 border-2 border-dashed border-amber-400 rounded-lg text-amber-700 hover:bg-amber-100 transition-colors text-sm">+ Add New NYSC Enumerator</button>
                         </div>
                     </div>
-                    <button onclick="saveAllProvisionalManually()" class="w-full mt-4 py-3 px-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>💾</span> Save New Enumerators to Database</button>
+                    <div class="mt-4 flex gap-3">
+                        <button onclick="openBulkAssignModal()" class="flex-1 py-3 px-6 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>🗓️</span> Bulk Assign Work Days</button>
+                        <button onclick="saveAllProvisionalManually()" class="flex-1 py-3 px-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>💾</span> Save New Enumerators to Database</button>
+                    </div>
                 </div>
 
                 <!-- TEAM PAIRING -->
@@ -839,6 +901,7 @@
                     <button onclick="window.print()" class="py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>🖨️</span> Print</button>
                     <button onclick="exportDashboardToExcel()" class="py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>📥</span> Export Excel</button>
                     <button onclick="openBulkExcuseModal()" class="admin-only py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>📋</span> Bulk Update</button>
+                    <button onclick="openBulkAssignModal()" class="admin-only py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>🗓️</span> Bulk Assign Work Days</button>
                     <button onclick="updateAndSaveDashboard()" class="admin-only py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>💾</span> Update & Save</button>
                     <button onclick="applyValidatedFeedersToDashboard()" id="applyFeedersBtn" class="admin-only py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm" title="Pull live validated feeders from Data Upload tab and apply to dashboard"><span>⚡</span> Apply Validated Feeders</button>
                     <button onclick="saveDashboardToCloud()" class="admin-only py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 text-sm"><span>☁️</span> Save to Cloud</button>
@@ -2769,6 +2832,219 @@
         renderResultsTable(group);
         updateDashboard();
         showStatus(`Updated ${item.name||'this enumerator'}'s numbers on the loaded dashboard for ${changedDate}.`, 'success');
+    }
+
+    // ============================================
+    // BULK ASSIGN WORK DAYS (New / Not-Yet-Onboarded Enumerators)
+    // ============================================
+    // Lets an admin, from one place, pick a not-yet-onboarded enumerator,
+    // pick who they worked with (or type manual numbers), tick a batch of
+    // dates, and write a schedule override for every ticked date in one go
+    // — instead of clicking "+ Add day" and re-picking the partner once per
+    // date inside each enumerator's own card. Can be re-run any number of
+    // times in the same modal session (different name and/or different
+    // partner each time) before closing.
+    let bulkAssignSelectedDates = new Set();
+
+    function openBulkAssignModal() {
+        const select = document.getElementById('bulkAssignPersonSelect');
+        const groupLabels = {aedc:'AEDC', bss:'BSS', nysc:'NYSC'};
+        const opts = ['<option value="">— select a name —</option>'];
+        ['aedc','bss','nysc'].forEach(g=>{
+            (provisionalEnumerators[g]||[]).forEach(item=>{
+                opts.push(`<option value="${g}::${item.id}">${escapeHtml(item.name||'(unnamed)')} — ${groupLabels[g]}</option>`);
+            });
+        });
+        select.innerHTML = opts.join('');
+        if(opts.length===1){
+            select.innerHTML = '<option value="">No new enumerators added yet — add one in Enumerator Mapping first</option>';
+        }
+        document.getElementById('bulkAssignMode').value = 'shadow';
+        bulkAssignSelectedDates = new Set();
+        document.getElementById('bulkAssignDateList').innerHTML = '<div class="text-gray-400 italic text-xs col-span-4 py-2">Pick a "From" and "To" date above, then click "Load Dates".</div>';
+        // Smart default for the date range — this modal can now be opened from
+        // either the Enumerator Mapping tab or the Dashboard tab, and each has
+        // its own idea of "the current dates". Prefer, in order:
+        //   1) The dashboard actually on screen right now (reportResults),
+        //      since that's what an admin opening this from the Dashboard tab
+        //      almost always means by "these dates".
+        //   2) The Dashboard tab's own Select Date pickers, if a date is set
+        //      there but a report hasn't been (re)generated yet.
+        //   3) The Data Upload tab's report-range pickers, as before — the
+        //      original fallback for when this is opened from the Mapping tab.
+        let mainStart = '', mainEnd = '';
+        if(reportResults && reportResults.dateKey){
+            mainStart = reportResults.dateKey;
+            mainEnd = reportResults.endDateKey || reportResults.dateKey;
+        } else if(document.getElementById('publicStartDate')?.value){
+            mainStart = document.getElementById('publicStartDate').value;
+            const publicIsRange = document.querySelector('input[name="publicDateMode"]:checked')?.value === 'range';
+            mainEnd = (publicIsRange ? document.getElementById('publicEndDate')?.value : '') || mainStart;
+        } else {
+            mainStart = document.getElementById('startDate')?.value || '';
+            mainEnd = document.getElementById('endDate')?.value || mainStart;
+        }
+        document.getElementById('bulkAssignRangeStart').value = mainStart;
+        document.getElementById('bulkAssignRangeEnd').value = mainEnd;
+        renderBulkAssignBody();
+        document.getElementById('bulkAssignModal').classList.remove('hidden');
+        // If we already know a usable range, load the date checkboxes right
+        // away so the modal opens ready-to-go instead of showing the empty
+        // "pick a range" placeholder every time.
+        if(mainStart) loadBulkAssignDateRange();
+    }
+
+    function closeBulkAssignModal() {
+        document.getElementById('bulkAssignModal').classList.add('hidden');
+    }
+
+    function onBulkAssignPersonChange() { /* nothing to recompute yet — kept for clarity/future use */ }
+
+    // Renders either the shadow (worked-with) picker or manual number
+    // inputs inside the modal, depending on the mode dropdown.
+    function renderBulkAssignBody() {
+        const mode = document.getElementById('bulkAssignMode').value;
+        const body = document.getElementById('bulkAssignBody');
+        if(mode==='shadow'){
+            const groupLabels={aedc:'AEDC',bss:'BSS',nysc:'NYSC'};
+            const candidates=[];
+            ['aedc','bss','nysc'].forEach(g=>{
+                usernameMappings[g].forEach((fullname,username)=>{
+                    candidates.push({group:g, username, fullname, label:`${fullname} (${username}) — ${groupLabels[g]}`});
+                });
+            });
+            const listId = 'bulkAssignShadowList';
+            shadowPickerCandidates[listId] = candidates;
+            const datalistOpts = candidates.map(c=>`<option value="${escapeHtml(c.label)}">`).join('');
+            body.innerHTML = `<input type="text" id="bulkAssignShadowInput" list="${listId}" placeholder="type a name to search who they worked with…" autocomplete="off"
+                onblur="revertDashboardShadowIfInvalid('${listId}',this)"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <datalist id="${listId}">${datalistOpts}</datalist>`;
+        } else {
+            const fields=[['dss','DSS'],['ht','HT'],['cust','Cust'],['lt','LT'],['issues','Issues']];
+            body.innerHTML = `<div class="grid grid-cols-5 gap-2">${fields.map(([k,label])=>
+                `<div><label class="block text-[10px] text-gray-500 mb-0.5">${label}</label><input type="number" min="0" value="0" id="bulkAssignManual_${k}" class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center"></div>`
+            ).join('')}</div>`;
+        }
+    }
+
+    // Builds the checkbox grid of every date between the two range pickers
+    // (inclusive), optionally skipping Saturdays/Sundays. All boxes start
+    // checked so a plain "Load Dates" + "Apply" covers the whole range;
+    // admins can uncheck individual days they don't want.
+    function loadBulkAssignDateRange() {
+        const startStr = document.getElementById('bulkAssignRangeStart').value;
+        const endStr = document.getElementById('bulkAssignRangeEnd').value || startStr;
+        const container = document.getElementById('bulkAssignDateList');
+        if(!startStr){
+            container.innerHTML = '<div class="text-gray-400 italic text-xs col-span-4 py-2">Pick a "From" date first.</div>';
+            return;
+        }
+        const skipWeekends = document.getElementById('bulkAssignSkipWeekends').checked;
+        let keys = enumerateDateKeys(startStr, endStr);
+        if(skipWeekends) keys = keys.filter(k=>{ const d=new Date(k+'T00:00:00').getDay(); return d!==0 && d!==6; });
+        if(!keys.length){
+            container.innerHTML = '<div class="text-gray-400 italic text-xs col-span-4 py-2">No dates in that range.</div>';
+            return;
+        }
+        bulkAssignSelectedDates = new Set(keys);
+        container.innerHTML = keys.map(k=>{
+            const d = new Date(k+'T00:00:00');
+            const label = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+            return `<label class="flex items-center gap-1 text-xs bg-white border border-gray-200 rounded px-1.5 py-1 cursor-pointer">
+                <input type="checkbox" checked onchange="toggleBulkAssignDate('${k}',this.checked)"> ${label}
+            </label>`;
+        }).join('');
+    }
+
+    function toggleBulkAssignDate(dateKey, checked) {
+        if(checked) bulkAssignSelectedDates.add(dateKey);
+        else bulkAssignSelectedDates.delete(dateKey);
+    }
+
+    function setAllBulkAssignDates(checked) {
+        document.querySelectorAll('#bulkAssignDateList input[type="checkbox"]').forEach(cb=>{ cb.checked = checked; });
+        const startStr = document.getElementById('bulkAssignRangeStart').value;
+        const endStr = document.getElementById('bulkAssignRangeEnd').value || startStr;
+        if(!startStr) return;
+        const skipWeekends = document.getElementById('bulkAssignSkipWeekends').checked;
+        let keys = enumerateDateKeys(startStr, endStr);
+        if(skipWeekends) keys = keys.filter(k=>{ const d=new Date(k+'T00:00:00').getDay(); return d!==0 && d!==6; });
+        bulkAssignSelectedDates = checked ? new Set(keys) : new Set();
+    }
+
+    // Writes/overwrites a schedule override for every ticked date on the
+    // selected enumerator, saves to the cloud, and — if the currently
+    // loaded dashboard's date falls among the ticked dates — refreshes that
+    // row live so the change shows up immediately without regenerating.
+    function applyBulkAssign() {
+        const personVal = document.getElementById('bulkAssignPersonSelect').value;
+        if(!personVal){ showStatus('Please select a new enumerator first','error'); return; }
+        const [group, id] = personVal.split('::');
+        const item = (provisionalEnumerators[group]||[]).find(p=>p.id===id);
+        if(!item){ showStatus('That enumerator could not be found — try reopening this panel','error'); return; }
+
+        if(!bulkAssignSelectedDates.size){ showStatus('Please tick at least one date','error'); return; }
+
+        const mode = document.getElementById('bulkAssignMode').value;
+        let assignTemplate;
+        if(mode==='shadow'){
+            const inputEl = document.getElementById('bulkAssignShadowInput');
+            const typed = (inputEl?.value||'').trim();
+            const candidates = shadowPickerCandidates['bulkAssignShadowList'] || [];
+            const match = candidates.find(c=>c.label===typed);
+            if(!match){ showStatus('Please pick who they worked with from the list','error'); return; }
+            assignTemplate = { mode:'shadow', shadowGroup: match.group, shadowUsername: match.username, manual:{dss:0,ht:0,cust:0,lt:0,issues:0} };
+        } else {
+            const num = k => Math.max(0, Number(document.getElementById('bulkAssignManual_'+k)?.value)||0);
+            assignTemplate = { mode:'manual', shadowGroup:'', shadowUsername:'', manual:{ dss:num('dss'), ht:num('ht'), cust:num('cust'), lt:num('lt'), issues:num('issues') } };
+        }
+
+        if(!item.schedule) item.schedule = [];
+        const dates = [...bulkAssignSelectedDates].sort();
+        dates.forEach(dateKey=>{
+            const existingIdx = item.schedule.findIndex(s=>s.date===dateKey);
+            const entry = { date: dateKey, ...JSON.parse(JSON.stringify(assignTemplate)) };
+            if(existingIdx>=0) item.schedule[existingIdx] = entry;
+            else item.schedule.push(entry);
+        });
+
+        renderProvisionalContainer(group);
+        saveProvisionalToCloud();
+
+        // Live-refresh the dashboard for any of these dates that fall inside
+        // the currently loaded report's range.
+        let refreshedAny = false;
+        dates.forEach(dateKey=>{
+            if(reportResults.dateKey){
+                const s = reportResults.dateKey, e = reportResults.endDateKey || s;
+                if(dateKey>=s && dateKey<=e){ refreshProvisionalRowLiveSilent(group, id); refreshedAny = true; }
+            }
+        });
+        if(refreshedAny){ renderResultsTable(group); updateDashboard(); }
+
+        showStatus(`${item.name||'This enumerator'} was assigned across ${dates.length} date${dates.length>1?'s':''}.${refreshedAny?' Loaded dashboard updated.':''}`, 'success');
+    }
+
+    // Same recompute as refreshProvisionalRowLive() but without its own
+    // status toast/date-range guard, since applyBulkAssign() already
+    // validated the date and shows one combined summary toast at the end.
+    function refreshProvisionalRowLiveSilent(group, id) {
+        if(!reportResults.dateKey || !reportResults[group]) return;
+        const startDateStr = reportResults.dateKey, endDateStr = reportResults.endDateKey || startDateStr;
+        const item = (provisionalEnumerators[group]||[]).find(p=>p.id===id);
+        if(!item) return;
+        const startDate=new Date(startDateStr), endDate=new Date(endDateStr);
+        const dssData=processDataSheet(uploadedData.dss,startDate,endDate);
+        const htData=processDataSheet(uploadedData.ht,startDate,endDate);
+        const ltData=processDataSheet(uploadedData.lt,startDate,endDate);
+        const custData=processDataSheet(uploadedData.cust,startDate,endDate);
+        const issueData=processDataSheet(uploadedData.issues,startDate,endDate);
+        const dateKeysInRange = enumerateDateKeys(startDateStr, endDateStr);
+        const row = computeProvisionalRow(group, item, dateKeysInRange, dssData, htData, custData, ltData, issueData);
+        const list = reportResults[group].provisionalResults || (reportResults[group].provisionalResults=[]);
+        const i = list.findIndex(r=>r.id===id);
+        if(i>=0){ row.status = list[i].status || row.status; list[i]=row; } else list.push(row);
     }
 
     // ============================================
