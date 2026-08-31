@@ -4309,6 +4309,96 @@
     // ============================================
     // CHARTS
     // ============================================
+    // ============================================
+    // 3D-STYLE CHART HELPERS
+    // ============================================
+    const CHART_PALETTE = {
+        blue:   ['#60a5fa', '#1d4ed8'],
+        green:  ['#4ade80', '#15803d'],
+        orange: ['#fdba74', '#ea580c'],
+        yellow: ['#fde047', '#ca8a04'],
+        red:    ['#fca5a5', '#dc2626'],
+        violet: ['#c4b5fd', '#6d28d9']
+    };
+    function gradFor(ctx, area, key, vertical) {
+        const c = CHART_PALETTE[key] || CHART_PALETTE.blue;
+        if (!area) return c[1];
+        const g = vertical
+            ? ctx.createLinearGradient(0, area.bottom, 0, area.top)
+            : ctx.createLinearGradient(area.left, area.top, area.right, area.bottom);
+        g.addColorStop(0, c[1]); g.addColorStop(1, c[0]);
+        return g;
+    }
+    function gradSet(keys, vertical) {
+        return (context) => {
+            const { chart, dataIndex } = context;
+            return gradFor(chart.ctx, chart.chartArea, keys[dataIndex % keys.length], vertical);
+        };
+    }
+    // Soft drop shadow behind arcs/bars => depth ("3D" feel)
+    const depthPlugin = {
+        id: 'depthPlugin',
+        beforeDatasetsDraw(chart) {
+            const c = chart.ctx;
+            c.save();
+            c.shadowColor = 'rgba(15,23,42,0.32)';
+            c.shadowBlur = 16;
+            c.shadowOffsetX = 0;
+            c.shadowOffsetY = 8;
+        },
+        afterDatasetsDraw(chart) { chart.ctx.restore(); }
+    };
+    if (typeof Chart !== 'undefined') {
+        Chart.register(depthPlugin);
+        Chart.defaults.font.family = "'DM Sans', sans-serif";
+        Chart.defaults.color = '#475569';
+    }
+    const CHART_TOOLTIP = {
+        backgroundColor: 'rgba(15,23,42,0.92)', titleFont: { size: 12, weight: '700' },
+        bodyFont: { size: 12 }, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true
+    };
+    function donutOptions() {
+        return {
+            responsive: true, maintainAspectRatio: false, cutout: '58%', radius: '92%',
+            rotation: -35, animation: { animateRotate: true, animateScale: true, duration: 900, easing: 'easeOutQuart' },
+            layout: { padding: 10 },
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11, weight: 'bold' }, usePointStyle: true, pointStyle: 'circle', padding: 14 } },
+                tooltip: { ...CHART_TOOLTIP, callbacks: { label(ctx) {
+                    const data = ctx.dataset.data || []; const total = data.reduce((a, b) => a + (Number(b) || 0), 0);
+                    const v = Number(ctx.parsed) || 0; const pct = total ? ((v / total) * 100).toFixed(1) : '0.0';
+                    return ` ${v.toLocaleString()} (${pct}%)`;
+                } } }
+            }
+        };
+    }
+    function barOptions() {
+        return {
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 900, easing: 'easeOutQuart' },
+            layout: { padding: { top: 14 } },
+            plugins: { legend: { display: false }, tooltip: { ...CHART_TOOLTIP, callbacks: { label(ctx) { return ` ${(Number(ctx.parsed.y) || 0).toLocaleString()} assets`; } } } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.22)', drawBorder: false }, ticks: { font: { size: 11 } } },
+                x: { grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } }
+            }
+        };
+    }
+    function barDataset(keys) {
+        return {
+            label: 'Total', data: [], borderRadius: 10, borderSkipped: false,
+            maxBarThickness: 62, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)',
+            backgroundColor: gradSet(keys, true),
+            hoverBackgroundColor: gradSet(keys, true),
+            hoverBorderColor: 'rgba(255,255,255,0.95)'
+        };
+    }
+    function donutDataset(keys) {
+        return {
+            data: [], borderWidth: 3, borderColor: '#ffffff', hoverOffset: 16, hoverBorderWidth: 4, spacing: 3,
+            backgroundColor: gradSet(keys, false), hoverBackgroundColor: gradSet(keys, false)
+        };
+    }
     function initCharts() {
         const dateKey = reportResults.dateKey || '';
         const shouldUsePaired = isPairedMode(dateKey) && currentViewMode === 'paired';
@@ -4319,7 +4409,7 @@
         const pieCtx=document.getElementById('pieChart'), barCtx=document.getElementById('barChart');
         if(!pieCtx||!barCtx)return;
         if(pieChart)pieChart.destroy(); if(barChart)barChart.destroy();
-        pieChart=new Chart(pieCtx,{type:'pie',data:{labels:['AEDC (0)','BSS (0)','NYSC (0)'],datasets:[{data:[0,0,0],backgroundColor:['#3b82f6','#22c55e','#f97316']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11,weight:'bold'},usePointStyle:true}}}}});
+        pieChart=new Chart(pieCtx,{type:'doughnut',data:{labels:['AEDC (0)','BSS (0)','NYSC (0)'],datasets:[{...donutDataset(['blue','green','orange']),data:[0,0,0]}]},options:donutOptions()});
         barChart=new Chart(barCtx,{type:'bar',data:{labels:['DT/DSS','HT Pole','Customer','LT Pole','Issues'],datasets:[{label:'Total',data:[0,0,0,0,0],backgroundColor:['#3b82f6','#f97316','#eab308','#22c55e','#ef4444']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
         updateCharts();
     }
@@ -4336,7 +4426,7 @@
         const pieCtx=document.getElementById('pairedPieChart'), barCtx=document.getElementById('pairedBarChart');
         if(!pieCtx||!barCtx)return;
         if(pairedPieChart)pairedPieChart.destroy(); if(pairedBarChart)pairedBarChart.destroy();
-        pairedPieChart=new Chart(pieCtx,{type:'pie',data:{labels:['AEDC/NYSC (0)','BSS/NYSC (0)'],datasets:[{data:[0,0],backgroundColor:['#3b82f6','#22c55e']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11,weight:'bold'},usePointStyle:true}}}}});
+        pairedPieChart=new Chart(pieCtx,{type:'doughnut',data:{labels:['AEDC/NYSC (0)','BSS/NYSC (0)'],datasets:[{...donutDataset(['blue','green']),data:[0,0]}]},options:donutOptions()});
         pairedBarChart=new Chart(barCtx,{type:'bar',data:{labels:['DT/DSS','HT Pole','Customer','LT Pole','Issues'],datasets:[{label:'Total',data:[0,0,0,0,0],backgroundColor:['#3b82f6','#f97316','#eab308','#22c55e','#ef4444']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
         updatePairedCharts(buildTeamData('aedcNysc'),buildTeamData('bssNysc'));
     }
@@ -4460,7 +4550,7 @@
         // Inline styles needed for the exported page (no Tailwind CDN needed — we embed critical CSS)
         const inlineCSS = `
             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
                    background: #f3f4f6; color: #111827; padding: 20px; }
             table { border-collapse: collapse; width: 100%; }
             td, th { padding: 4px 8px; }
@@ -4469,6 +4559,42 @@
             .badge-approved { background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700; }
             .badge-pending  { background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700; }
             .badge-rejected { background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700; }
+            /* ── GIS hero header (full background, exactly as on the dashboard) ── */
+            #dashboardCapture > div:first-child {
+                background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 60%, #db2777 100%) !important;
+                border-radius: 12px !important;
+                padding: 20px 24px !important;
+                box-shadow: 0 6px 24px rgba(29,78,216,0.3) !important;
+                position: relative; overflow: hidden;
+            }
+            #dashboardCapture > div:first-child::after {
+                content: '';
+                position: absolute; inset: 0;
+                background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            }
+            .gis-hero {
+                position: relative; overflow: hidden;
+                border-radius: 20px; margin-bottom: 22px;
+                padding: 0; color: #fff;
+                background: linear-gradient(125deg, #4f46e5 0%, #7c3aed 42%, #a855f7 68%, #e879f9 100%);
+                box-shadow: 0 18px 48px -18px rgba(79,70,229,0.75), 0 2px 6px rgba(15,23,42,0.12);
+            }
+            .gis-hero-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+            .gis-hero-inner { position: relative; z-index: 2; padding: 26px 28px 30px; text-align: center; }
+            .gis-hero-title {
+                font-size: clamp(1.4rem, 2.6vw, 2.35rem); font-weight: 700; line-height: 1.18;
+                margin: 14px auto 0; max-width: 60ch; letter-spacing: -0.02em; color: #fff;
+                text-shadow: 0 3px 14px rgba(49,10,90,0.38);
+            }
+            .gis-hero-rule {
+                width: min(760px, 78%); height: 14px; margin: 20px auto 4px; border-radius: 999px;
+                background: linear-gradient(90deg, rgba(109,40,217,0.35), #6d28d9 18%, #7e22ce 82%, rgba(126,34,206,0.35));
+                box-shadow: inset 0 2px 5px rgba(0,0,0,0.4), 0 6px 18px -10px rgba(0,0,0,0.6);
+            }
+            .gis-hero-sub { font-size: 0.85rem; opacity: 0.9; margin: 10px 0 0; letter-spacing: 0.02em; color: #fff; }
+            .gis-hero-sub:empty { display: none; }
+            /* Interactive hero controls never appear in the export */
+            .gis-hero-actions, .hero-datebar, .hero-pill, .hero-select, .hero-arrow { display: none !important; }
             /* Responsive */
             @media(max-width:768px){ body{ padding:10px; } table{ font-size:10px; } }
         `;
@@ -4479,6 +4605,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=1280, initial-scale=0.25, minimum-scale=0.1, maximum-scale=5.0, user-scalable=yes">
   <title>${escapeHtml(pageTitle)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>${inlineCSS}</style>
 </head>
 <body>
