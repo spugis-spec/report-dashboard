@@ -1134,6 +1134,7 @@
                           <select id="quickDateSelect" onchange="quickJumpToDate(this.value)" class="hero-select">
                             <option value="">Loading dates&#8230;</option>
                           </select>
+                          <button type="button" onclick="openWeeklyReportModal()" class="hero-select" style="cursor:pointer;font-weight:700;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:none;">&#127919; Weekly Target Report</button>
                         </div>
                       </div>
                     </div>
@@ -1144,6 +1145,13 @@
                             <div style="background: white; border-radius: 8px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 3px solid #3b82f6;"><div style="font-weight: 700; color: #3b82f6; font-size: 0.85rem; margin-bottom: 6px; text-align: center;">🏆 AEDC</div><div style="display: flex; gap: 8px;"><div style="flex: 1; background: #eff6ff; padding: 4px 6px; border-radius: 4px;"><div style="font-size: 0.65rem; color: #3b82f6;">🏅 Top</div><div style="font-size: 0.75rem; font-weight: 600; color: #1e40af; line-height: 1.2;" id="aedcTopPerformer">-</div></div><div style="flex: 1; background: #fef2f2; padding: 4px 6px; border-radius: 4px;"><div style="font-size: 0.65rem; color: #dc2626;">📉 Least</div><div style="font-size: 0.75rem; font-weight: 600; color: #991b1b; line-height: 1.2;" id="aedcLeastPerformer">-</div></div></div><div style="text-align: center; margin-top: 6px; font-size: 0.7rem; color: #6b7280;">Total: <span style="font-weight: 700; color: #3b82f6;" id="aedcTotalEntries">0</span></div></div>
                             <div style="background: white; border-radius: 8px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 3px solid #22c55e;"><div style="font-weight: 700; color: #22c55e; font-size: 0.85rem; margin-bottom: 6px; text-align: center;">🏆 BSS</div><div style="display: flex; gap: 8px;"><div style="flex: 1; background: #f0fdf4; padding: 4px 6px; border-radius: 4px;"><div style="font-size: 0.65rem; color: #22c55e;">🏅 Top</div><div style="font-size: 0.75rem; font-weight: 600; color: #166534; line-height: 1.2;" id="bssTopPerformer">-</div></div><div style="flex: 1; background: #fef2f2; padding: 4px 6px; border-radius: 4px;"><div style="font-size: 0.65rem; color: #dc2626;">📉 Least</div><div style="font-size: 0.75rem; font-weight: 600; color: #991b1b; line-height: 1.2;" id="bssLeastPerformer">-</div></div></div><div style="text-align: center; margin-top: 6px; font-size: 0.7rem; color: #6b7280;">Total: <span style="font-weight: 700; color: #22c55e;" id="bssTotalEntries">0</span></div></div>
                             <div style="background: white; border-radius: 8px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 3px solid #f97316;"><div style="font-weight: 700; color: #f97316; font-size: 0.85rem; margin-bottom: 6px; text-align: center;">🏆 NYSC</div><div style="display: flex; gap: 8px;"><div style="flex: 1; background: #fff7ed; padding: 4px 6px; border-radius: 4px;"><div style="font-size: 0.65rem; color: #f97316;">🏅 Top</div><div style="font-size: 0.75rem; font-weight: 600; color: #c2410c; line-height: 1.2;" id="nyscTopPerformer">-</div></div><div style="flex: 1; background: #fef2f2; padding: 4px 6px; border-radius: 4px;"><div style="font-size: 0.65rem; color: #dc2626;">📉 Least</div><div style="font-size: 0.75rem; font-weight: 600; color: #991b1b; line-height: 1.2;" id="nyscLeastPerformer">-</div></div></div><div style="text-align: center; margin-top: 6px; font-size: 0.7rem; color: #6b7280;">Total: <span style="font-weight: 700; color: #f97316;" id="nyscTotalEntries">0</span></div></div>
+                        </div>
+                        <div style="background:linear-gradient(135deg,#eef2ff,#faf5ff);border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;margin-bottom:12px;">
+                            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                                <div style="font-size:0.8rem;font-weight:700;color:#3730a3;">&#127919; Performance vs Management Target</div>
+                                <div style="font-size:0.65rem;color:#4338ca;font-weight:600;">600 MONTHLY &middot; &asymp;30 CAPTURES DAILY &middot; BE PRESENT &middot; BE PRODUCTIVE &middot; BE ACCOUNTABLE</div>
+                            </div>
+                            <div id="targetKpiRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;"></div>
                         </div>
                         <div id="legacyAttendance" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
                             <div style="background: white; border-radius: 6px; padding: 6px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 3px solid #22c55e;"><div style="font-size: 1.1rem;">👥</div><div style="font-size: 0.6rem; color: #6b7280;">Present</div><div style="font-size: 1.25rem; font-weight: 700; color: #22c55e;" id="presentCount">0</div></div>
@@ -3970,7 +3978,8 @@
             const feederIdx = hasWork ? i : -2;
             const feederCell = buildFeederCell(r.username, feeder||'—', group, feederIdx, colors[group].border);
             // Remark cell
-            let remarkCell = buildRemarkCell(r, group, i, colors[group].border);
+            let remarkCell = buildRemarkCellEditable(r, group, i, colors[group].border);
+            statusDisplay = buildStatusCellWithOverride(r, group, i, statusDisplay, isDateRange);
             return `<tr style="background:${i%2===0?colors[group].bg:'#fff'};"><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${i+1}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;">${escapeHtml(r.fullname)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.dss,group,i,'dss',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.ht,group,i,'ht',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.cust,group,i,'cust',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.lt,group,i,'lt',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${makeEditableCell(r.issues,group,i,'issues',colors[group].border)}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;font-weight:600;">${r.total}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;">${statusDisplay}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:100px;max-width:160px;word-break:break-word;">${feederCell}</td><td style="border:1px solid ${colors[group].border};padding:4px 8px;text-align:center;min-width:120px;">${remarkCell}</td></tr>`;
         }).join('');
 
@@ -7525,5 +7534,399 @@
 
     // END MONTHLY PERFORMANCE DASHBOARD
     </script>
+<!-- ==================== PERFORMANCE TARGET MODULE (Daily / Weekly vs Target) ==================== -->
+<div id="weeklyReportModal" class="fixed inset-0 bg-black/50 items-center justify-center z-50 hidden" style="padding:12px;display:none;">
+  <div style="background:white;border-radius:12px;max-width:1150px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:linear-gradient(135deg,#1d4ed8,#7c3aed);">
+      <div>
+        <h2 style="margin:0;font-size:1.05rem;font-weight:700;color:#fff;">🎯 Weekly Performance vs Target</h2>
+        <p style="margin:2px 0 0;font-size:0.72rem;color:#dbeafe;">Target: 600 points / month · ≈30 captures / working day · 150 / 5-day week</p>
+      </div>
+      <button onclick="closeWeeklyReportModal()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+    <div style="padding:14px 18px;">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px;">
+        <div><label style="font-size:0.7rem;font-weight:600;color:#475569;display:block;">Week start</label><input type="date" id="wkStart" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;"></div>
+        <div><label style="font-size:0.7rem;font-weight:600;color:#475569;display:block;">Week end</label><input type="date" id="wkEnd" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;"></div>
+        <div><label style="font-size:0.7rem;font-weight:600;color:#475569;display:block;">Daily target</label><input type="number" id="wkDailyTarget" value="30" min="1" style="width:80px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;"></div>
+        <button onclick="runWeeklyReport()" style="padding:8px 14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">⚙️ Calculate</button>
+        <button onclick="exportWeeklyReportExcel()" style="padding:8px 14px;background:#065f46;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">📊 Export Excel</button>
+        <button onclick="copyWeeklySummary()" style="padding:8px 14px;background:#25D366;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">📋 Copy Summary</button>
+      </div>
+      <div id="wkKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
+      <div id="wkTableWrap" style="overflow-x:auto;"></div>
+      <p style="font-size:0.68rem;color:#64748b;margin-top:10px;">Rules: unreported days are ignored. <b>Excused / Sick days are skipped</b> (no penalty). <b>Absent days are counted as 0</b> so poor attendance shows. Days with a 0 total whose status or remark mentions an <b>ISSUE</b> (e.g. LOGISTICS ISSUE) are <b>excluded</b> from the computation. Each staff target = daily target × the number of days actually counted for that staff.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   PERFORMANCE TARGET MODULE
+   Management target: 600 points / month, ≈30 captures / working day.
+   Adds: per-row Target % column, editable Status + Remark overrides,
+   daily target KPIs, and a Weekly Report generator per staff.
+   ============================================================ */
+const PERF_TARGET = { monthly: 600, daily: 30, workingDays: 20, weekly: 150 };
+
+function perfDailyTarget() {
+    const el = document.getElementById('wkDailyTarget');
+    const v = el ? parseInt(el.value, 10) : PERF_TARGET.daily;
+    return (v && v > 0) ? v : PERF_TARGET.daily;
+}
+function perfIsWeekday(dk) { const d = new Date(dk + 'T00:00:00').getDay(); return d !== 0 && d !== 6; }
+function perfCountWeekdays(startStr, endStr) {
+    if (!startStr) return 1;
+    return enumerateDateKeys(startStr, endStr || startStr).filter(perfIsWeekday).length || 1;
+}
+function perfExpectedDays() {
+    const s = reportResults.dateKey, e = reportResults.endDateKey || reportResults.dateKey;
+    if (!s) return 1;
+    return (s === e) ? 1 : perfCountWeekdays(s, e);
+}
+function perfColor(pct) {
+    if (pct >= 100) return { bg: '#dcfce7', fg: '#166534', bar: '#16a34a' };
+    if (pct >= 70)  return { bg: '#fef3c7', fg: '#92400e', bar: '#d97706' };
+    if (pct >= 40)  return { bg: '#ffedd5', fg: '#c2410c', bar: '#f97316' };
+    return { bg: '#fee2e2', fg: '#991b1b', bar: '#dc2626' };
+}
+function perfPct(total, target) { return target > 0 ? Math.round(((total || 0) / target) * 100) : 0; }
+
+/* ---------- Target column cell ---------- */
+function buildTargetCell(r, borderColor, isDateRange) {
+    const days = isDateRange ? perfExpectedDays() : 1;
+    const target = perfDailyTarget() * days;
+    if (r.status && r.status !== 'present') {
+        return `<span style="font-size:9px;color:#9ca3af;">n/a</span>`;
+    }
+    const pct = perfPct(r.total, target);
+    const c = perfColor(pct);
+    const label = pct >= 100 ? 'MET' : 'BELOW';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <span style="background:${c.bg};color:${c.fg};padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">${pct}% ${label}</span>
+        <span style="font-size:8px;color:#64748b;">${r.total || 0}/${target}${days > 1 ? ` (${days}d)` : ''}</span>
+        <span style="display:block;width:52px;height:4px;background:#e2e8f0;border-radius:3px;overflow:hidden;"><span style="display:block;height:100%;width:${Math.min(100, pct)}%;background:${c.bar};"></span></span>
+    </div>`;
+}
+
+/* ---------- Editable Status override ---------- */
+function perfOv(username) { return (remarksData[username] || {}); }
+/* ---------- Target maths used by Status + Remark ---------- */
+function perfRowTarget(isDateRange) {
+    const days = isDateRange ? perfExpectedDays() : 1;
+    return { days, target: perfDailyTarget() * days };
+}
+function perfOutcomeLabel(pct) {
+    if (pct > 100) return 'EXCEEDED';
+    if (pct === 100) return 'MET';
+    return 'NOT MET';
+}
+
+/* ---------- Status cell: "54 ✓ (180%)" + editable override ---------- */
+function buildStatusCellWithOverride(r, group, index, originalHtml, isDateRange) {
+    const ov = perfOv(r.username).customStatus || '';
+    let html;
+    if (ov) {
+        html = `<span style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${escapeHtml(ov)}</span>`;
+    } else if ((r.status || 'present') === 'present') {
+        const { target } = perfRowTarget(isDateRange);
+        const pct = perfPct(r.total, target);
+        const c = perfColor(pct);
+        html = `<span style="background:${c.bg};color:${c.fg};padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">${r.total || 0} &#10003; (${pct}%)</span>`;
+        if (isAdminMode && !isDateRange) html = originalHtml + `<div style="margin-top:2px;font-size:9px;font-weight:700;color:${c.fg};">(${pct}%)</div>`;
+    } else {
+        html = originalHtml;
+    }
+    if (isAdminMode) {
+        html += `<input class="remark-input" style="width:96px;font-size:9px;margin-top:3px;" value="${escapeHtml(ov)}" placeholder="custom status…" onchange="setCustomStatus('${r.username}', this.value)" title="Type a task-specific status e.g. 'On RPU task', 'Office duty'. Leave blank to use the automatic status with % of target.">`;
+    }
+    return html;
+}
+function setCustomStatus(username, value) {
+    remarksData[username] = remarksData[username] || {};
+    remarksData[username].customStatus = (value || '').trim();
+    perfPersist(`Status note updated`);
+    renderTargetKpis();
+}
+
+/* ---------- Editable Remark ---------- */
+function perfAutoRemark(r, isDateRange) {
+    if ((r.status || 'present') !== 'present') return '';
+    const { target, days } = perfRowTarget(isDateRange);
+    const pct = perfPct(r.total, target);
+    return `${pct}% of target (${perfOutcomeLabel(pct)})${days > 1 ? ` · ${days}d` : ''}`;
+}
+function buildRemarkCellEditable(r, group, index, borderColor) {
+    const isDateRange = reportResults.isDateRange || false;
+    const ov = perfOv(r.username).customRemark || '';
+    const auto = perfAutoRemark(r, isDateRange);
+    const pct = perfPct(r.total, perfRowTarget(isDateRange).target);
+    const c = perfColor(pct);
+    const base = buildRemarkCell(r, group, index, borderColor);
+    const shown = ov
+        ? `<span style="font-size:10px;color:#1d4ed8;font-weight:700;">📝 ${escapeHtml(ov)}</span>`
+        : (auto ? `<span style="font-size:10px;font-weight:700;color:${c.fg};">${auto}</span>` : base);
+    if (isAdminMode) {
+        return `<div style="display:flex;flex-direction:column;gap:3px;align-items:center;">
+            ${shown}
+            ${auto ? base : ''}
+            <input class="remark-input" style="width:150px;font-size:9px;" value="${escapeHtml(ov)}" placeholder="edit remark…" onchange="setCustomRemark('${r.username}', this.value)" title="Overrides the automatic '% of target' remark. Leave blank to restore it.">
+        </div>`;
+    }
+    return shown;
+}
+function setCustomRemark(username, value) {
+    remarksData[username] = remarksData[username] || {};
+    remarksData[username].customRemark = (value || '').trim();
+    perfPersist('Remark updated');
+}
+function perfPersist(msg) {
+    if (typeof showStatus === 'function' && msg) showStatus(msg, 'success');
+    if (firebaseInitialized && currentUser && reportResults.dateKey) saveDashboardToCloud();
+}
+
+/* ---------- Daily target KPI strip ---------- */
+function renderTargetKpis() {
+    const wrap = document.getElementById('targetKpiRow');
+    if (!wrap) return;
+    const isDateRange = reportResults.isDateRange || false;
+    const days = isDateRange ? perfExpectedDays() : 1;
+    const target = perfDailyTarget() * days;
+    let met = 0, below = 0, working = 0, sum = 0, best = null, worst = null;
+    ['aedc', 'bss', 'nysc'].forEach(g => {
+        ((reportResults[g] || {}).results || []).forEach(r => {
+            if (r.status && r.status !== 'present') return;
+            working++; sum += (r.total || 0);
+            if ((r.total || 0) >= target) met++; else below++;
+            if (!best || (r.total || 0) > best.total) best = r;
+            if (!worst || (r.total || 0) < worst.total) worst = r;
+        });
+    });
+    const avg = working ? Math.round(sum / working) : 0;
+    const compliance = working ? Math.round((met / working) * 100) : 0;
+    const card = (label, value, sub, color) => `<div style="background:#fff;border-radius:8px;padding:8px 10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:3px solid ${color};">
+        <div style="font-size:0.6rem;color:#64748b;text-transform:uppercase;letter-spacing:.03em;">${label}</div>
+        <div style="font-size:1.15rem;font-weight:700;color:${color};line-height:1.2;">${value}</div>
+        <div style="font-size:0.6rem;color:#94a3b8;">${sub}</div></div>`;
+    wrap.innerHTML =
+        card('Target / staff', target, days > 1 ? `${perfDailyTarget()} × ${days} working days` : `${perfDailyTarget()} captures for the day`, '#2563eb') +
+        card('Met target', met, `${compliance}% of ${working} working staff`, '#16a34a') +
+        card('Below target', below, 'need immediate improvement', '#dc2626') +
+        card('Avg captures / staff', avg, `monthly pace ${avg * PERF_TARGET.workingDays} vs ${PERF_TARGET.monthly}`, '#7c3aed') +
+        card('Top today', best ? escapeHtml(best.fullname.split(' ')[0]) : '—', best ? `${best.total} captures` : '', '#0891b2') +
+        card('Lowest today', worst ? escapeHtml(worst.fullname.split(' ')[0]) : '—', worst ? `${worst.total} captures` : '', '#b45309');
+}
+
+/* ---------- Weekly report ---------- */
+let weeklyPerfRows = [], weeklyPerfMeta = {};
+
+function openWeeklyReportModal() {
+    const base = reportResults.dateKey || new Date().toISOString().substring(0, 10);
+    const d = new Date(base + 'T00:00:00');
+    const dow = d.getDay();
+    const monday = new Date(d); monday.setDate(d.getDate() - ((dow + 6) % 7));
+    const friday = new Date(monday); friday.setDate(monday.getDate() + 4);
+    document.getElementById('wkStart').value = monday.toISOString().substring(0, 10);
+    document.getElementById('wkEnd').value = friday.toISOString().substring(0, 10);
+    const m = document.getElementById('weeklyReportModal');
+    m.classList.remove('hidden'); m.style.display = 'flex';
+    runWeeklyReport();
+}
+function closeWeeklyReportModal() {
+    const m = document.getElementById('weeklyReportModal');
+    m.classList.add('hidden'); m.style.display = 'none';
+}
+
+function perfHasIssueTag(txt) { return /issue/i.test(txt || ''); }
+
+function buildWeeklyPerformance(startStr, endStr) {
+    const dailyTarget = perfDailyTarget();
+    const dates = enumerateDateKeys(startStr, endStr || startStr);
+    const staff = {}, reportedDates = [];
+    dates.forEach(dk => {
+        let snap = null;
+        if (reportResults.dateKey === dk && (reportResults.endDateKey || dk) === dk) snap = reportResults;
+        else if (savedDashboards && savedDashboards[dk]) snap = savedDashboards[dk];
+        if (!snap) return;
+        reportedDates.push(dk);
+        const weekday = perfIsWeekday(dk);
+        ['aedc', 'bss', 'nysc'].forEach(g => {
+            ((snap[g] || {}).results || []).forEach(r => {
+                if (!r || !r.username) return;
+                const k = r.username;
+                if (!staff[k]) staff[k] = { username: k, fullname: r.fullname || k, group: g.toUpperCase(), total: 0, present: 0, absent: 0, sick: 0, excused: 0, zeroDays: 0, metDays: 0, countedDays: 0, skippedDays: 0, issueDays: 0, days: {}, remark: '', statusNote: '' };
+                const s = staff[k];
+                const st = r.status || 'present';
+                s[st] = (s[st] || 0) + 1;
+                const rd = (snap.remarksData || {})[k] || {};
+                const noteBlob = [rd.customStatus, rd.customRemark, r.zeroRemark, r.excuseRemark].join(' ');
+                const total = r.total || 0;
+
+                // ----- Rules -----
+                // 1. Excused / Sick  -> skipped entirely (staff not penalised)
+                // 2. Absent          -> counted as a 0 day (unseriousness shows)
+                // 3. Present with 0 total AND an ISSUE remark/status (e.g. LOGISTICS ISSUE)
+                //                    -> excluded from the weekly computation
+                if (st === 'excused' || st === 'sick') {
+                    s.skippedDays++;
+                    s.days[dk] = st === 'sick' ? 'S' : 'E';
+                } else if (st === 'present' && total === 0 && perfHasIssueTag(noteBlob)) {
+                    s.issueDays++;
+                    s.days[dk] = 'ISS';
+                } else if (st === 'absent') {
+                    if (weekday) s.countedDays++;
+                    s.days[dk] = 'A';
+                } else {
+                    if (weekday) s.countedDays++;
+                    s.total += total;
+                    if (total === 0) s.zeroDays++;
+                    if (total >= dailyTarget) s.metDays++;
+                    s.days[dk] = total;
+                }
+
+                if (rd.customRemark) s.remark = rd.customRemark;
+                if (rd.customStatus) s.statusNote = rd.customStatus;
+                if (!s.remark && r.zeroRemark) s.remark = r.zeroRemark;
+                if (!s.remark && r.excuseRemark) s.remark = r.excuseRemark;
+            });
+        });
+    });
+    const workingDaysReported = reportedDates.filter(perfIsWeekday).length || reportedDates.length;
+    const rows = Object.values(staff).map(s => {
+        const chargeable = s.countedDays || 0;
+        const expected = dailyTarget * chargeable;
+        const pct = chargeable ? perfPct(s.total, expected) : 0;
+        const workedDays = Math.max(0, (s.present || 0) - (s.zeroDays || 0) - (s.issueDays || 0));
+        const avg = chargeable ? Math.round(s.total / chargeable) : 0;
+        const notAssessed = chargeable === 0;
+        return { ...s, chargeable, workedDays, expected, pct, avg, notAssessed, met: !notAssessed && s.total >= expected, monthlyPace: avg * PERF_TARGET.workingDays };
+    }).sort((a, b) => b.total - a.total);
+    return { rows, dates: reportedDates, allDates: dates, workingDaysReported, dailyTarget, startStr, endStr };
+}
+
+function runWeeklyReport() {
+    const startStr = document.getElementById('wkStart').value;
+    const endStr = document.getElementById('wkEnd').value || startStr;
+    if (!startStr) { showStatus('Pick a week start date', 'error'); return; }
+    const data = buildWeeklyPerformance(startStr, endStr);
+    weeklyPerfRows = data.rows; weeklyPerfMeta = data;
+
+    const met = data.rows.filter(r => r.met).length;
+    const notAssessedCount = data.rows.filter(r => r.notAssessed).length;
+    const below = data.rows.length - met - notAssessedCount;
+    const totalCaps = data.rows.reduce((a, r) => a + r.total, 0);
+    const weekTarget = data.dailyTarget * Math.max(1, data.workingDaysReported);
+    const kpi = (l, v, s, c) => `<div style="background:#f8fafc;border-radius:8px;padding:9px 11px;border-left:3px solid ${c};">
+        <div style="font-size:0.6rem;color:#64748b;text-transform:uppercase;">${l}</div>
+        <div style="font-size:1.15rem;font-weight:700;color:${c};">${v}</div><div style="font-size:0.6rem;color:#94a3b8;">${s}</div></div>`;
+    document.getElementById('wkKpis').innerHTML =
+        kpi('Days reported', data.dates.length, data.dates.length ? data.dates[0] + ' → ' + data.dates[data.dates.length - 1] : 'no saved dashboards', '#2563eb') +
+        kpi('Week target / staff', weekTarget, `${data.dailyTarget} × ${data.workingDaysReported} day(s)`, '#7c3aed') +
+        kpi('Met target', met, `${data.rows.length ? Math.round(met / data.rows.length * 100) : 0}% of ${data.rows.length} staff`, '#16a34a') +
+        kpi('Below target', below, `require management attention${notAssessedCount ? ` · ${notAssessedCount} not assessed` : ''}`, '#dc2626') +
+        kpi('Total captures', totalCaps, `avg ${data.rows.length ? Math.round(totalCaps / data.rows.length) : 0} per staff`, '#0891b2');
+
+    if (!data.rows.length) {
+        document.getElementById('wkTableWrap').innerHTML = `<div style="padding:20px;text-align:center;color:#991b1b;background:#fee2e2;border-radius:8px;font-size:0.8rem;">No saved dashboards found for ${startStr} → ${endStr}. Save the daily dashboards for that week first.</div>`;
+        return;
+    }
+    const dayCols = data.dates.map(dk => `<th style="border:1px solid #cbd5e1;padding:5px 6px;text-align:center;font-size:9px;">${new Date(dk + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })}<br>${dk.substring(5)}</th>`).join('');
+    const body = data.rows.map((r, i) => {
+        const c = perfColor(r.pct);
+        const dayCells = data.dates.map(dk => {
+            const v = r.days[dk];
+            if (v === undefined) return `<td style="border:1px solid #e2e8f0;padding:4px;text-align:center;color:#cbd5e1;">–</td>`;
+            if (typeof v === 'string') {
+                if (v === 'A') return `<td style="border:1px solid #e2e8f0;padding:4px;text-align:center;background:#fee2e2;color:#991b1b;font-weight:700;font-size:9px;" title="Absent — counted as 0 against the target">A</td>`;
+                if (v === 'ISS') return `<td style="border:1px solid #e2e8f0;padding:4px;text-align:center;background:#f1f5f9;color:#64748b;font-weight:700;font-size:8px;" title="Issue day (e.g. logistics) — excluded from the weekly computation">ISS</td>`;
+                return `<td style="border:1px solid #e2e8f0;padding:4px;text-align:center;background:#eef2ff;color:#4338ca;font-weight:700;font-size:9px;" title="${v === 'S' ? 'Sick' : 'Excused'} — skipped, not counted">${v}</td>`;
+            }
+            const ok = v >= data.dailyTarget;
+            return `<td style="border:1px solid #e2e8f0;padding:4px;text-align:center;background:${ok ? '#dcfce7' : (v === 0 ? '#fee2e2' : '#fef3c7')};color:${ok ? '#166534' : (v === 0 ? '#991b1b' : '#92400e')};font-weight:600;">${v}</td>`;
+        }).join('');
+        return `<tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'};">
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;">${i + 1}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;font-weight:600;">${escapeHtml(r.fullname)}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:9px;">${r.group}</td>
+            ${dayCells}
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-weight:700;">${r.total}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:10px;">${r.chargeable}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;">${r.expected}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;">${r.avg}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;"><span style="background:${c.bg};color:${c.fg};padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px;">${r.pct}%</span></td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-weight:700;color:${r.met ? '#166534' : '#991b1b'};font-size:10px;">${r.notAssessed ? '⚪ NOT ASSESSED' : (r.met ? '✅ MET' : '❌ NOT MET')}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:9px;">${r.present || 0}P ${r.absent || 0}A ${r.excused || 0}E ${r.sick || 0}S${r.issueDays ? ` ${r.issueDays}ISS` : ''}<div style="font-size:8px;color:#64748b;">${r.chargeable} day(s) counted</div></td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:9px;">${Math.round(r.monthlyPace)} / ${PERF_TARGET.monthly}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;min-width:150px;">${isAdminMode
+                ? `<input class="remark-input" style="width:100%;font-size:9px;" value="${escapeHtml(r.remark || '')}" placeholder="weekly remark…" onchange="setCustomRemark('${r.username}', this.value)">`
+                : `<span style="font-size:9px;color:#475569;">${escapeHtml(r.remark || '—')}</span>`}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('wkTableWrap').innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead><tr style="background:#e0e7ff;">
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">S/N</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;text-align:left;">Staff</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Team</th>
+            ${dayCols}
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Week Total</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Days Counted</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Target</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Avg/Day</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">% Target</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Outcome</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Attendance</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Monthly Pace</th>
+            <th style="border:1px solid #cbd5e1;padding:5px 6px;">Remark</th>
+        </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function exportWeeklyReportExcel() {
+    if (!weeklyPerfRows.length) { showStatus('Calculate the weekly report first', 'error'); return; }
+    const m = weeklyPerfMeta;
+    const header = ['S/N', 'Staff', 'Team', ...m.dates, 'Week Total', 'Days Counted', 'Target', 'Avg/Day', '% Target', 'Outcome', 'Present', 'Absent', 'Excused', 'Sick', 'Issue Days', 'Monthly Pace', 'Remark'];
+    const rows = weeklyPerfRows.map((r, i) => [i + 1, r.fullname, r.group, ...m.dates.map(dk => r.days[dk] === undefined ? '' : r.days[dk]),
+        r.total, r.chargeable, r.expected, r.avg, r.notAssessed ? '' : r.pct + '%', r.notAssessed ? 'NOT ASSESSED' : (r.met ? 'MET' : 'NOT MET'), r.present || 0, r.absent || 0, r.excused || 0, r.sick || 0, r.issueDays || 0, Math.round(r.monthlyPace), r.remark || '']);
+    const ws = XLSX.utils.aoa_to_sheet([[`WEEKLY PERFORMANCE VS TARGET (${m.startStr} to ${m.endStr})`], [`Daily target: ${m.dailyTarget} captures · Monthly target: ${PERF_TARGET.monthly} points`], [], header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Weekly Performance');
+    XLSX.writeFile(wb, `Weekly_Performance_${m.startStr}_to_${m.endStr}.xlsx`);
+}
+
+function copyWeeklySummary() {
+    if (!weeklyPerfRows.length) { showStatus('Calculate the weekly report first', 'error'); return; }
+    const m = weeklyPerfMeta;
+    const met = weeklyPerfRows.filter(r => r.met);
+    const below = weeklyPerfRows.filter(r => !r.met && !r.notAssessed);
+    const notAssessed = weeklyPerfRows.filter(r => r.notAssessed);
+    const lines = [
+        `*WEEKLY PERFORMANCE VS TARGET*`,
+        `${m.startStr} to ${m.endStr} (${m.dates.length} reported day(s))`,
+        `Target: ${m.dailyTarget}/day · ${m.dailyTarget * m.workingDaysReported} for the week · ${PERF_TARGET.monthly}/month`,
+        ``,
+        `✅ *MET TARGET (${met.length})*`,
+        ...met.map((r, i) => `${i + 1}. ${r.fullname} — ${r.total} (${r.pct}%)`),
+        ``,
+        `❌ *BELOW TARGET (${below.length})*`,
+        ...below.map((r, i) => `${i + 1}. ${r.fullname} — ${r.total} (${r.pct}%)${r.remark ? ` — ${r.remark}` : ''}`),
+        ``,
+        ...(notAssessed.length ? [`⚪ *NOT ASSESSED (${notAssessed.length})* — excused / sick / issue days only`, ...notAssessed.map((r, i) => `${i + 1}. ${r.fullname}`), ``] : []),
+        `BE PRESENT · BE PRODUCTIVE · BE ACCOUNTABLE`
+    ];
+    navigator.clipboard.writeText(lines.join('\n')).then(
+        () => showStatus('Weekly summary copied to clipboard', 'success'),
+        () => showStatus('Copy failed — select the text manually', 'error'));
+}
+
+/* ---------- Hook into the existing dashboard render ---------- */
+if (typeof updateDashboard === 'function') {
+    const _perfOrigUpdateDashboard = updateDashboard;
+    updateDashboard = function () {
+        const out = _perfOrigUpdateDashboard.apply(this, arguments);
+        try { renderTargetKpis(); } catch (e) { console.error('target KPI render', e); }
+        return out;
+    };
+}
+</script>
+
 </body>
 </html>
