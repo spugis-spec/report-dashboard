@@ -943,6 +943,7 @@
                     <button onclick="saveMappingsToCloud()" class="flex-1 py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><span>☁️</span> Save Mappings to Cloud</button>
                     <button onclick="loadMappingsFromCloud()" class="py-3 px-6 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-colors">🔄 Reload from Cloud</button>
                     <button onclick="openStaffHistoryModal()" class="py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-colors">📜 Staff History</button>
+                    <button onclick="openBackfillModal()" class="py-3 px-6 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg shadow-md transition-colors">⏪ Backfill Missed Staff</button>
                 </div>
 
                 <!-- NEW / NOT-YET-ONBOARDED ENUMERATORS -->
@@ -7535,6 +7536,39 @@
     // END MONTHLY PERFORMANCE DASHBOARD
     </script>
 <!-- ==================== PERFORMANCE TARGET MODULE (Daily / Weekly vs Target) ==================== -->
+<!-- ==================== BACKFILL MISSED STAFF MODAL ==================== -->
+<div id="backfillModal" class="fixed inset-0 bg-black/50 items-center justify-center z-50 hidden" style="padding:12px;display:none;">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+    <div class="flex justify-between items-start mb-3">
+      <div>
+        <h3 class="text-lg font-bold text-teal-700">⏪ Backfill a Missed Staff into Saved Dates</h3>
+        <p class="text-xs text-gray-500 mt-1 max-w-xl">Use this when someone was left out of the enumerator mapping. With the full data files uploaded, this adds ONLY that person's numbers to each already-saved dashboard in the date range. Every other row, remark, status and total stays exactly as saved — if the person is already present on a date, that date is skipped untouched.</p>
+      </div>
+      <button onclick="closeBackfillModal()" class="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+    </div>
+    <div class="grid sm:grid-cols-2 gap-3">
+      <div><label class="block text-xs font-semibold text-gray-600 mb-1">Group</label>
+        <select id="bfGroup" onchange="populateBackfillStaff()" class="w-full px-2 py-2 border border-gray-300 rounded text-sm">
+          <option value="aedc">AEDC</option><option value="bss">BSS</option><option value="nysc">NYSC</option>
+        </select></div>
+      <div><label class="block text-xs font-semibold text-gray-600 mb-1">Staff (from mapping)</label>
+        <select id="bfStaff" class="w-full px-2 py-2 border border-gray-300 rounded text-sm"></select></div>
+      <div><label class="block text-xs font-semibold text-gray-600 mb-1">From date</label>
+        <input type="date" id="bfStart" class="w-full px-2 py-2 border border-gray-300 rounded text-sm"></div>
+      <div><label class="block text-xs font-semibold text-gray-600 mb-1">To date</label>
+        <input type="date" id="bfEnd" class="w-full px-2 py-2 border border-gray-300 rounded text-sm"></div>
+    </div>
+    <div class="mt-3 text-xs text-gray-600 flex items-center gap-2">
+      <input type="checkbox" id="bfOverwrite"><label for="bfOverwrite">Also refresh the person's numbers on dates where they already exist (otherwise those dates are skipped)</label>
+    </div>
+    <div id="bfLog" class="mt-3 text-xs bg-gray-50 border border-gray-200 rounded p-2 max-h-56 overflow-y-auto hidden"></div>
+    <div class="mt-4 flex gap-3">
+      <button onclick="runStaffBackfill()" id="bfRunBtn" class="flex-1 py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg text-sm">Run Backfill</button>
+      <button onclick="closeBackfillModal()" class="py-2.5 px-4 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-semibold">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="weeklyReportModal" class="fixed inset-0 bg-black/50 items-center justify-center z-50 hidden" style="padding:12px;display:none;">
   <div style="background:white;border-radius:12px;max-width:1150px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:linear-gradient(135deg,#1d4ed8,#7c3aed);">
@@ -7692,10 +7726,19 @@ function renderTargetKpis() {
     const isDateRange = reportResults.isDateRange || false;
     const days = isDateRange ? perfExpectedDays() : 1;
     const target = perfDailyTarget() * days;
-    let met = 0, below = 0, working = 0, sum = 0, best = null, worst = null;
+    let met = 0, below = 0, working = 0, sum = 0, best = null, worst = null, excluded = 0;
+    // Staff on special duty (supervision, office task, etc.) are flagged by a
+    // manually typed custom Status and/or custom Remark. Their low/zero capture
+    // count is expected, so they must never be counted as "Below target" nor
+    // picked as "Lowest today".
+    const onSpecialDuty = r => {
+        const ov = perfOv(r.username) || {};
+        return !!((ov.customStatus || '').trim() || (ov.customRemark || '').trim());
+    };
     ['aedc', 'bss', 'nysc'].forEach(g => {
         ((reportResults[g] || {}).results || []).forEach(r => {
             if (r.status && r.status !== 'present') return;
+            if (onSpecialDuty(r)) { excluded++; return; }
             working++; sum += (r.total || 0);
             if ((r.total || 0) >= target) met++; else below++;
             if (!best || (r.total || 0) > best.total) best = r;
@@ -7711,10 +7754,128 @@ function renderTargetKpis() {
     wrap.innerHTML =
         card('Target / staff', target, days > 1 ? `${perfDailyTarget()} × ${days} working days` : `${perfDailyTarget()} captures for the day`, '#2563eb') +
         card('Met target', met, `${compliance}% of ${working} working staff`, '#16a34a') +
-        card('Below target', below, 'need immediate improvement', '#dc2626') +
+        card('Below target', below, excluded ? `need improvement · ${excluded} on special duty excluded` : 'need immediate improvement', '#dc2626') +
         card('Avg captures / staff', avg, `monthly pace ${avg * PERF_TARGET.workingDays} vs ${PERF_TARGET.monthly}`, '#7c3aed') +
         card('Top today', best ? escapeHtml(best.fullname.split(' ')[0]) : '—', best ? `${best.total} captures` : '', '#0891b2') +
         card('Lowest today', worst ? escapeHtml(worst.fullname.split(' ')[0]) : '—', worst ? `${worst.total} captures` : '', '#b45309');
+}
+
+/* ============================================================
+   BACKFILL A MISSED STAFF INTO ALREADY-SAVED DASHBOARDS
+   Adds one enumerator's real uploaded numbers to each saved
+   dashboards/{date} record in a chosen range, without touching
+   any other row, remark, status or override on those days.
+   ============================================================ */
+function openBackfillModal() {
+    if (!isAdminMode) { showStatus('Admin only', 'error'); return; }
+    ['aedc','bss','nysc'].forEach(g=>updateMappings(g));
+    populateBackfillStaff();
+    const dates = Object.keys(savedDashboards || {}).sort();
+    if (dates.length) {
+        document.getElementById('bfStart').value = dates[0];
+        document.getElementById('bfEnd').value = dates[dates.length-1];
+    }
+    document.getElementById('bfLog').classList.add('hidden');
+    document.getElementById('bfLog').innerHTML = '';
+    const m = document.getElementById('backfillModal');
+    m.classList.remove('hidden'); m.style.display = 'flex';
+}
+function closeBackfillModal() {
+    const m = document.getElementById('backfillModal');
+    m.classList.add('hidden'); m.style.display = 'none';
+}
+function populateBackfillStaff() {
+    const g = document.getElementById('bfGroup').value;
+    const sel = document.getElementById('bfStaff');
+    const entries = Array.from(usernameMappings[g] ? usernameMappings[g].entries() : []);
+    sel.innerHTML = entries.length
+        ? entries.map(([u,n])=>`<option value="${escapeHtml(u)}">${escapeHtml(n)} (${escapeHtml(u)})</option>`).join('')
+        : '<option value="">— no enumerators mapped —</option>';
+}
+function bfLog(msg, color) {
+    const el = document.getElementById('bfLog');
+    el.classList.remove('hidden');
+    el.innerHTML += `<div style="color:${color||'#334155'};">${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+}
+function bfComputeRow(group, username, fullname, dateKey) {
+    const d = new Date(dateKey + 'T00:00:00');
+    const dss  = (processDataSheet(uploadedData.dss, d, d).totals.get(username)) || 0;
+    const ht   = (processDataSheet(uploadedData.ht, d, d).totals.get(username)) || 0;
+    const lt   = (processDataSheet(uploadedData.lt, d, d).totals.get(username)) || 0;
+    const cust = (processDataSheet(uploadedData.cust, d, d).totals.get(username)) || 0;
+    const issues = (processDataSheet(uploadedData.issues, d, d).totals.get(username)) || 0;
+    const total = dss + ht + cust + lt + issues;
+    let status = 'present', excuseRemark = '', excuseApproval = 'pending';
+    if (total === 0 && group === 'nysc' && typeof shouldBeExcused === 'function' && shouldBeExcused(fullname, dateKey)) {
+        status = 'excused'; excuseRemark = 'On CDS'; excuseApproval = 'approved';
+    }
+    return { username, fullname, dss, ht, cust, lt, issues, total, status,
+        excuseRemark, excuseApproval, zeroRemark: '',
+        savedFeeder: total > 0 ? (getTopFeeder(username, dateKey, dateKey) || '') : '' };
+}
+async function runStaffBackfill() {
+    if (!firebaseInitialized || !currentUser) { showStatus('Please login as admin', 'error'); return; }
+    const group = document.getElementById('bfGroup').value;
+    const username = document.getElementById('bfStaff').value;
+    const start = document.getElementById('bfStart').value;
+    const end = document.getElementById('bfEnd').value;
+    const overwrite = document.getElementById('bfOverwrite').checked;
+    if (!username) { showStatus('Pick a staff member', 'error'); return; }
+    if (!start || !end || end < start) { showStatus('Pick a valid date range', 'error'); return; }
+    if (!Object.values(uploadedData).some(d => d)) { showStatus('Upload the data file(s) covering these dates first', 'error'); return; }
+    const fullname = usernameMappings[group].get(username) || username;
+    const btn = document.getElementById('bfRunBtn');
+    btn.disabled = true; btn.textContent = 'Working…';
+    document.getElementById('bfLog').innerHTML = '';
+    bfLog(`<b>${escapeHtml(fullname)}</b> — ${start} to ${end}`);
+    let patched = 0, skippedExisting = 0, noSave = 0, failed = 0;
+    try {
+        for (const dateKey of enumerateDateKeys(start, end)) {
+            try {
+                const ref = database.ref(`dashboards/${dateKey}`);
+                const saved = (await ref.once('value')).val();
+                if (!saved) { noSave++; continue; }
+                if (!saved[group]) { bfLog(`${dateKey}: no ${group.toUpperCase()} section — skipped`, '#b45309'); continue; }
+                const list = toArray(saved[group].results);
+                const idx = list.findIndex(r => r && r.username === username);
+                if (idx >= 0 && !overwrite) { skippedExisting++; continue; }
+                const row = bfComputeRow(group, username, fullname, dateKey);
+                if (idx >= 0) {
+                    // keep whatever the admin had already set on that saved day
+                    const prev = list[idx];
+                    row.status = prev.status || row.status;
+                    row.excuseRemark = prev.excuseRemark || row.excuseRemark;
+                    row.excuseApproval = prev.excuseApproval || row.excuseApproval;
+                    row.zeroRemark = prev.zeroRemark || '';
+                    list[idx] = row;
+                } else {
+                    list.push(row);
+                }
+                list.sort((a, b) => (b.total || 0) - (a.total || 0));
+                const totals = { dss:0, ht:0, cust:0, lt:0, issues:0, total:0 };
+                list.forEach(r => { totals.dss+=r.dss||0; totals.ht+=r.ht||0; totals.cust+=r.cust||0; totals.lt+=r.lt||0; totals.issues+=r.issues||0; totals.total+=r.total||0; });
+                saved[group].results = list;
+                saved[group].totals = totals;
+                saved.savedAt = Date.now();
+                saved.savedBy = currentUser.email;
+                await ref.set(saved);
+                patched++;
+                bfLog(`${dateKey}: ${idx>=0?'refreshed':'added'} — ${row.total} captures`, '#15803d');
+            } catch (e) {
+                failed++; bfLog(`${dateKey}: failed — ${escapeHtml(e.message)}`, '#dc2626');
+            }
+        }
+        bfLog(`<b>Done.</b> ${patched} saved dashboard(s) updated · ${skippedExisting} already had this staff · ${noSave} date(s) had no saved dashboard · ${failed} failed.`, '#0f172a');
+        showStatus(`Backfill complete: ${patched} saved date(s) updated for ${fullname}`, patched ? 'success' : 'info');
+        await loadSavedDashboards();
+        if (reportResults.dateKey && !reportResults.isDateRange &&
+            reportResults.dateKey >= start && reportResults.dateKey <= end) {
+            bfLog('Tip: reload the currently displayed date from the cloud to see the new row.', '#64748b');
+        }
+    } finally {
+        btn.disabled = false; btn.textContent = 'Run Backfill';
+    }
 }
 
 /* ---------- Weekly report ---------- */
