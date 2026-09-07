@@ -7586,6 +7586,17 @@
         <button onclick="runWeeklyReport()" style="padding:8px 14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">⚙️ Calculate</button>
         <button onclick="exportWeeklyReportExcel()" style="padding:8px 14px;background:#065f46;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">📊 Export Excel</button>
         <button onclick="copyWeeklySummary()" style="padding:8px 14px;background:#25D366;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">📋 Copy Summary</button>
+        <button onclick="exportWeeklyReportHTML()" style="padding:8px 14px;background:#4338ca;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">🌐 Export HTML</button>
+        <button id="wkEditToggleBtn" onclick="toggleWeeklyEditPanel()" style="padding:8px 14px;background:#b45309;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔒 Unlock Editing</button>
+      </div>
+      <div id="wkAuthPanel" style="display:none;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:0.75rem;font-weight:700;color:#9a3412;margin-bottom:6px;">🔐 Admin authorisation required to edit Outcome &amp; Remark</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <input type="email" id="wkAuthEmail" placeholder="Admin email" style="padding:7px 9px;border:1px solid #fdba74;border-radius:6px;font-size:0.78rem;min-width:200px;">
+          <input type="password" id="wkAuthPass" placeholder="Admin password" onkeypress="if(event.key==='Enter')unlockWeeklyEditing()" style="padding:7px 9px;border:1px solid #fdba74;border-radius:6px;font-size:0.78rem;min-width:180px;">
+          <button onclick="unlockWeeklyEditing()" id="wkAuthBtn" style="padding:7px 14px;background:#ea580c;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">Authorise</button>
+          <span id="wkAuthMsg" style="font-size:0.72rem;color:#dc2626;"></span>
+        </div>
       </div>
       <div id="wkKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
       <div id="wkTableWrap" style="overflow-x:auto;"></div>
@@ -7891,7 +7902,7 @@ function openWeeklyReportModal() {
     document.getElementById('wkEnd').value = friday.toISOString().substring(0, 10);
     const m = document.getElementById('weeklyReportModal');
     m.classList.remove('hidden'); m.style.display = 'flex';
-    runWeeklyReport();
+    if (isAdminMode) wkApplyUnlocked(); else runWeeklyReport();
 }
 function closeWeeklyReportModal() {
     const m = document.getElementById('weeklyReportModal');
@@ -7915,7 +7926,7 @@ function buildWeeklyPerformance(startStr, endStr) {
             ((snap[g] || {}).results || []).forEach(r => {
                 if (!r || !r.username) return;
                 const k = r.username;
-                if (!staff[k]) staff[k] = { username: k, fullname: r.fullname || k, group: g.toUpperCase(), total: 0, present: 0, absent: 0, sick: 0, excused: 0, zeroDays: 0, metDays: 0, countedDays: 0, skippedDays: 0, issueDays: 0, days: {}, remark: '', statusNote: '' };
+                if (!staff[k]) staff[k] = { username: k, fullname: r.fullname || k, group: g.toUpperCase(), total: 0, present: 0, absent: 0, sick: 0, excused: 0, zeroDays: 0, metDays: 0, countedDays: 0, skippedDays: 0, issueDays: 0, issueNotes: [], days: {}, remark: '', statusNote: '' };
                 const s = staff[k];
                 const st = r.status || 'present';
                 s[st] = (s[st] || 0) + 1;
@@ -7933,6 +7944,7 @@ function buildWeeklyPerformance(startStr, endStr) {
                     s.days[dk] = st === 'sick' ? 'S' : 'E';
                 } else if (st === 'present' && total === 0 && perfHasIssueTag(noteBlob)) {
                     s.issueDays++;
+                    s.issueNotes.push(wkIssueReason(noteBlob));
                     s.days[dk] = 'ISS';
                 } else if (st === 'absent') {
                     if (weekday) s.countedDays++;
@@ -7953,14 +7965,20 @@ function buildWeeklyPerformance(startStr, endStr) {
         });
     });
     const workingDaysReported = reportedDates.filter(perfIsWeekday).length || reportedDates.length;
+    const ovAll = wkOverrides();
     const rows = Object.values(staff).map(s => {
+        const ov = ovAll[s.username] || {};
         const chargeable = s.countedDays || 0;
         const expected = dailyTarget * chargeable;
         const pct = chargeable ? perfPct(s.total, expected) : 0;
         const workedDays = Math.max(0, (s.present || 0) - (s.zeroDays || 0) - (s.issueDays || 0));
         const avg = chargeable ? Math.round(s.total / chargeable) : 0;
         const notAssessed = chargeable === 0;
-        return { ...s, chargeable, workedDays, expected, pct, avg, notAssessed, met: !notAssessed && s.total >= expected, monthlyPace: avg * PERF_TARGET.workingDays };
+        const outcomeOv = (ov.outcome || '').trim();
+        const remarkOv = (ov.remark || '').trim();
+        const exempt = !!outcomeOv && !/^(MET|NOT MET)$/i.test(outcomeOv);
+        return { ...s, chargeable, workedDays, expected, pct, avg, notAssessed, met: !notAssessed && s.total >= expected,
+            outcomeOv, remarkOv, exempt, monthlyPace: avg * PERF_TARGET.workingDays };
     }).sort((a, b) => b.total - a.total);
     return { rows, dates: reportedDates, allDates: dates, workingDaysReported, dailyTarget, startStr, endStr };
 }
@@ -7972,9 +7990,10 @@ function runWeeklyReport() {
     const data = buildWeeklyPerformance(startStr, endStr);
     weeklyPerfRows = data.rows; weeklyPerfMeta = data;
 
-    const met = data.rows.filter(r => r.met).length;
-    const notAssessedCount = data.rows.filter(r => r.notAssessed).length;
-    const below = data.rows.length - met - notAssessedCount;
+    const exemptCount = data.rows.filter(r => r.exempt).length;
+    const met = data.rows.filter(r => !r.exempt && r.met).length;
+    const notAssessedCount = data.rows.filter(r => !r.exempt && r.notAssessed).length;
+    const below = data.rows.filter(r => !r.exempt && !r.met && !r.notAssessed).length;
     const totalCaps = data.rows.reduce((a, r) => a + r.total, 0);
     const weekTarget = data.dailyTarget * Math.max(1, data.workingDaysReported);
     const kpi = (l, v, s, c) => `<div style="background:#f8fafc;border-radius:8px;padding:9px 11px;border-left:3px solid ${c};">
@@ -7984,7 +8003,7 @@ function runWeeklyReport() {
         kpi('Days reported', data.dates.length, data.dates.length ? data.dates[0] + ' → ' + data.dates[data.dates.length - 1] : 'no saved dashboards', '#2563eb') +
         kpi('Week target / staff', weekTarget, `${data.dailyTarget} × ${data.workingDaysReported} day(s)`, '#7c3aed') +
         kpi('Met target', met, `${data.rows.length ? Math.round(met / data.rows.length * 100) : 0}% of ${data.rows.length} staff`, '#16a34a') +
-        kpi('Below target', below, `require management attention${notAssessedCount ? ` · ${notAssessedCount} not assessed` : ''}`, '#dc2626') +
+        kpi('Below target', below, `require management attention${notAssessedCount ? ` · ${notAssessedCount} not assessed` : ''}${exemptCount ? ` · ${exemptCount} on special assignment` : ''}`, '#dc2626') +
         kpi('Total captures', totalCaps, `avg ${data.rows.length ? Math.round(totalCaps / data.rows.length) : 0} per staff`, '#0891b2');
 
     if (!data.rows.length) {
@@ -8015,12 +8034,10 @@ function runWeeklyReport() {
             <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;">${r.expected}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;">${r.avg}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;"><span style="background:${c.bg};color:${c.fg};padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px;">${r.pct}%</span></td>
-            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-weight:700;color:${r.met ? '#166534' : '#991b1b'};font-size:10px;">${r.notAssessed ? '⚪ NOT ASSESSED' : (r.met ? '✅ MET' : '❌ NOT MET')}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;min-width:120px;">${wkOutcomeCell(r)}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:9px;">${r.present || 0}P ${r.absent || 0}A ${r.excused || 0}E ${r.sick || 0}S${r.issueDays ? ` ${r.issueDays}ISS` : ''}<div style="font-size:8px;color:#64748b;">${r.chargeable} day(s) counted</div></td>
             <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:9px;">${Math.round(r.monthlyPace)} / ${PERF_TARGET.monthly}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 6px;min-width:150px;">${isAdminMode
-                ? `<input class="remark-input" style="width:100%;font-size:9px;" value="${escapeHtml(r.remark || '')}" placeholder="weekly remark…" onchange="setCustomRemark('${r.username}', this.value)">`
-                : `<span style="font-size:9px;color:#475569;">${escapeHtml(r.remark || '—')}</span>`}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 6px;min-width:170px;">${wkRemarkCell(r)}</td>
         </tr>`;
     }).join('');
     document.getElementById('wkTableWrap').innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
@@ -8041,12 +8058,212 @@ function runWeeklyReport() {
         </tr></thead><tbody>${body}</tbody></table>`;
 }
 
+/* ---------- Editable Outcome / Remark (admin-authorised) ---------- */
+let wkEditUnlocked = false;
+const WK_OUTCOME_PRESETS = ['MET', 'NOT MET', 'SPECIAL ASSIGNMENT', 'ON SUPERVISION', 'OFFICE DUTY', 'ON TRAINING', 'RPU EXERCISE', 'EXCUSED', 'NOT ASSESSED'];
+
+function wkOverrideKey() {
+    const a = (document.getElementById('wkStart') || {}).value || '';
+    const b = (document.getElementById('wkEnd') || {}).value || '';
+    return `wkOverrides_${a}_${b}`;
+}
+function wkOverrides() {
+    try { return JSON.parse(localStorage.getItem(wkOverrideKey()) || '{}'); } catch (e) { return {}; }
+}
+function wkSaveOverride(username, field, value) {
+    const all = wkOverrides();
+    all[username] = all[username] || {};
+    all[username][field] = (value || '').trim();
+    if (!all[username].outcome && !all[username].remark) delete all[username];
+    try { localStorage.setItem(wkOverrideKey(), JSON.stringify(all)); } catch (e) {}
+}
+function setWeeklyOutcome(username, value) {
+    if (!wkEditUnlocked) { showStatus('Unlock editing with admin access first', 'error'); return; }
+    if (value === '__custom') {
+        const typed = prompt('Type the outcome to show for this staff (e.g. ON SPECIAL ASSIGNMENT):', '');
+        if (typed === null) { runWeeklyReport(); return; }
+        value = typed;
+    }
+    wkSaveOverride(username, 'outcome', value);
+    runWeeklyReport();
+}
+function setWeeklyRemark(username, value) {
+    if (!wkEditUnlocked) { showStatus('Unlock editing with admin access first', 'error'); return; }
+    wkSaveOverride(username, 'remark', value);
+    runWeeklyReport();
+}
+function toggleWeeklyEditPanel() {
+    if (wkEditUnlocked) {
+        wkEditUnlocked = false;
+        document.getElementById('wkEditToggleBtn').textContent = '🔒 Unlock Editing';
+        document.getElementById('wkEditToggleBtn').style.background = '#b45309';
+        document.getElementById('wkAuthPanel').style.display = 'none';
+        runWeeklyReport();
+        return;
+    }
+    if (isAdminMode) { wkApplyUnlocked(); return; }
+    const panel = document.getElementById('wkAuthPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+function wkApplyUnlocked() {
+    wkEditUnlocked = true;
+    const btn = document.getElementById('wkEditToggleBtn');
+    btn.textContent = '✏️ Editing On (click to lock)';
+    btn.style.background = '#15803d';
+    document.getElementById('wkAuthPanel').style.display = 'none';
+    showStatus('Editing enabled for Outcome & Remark', 'success');
+    runWeeklyReport();
+}
+async function unlockWeeklyEditing() {
+    const email = (document.getElementById('wkAuthEmail').value || '').trim();
+    const pass = document.getElementById('wkAuthPass').value || '';
+    const msg = document.getElementById('wkAuthMsg');
+    const btn = document.getElementById('wkAuthBtn');
+    msg.textContent = '';
+    if (!email || !pass) { msg.textContent = 'Enter admin email and password'; return; }
+    if (typeof firebase === 'undefined' || !firebase.auth) { msg.textContent = 'Authentication service unavailable'; return; }
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+        const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+        currentUser = cred.user;
+        document.getElementById('wkAuthPass').value = '';
+        wkApplyUnlocked();
+    } catch (e) {
+        msg.textContent = (e && e.message) || 'Invalid admin credentials';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Authorise';
+    }
+}
+
+/* Pull a short human reason out of a status/remark blob, e.g. "Logistics issue" */
+function wkIssueReason(blob) {
+    const txt = (blob || '').replace(/\s+/g, ' ').trim();
+    if (!txt) return 'Issue';
+    const parts = txt.split(/[.;,|\/]+/).map(t => t.trim()).filter(Boolean);
+    const hit = parts.find(t => /issue/i.test(t)) || txt;
+    return hit.length > 40 ? hit.substring(0, 40) + '…' : hit;
+}
+/* Auto remark: counts each issue type and states the discounted days */
+function wkAutoRemark(r) {
+    const bits = [];
+    if (r.issueDays) {
+        const counts = {};
+        (r.issueNotes || []).forEach(n => {
+            const key = (n || 'Issue').toLowerCase();
+            counts[key] = counts[key] || { label: n || 'Issue', n: 0 };
+            counts[key].n++;
+        });
+        const list = Object.values(counts).map(c => `${c.label} ×${c.n}`).join(', ');
+        bits.push(`${list || 'Issue days'} — ${r.issueDays} day(s) discounted from the target`);
+    }
+    if (r.skippedDays) bits.push(`${r.skippedDays} excused/sick day(s) not counted`);
+    if (!bits.length && r.remark) bits.push(r.remark);
+    return bits.join(' · ');
+}
+function wkOutcomeText(r) {
+    if (r.outcomeOv) return r.outcomeOv;
+    return r.notAssessed ? 'NOT ASSESSED' : (r.met ? 'MET' : 'NOT MET');
+}
+function wkRemarkText(r) { return r.remarkOv || wkAutoRemark(r) || ''; }
+function wkOutcomeColor(r) {
+    const t = wkOutcomeText(r).toUpperCase();
+    if (r.exempt) return '#1d4ed8';
+    if (t.indexOf('NOT MET') === 0) return '#991b1b';
+    if (t.indexOf('MET') === 0) return '#166534';
+    return '#475569';
+}
+function wkOutcomeCell(r) {
+    const color = wkOutcomeColor(r);
+    const icon = r.exempt ? '🛠️' : (r.outcomeOv ? '' : (r.notAssessed ? '⚪ ' : (r.met ? '✅ ' : '❌ ')));
+    const label = `<div style="font-weight:700;color:${color};font-size:10px;">${icon}${escapeHtml(wkOutcomeText(r))}</div>`;
+    if (!wkEditUnlocked) return label;
+    const opts = ['<option value="">— automatic —</option>']
+        .concat(WK_OUTCOME_PRESETS.map(o => `<option value="${o}"${r.outcomeOv.toUpperCase() === o ? ' selected' : ''}>${o}</option>`))
+        .concat([`<option value="__custom">Custom…</option>`]).join('');
+    const custom = r.outcomeOv && WK_OUTCOME_PRESETS.indexOf(r.outcomeOv.toUpperCase()) === -1
+        ? `<div style="font-size:8px;color:#1d4ed8;">custom: ${escapeHtml(r.outcomeOv)}</div>` : '';
+    return `${label}${custom}<select style="margin-top:3px;font-size:9px;padding:2px;border:1px solid #cbd5e1;border-radius:4px;max-width:120px;" onchange="setWeeklyOutcome('${r.username}', this.value)">${opts}</select>`;
+}
+function wkRemarkCell(r) {
+    const shown = `<span style="font-size:9px;color:#475569;">${escapeHtml(wkRemarkText(r) || '—')}</span>`;
+    if (!wkEditUnlocked) return shown;
+    return `${shown}<input class="remark-input" style="width:100%;font-size:9px;margin-top:3px;" value="${escapeHtml(r.remarkOv)}" placeholder="edit remark…" onchange="setWeeklyRemark('${r.username}', this.value)" title="Leave blank to restore the automatic remark">`;
+}
+
+function exportWeeklyReportHTML() {
+    if (!weeklyPerfRows.length) { showStatus('Calculate the weekly report first', 'error'); return; }
+    const m = weeklyPerfMeta;
+    const dayCols = m.dates.map(dk => `<th>${new Date(dk + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })}<br>${dk.substring(5)}</th>`).join('');
+    const body = weeklyPerfRows.map((r, i) => {
+        const cells = m.dates.map(dk => {
+            const v = r.days[dk];
+            if (v === undefined) return '<td class="c muted">–</td>';
+            if (typeof v === 'string') return `<td class="c tag-${v}">${v}</td>`;
+            return `<td class="c ${v >= m.dailyTarget ? 'ok' : (v === 0 ? 'bad' : 'warn')}">${v}</td>`;
+        }).join('');
+        return `<tr>
+            <td class="c">${i + 1}</td><td><b>${escapeHtml(r.fullname)}</b></td><td class="c">${r.group}</td>
+            ${cells}
+            <td class="c"><b>${r.total}</b></td><td class="c">${r.chargeable}</td><td class="c">${r.expected}</td>
+            <td class="c">${r.avg}</td><td class="c">${r.notAssessed ? '' : r.pct + '%'}</td>
+            <td class="c" style="color:${wkOutcomeColor(r)};font-weight:700;">${escapeHtml(wkOutcomeText(r))}</td>
+            <td class="c">${r.present || 0}P ${r.absent || 0}A ${r.excused || 0}E ${r.sick || 0}S${r.issueDays ? ' ' + r.issueDays + 'ISS' : ''}</td>
+            <td class="c">${Math.round(r.monthlyPace)} / ${PERF_TARGET.monthly}</td>
+            <td>${escapeHtml(wkRemarkText(r) || '—')}</td>
+        </tr>`;
+    }).join('');
+    const met = weeklyPerfRows.filter(r => !r.exempt && r.met).length;
+    const exempt = weeklyPerfRows.filter(r => r.exempt).length;
+    const below = weeklyPerfRows.filter(r => !r.exempt && !r.met && !r.notAssessed).length;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Performance vs Target (${m.startStr} to ${m.endStr})</title>
+<style>
+body{font-family:'DM Sans',Segoe UI,Arial,sans-serif;background:#f0f4f8;color:#0f172a;margin:0;padding:18px;}
+.wrap{max-width:1280px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);overflow:hidden;}
+.hd{background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;padding:16px 20px;}
+.hd h1{margin:0;font-size:1.1rem;} .hd p{margin:4px 0 0;font-size:.75rem;color:#dbeafe;}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:14px 20px;}
+.kpi{background:#f8fafc;border-left:3px solid #2563eb;border-radius:8px;padding:9px 11px;}
+.kpi b{display:block;font-size:1.15rem;} .kpi span{font-size:.62rem;color:#64748b;text-transform:uppercase;}
+table{width:100%;border-collapse:collapse;font-size:11px;} th,td{border:1px solid #e2e8f0;padding:5px 6px;}
+th{background:#e0e7ff;} .c{text-align:center;} .ok{background:#dcfce7;color:#166534;font-weight:600;}
+.bad{background:#fee2e2;color:#991b1b;font-weight:600;} .warn{background:#fef3c7;color:#92400e;font-weight:600;}
+.muted{color:#cbd5e1;} .tag-A{background:#fee2e2;color:#991b1b;font-weight:700;} .tag-ISS{background:#f1f5f9;color:#64748b;font-weight:700;}
+.tag-E,.tag-S{background:#eef2ff;color:#4338ca;font-weight:700;}
+.note{padding:12px 20px;font-size:.68rem;color:#64748b;}
+</style></head><body><div class="wrap">
+<div class="hd"><h1>🎯 Weekly Performance vs Target</h1>
+<p>${m.startStr} to ${m.endStr} · daily target ${m.dailyTarget} captures · monthly target ${PERF_TARGET.monthly}</p></div>
+<div class="kpis">
+<div class="kpi"><span>Days reported</span><b>${m.dates.length}</b></div>
+<div class="kpi"><span>Met target</span><b>${met}</b></div>
+<div class="kpi"><span>Below target</span><b>${below}</b></div>
+<div class="kpi"><span>Special assignment / exempt</span><b>${exempt}</b></div>
+<div class="kpi"><span>Total captures</span><b>${weeklyPerfRows.reduce((a, r) => a + r.total, 0)}</b></div>
+</div>
+<div style="overflow-x:auto;padding:0 20px 16px;"><table><thead><tr>
+<th>S/N</th><th style="text-align:left;">Staff</th><th>Team</th>${dayCols}
+<th>Week Total</th><th>Days Counted</th><th>Target</th><th>Avg/Day</th><th>% Target</th>
+<th>Outcome</th><th>Attendance</th><th>Monthly Pace</th><th>Remark</th>
+</tr></thead><tbody>${body}</tbody></table></div>
+<div class="note">Excused/sick days are skipped. Absent days count as 0. Issue days (e.g. logistics) are counted in the remark and discounted from the days used for the target. Staff on special assignment or supervision carry a manually authorised outcome.<br>Generated ${new Date().toLocaleString()}</div>
+</div></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Weekly_Performance_${m.startStr}_to_${m.endStr}.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus('✅ Weekly report exported as HTML', 'success');
+}
+
 function exportWeeklyReportExcel() {
     if (!weeklyPerfRows.length) { showStatus('Calculate the weekly report first', 'error'); return; }
     const m = weeklyPerfMeta;
     const header = ['S/N', 'Staff', 'Team', ...m.dates, 'Week Total', 'Days Counted', 'Target', 'Avg/Day', '% Target', 'Outcome', 'Present', 'Absent', 'Excused', 'Sick', 'Issue Days', 'Monthly Pace', 'Remark'];
     const rows = weeklyPerfRows.map((r, i) => [i + 1, r.fullname, r.group, ...m.dates.map(dk => r.days[dk] === undefined ? '' : r.days[dk]),
-        r.total, r.chargeable, r.expected, r.avg, r.notAssessed ? '' : r.pct + '%', r.notAssessed ? 'NOT ASSESSED' : (r.met ? 'MET' : 'NOT MET'), r.present || 0, r.absent || 0, r.excused || 0, r.sick || 0, r.issueDays || 0, Math.round(r.monthlyPace), r.remark || '']);
+        r.total, r.chargeable, r.expected, r.avg, r.notAssessed ? '' : r.pct + '%', wkOutcomeText(r), r.present || 0, r.absent || 0, r.excused || 0, r.sick || 0, r.issueDays || 0, Math.round(r.monthlyPace), wkRemarkText(r) || '']);
     const ws = XLSX.utils.aoa_to_sheet([[`WEEKLY PERFORMANCE VS TARGET (${m.startStr} to ${m.endStr})`], [`Daily target: ${m.dailyTarget} captures · Monthly target: ${PERF_TARGET.monthly} points`], [], header, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Weekly Performance');
@@ -8056,9 +8273,10 @@ function exportWeeklyReportExcel() {
 function copyWeeklySummary() {
     if (!weeklyPerfRows.length) { showStatus('Calculate the weekly report first', 'error'); return; }
     const m = weeklyPerfMeta;
-    const met = weeklyPerfRows.filter(r => r.met);
-    const below = weeklyPerfRows.filter(r => !r.met && !r.notAssessed);
-    const notAssessed = weeklyPerfRows.filter(r => r.notAssessed);
+    const met = weeklyPerfRows.filter(r => !r.exempt && r.met);
+    const below = weeklyPerfRows.filter(r => !r.exempt && !r.met && !r.notAssessed);
+    const notAssessed = weeklyPerfRows.filter(r => r.notAssessed && !r.exempt);
+    const exemptRows = weeklyPerfRows.filter(r => r.exempt);
     const lines = [
         `*WEEKLY PERFORMANCE VS TARGET*`,
         `${m.startStr} to ${m.endStr} (${m.dates.length} reported day(s))`,
@@ -8068,7 +8286,9 @@ function copyWeeklySummary() {
         ...met.map((r, i) => `${i + 1}. ${r.fullname} — ${r.total} (${r.pct}%)`),
         ``,
         `❌ *BELOW TARGET (${below.length})*`,
-        ...below.map((r, i) => `${i + 1}. ${r.fullname} — ${r.total} (${r.pct}%)${r.remark ? ` — ${r.remark}` : ''}`),
+        ...below.map((r, i) => `${i + 1}. ${r.fullname} — ${r.total} (${r.pct}%)${wkRemarkText(r) ? ` — ${wkRemarkText(r)}` : ''}`),
+        ``,
+        ...(exemptRows.length ? [`🛠️ *SPECIAL ASSIGNMENT / SUPERVISION (${exemptRows.length})*`, ...exemptRows.map((r, i) => `${i + 1}. ${r.fullname} — ${wkOutcomeText(r)}`), ``] : []),
         ``,
         ...(notAssessed.length ? [`⚪ *NOT ASSESSED (${notAssessed.length})* — excused / sick / issue days only`, ...notAssessed.map((r, i) => `${i + 1}. ${r.fullname}`), ``] : []),
         `BE PRESENT · BE PRODUCTIVE · BE ACCOUNTABLE`
