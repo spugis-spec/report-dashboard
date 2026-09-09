@@ -803,7 +803,25 @@
                                 <div class="flex-1 min-w-[200px]"><label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label><input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></div>
                                 <div class="flex-1 min-w-[200px]" id="endDateContainer"><label class="block text-sm font-medium text-gray-700 mb-1">End Date</label><input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled></div>
                             </div>
+                            <div class="w-full mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date format in uploaded files</label>
+                                <select id="dateFormatSelect" onchange="setDateFormatOverride(this.value)" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                    <option value="auto">Auto-detect (ask me if unclear)</option>
+                                    <option value="DMY">Day first — 08/09/2026 means 8 September</option>
+                                    <option value="MDY">Month first — 09/08/2026 means 8 September</option>
+                                </select>
+                                <p id="dateFormatNote" class="text-xs text-gray-500 mt-1"></p>
+                            </div>
                         </div>
+                        <script>
+                            window.addEventListener('DOMContentLoaded', function(){
+                                try {
+                                    var sel = document.getElementById('dateFormatSelect');
+                                    if(sel && typeof dateFormatOverride !== 'undefined') sel.value = dateFormatOverride;
+                                    if(typeof updateDateFormatNote === 'function') updateDateFormatNote();
+                                } catch(e){ console.error(e); }
+                            });
+                        </script>
                     </div>
                     <div class="bg-white rounded-xl shadow-md p-6">
                         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2"><span>📁</span> Upload Data Files</h2>
@@ -1661,7 +1679,16 @@
     // exported as M/D/YYYY and newer ones exported as D/M/YYYY can both be
     // read correctly in the same session. Defaults to day-first (DMY) to
     // match this app's current/standard export format.
-    let dateFormatHint = 'DMY';
+    // Manual override chosen by the user in the "Date format in files" control:
+    // 'auto' (detect per file), 'DMY' (day first, e.g. 08/09/2026 = 8 Sept) or
+    // 'MDY' (month first, e.g. 09/08/2026 = 8 Sept). Persisted in the browser.
+    let dateFormatOverride = (function(){ try { return localStorage.getItem('dateFormatOverride') || 'auto'; } catch(e){ return 'auto'; } })();
+    let dateFormatHint = dateFormatOverride === 'auto' ? 'DMY' : dateFormatOverride;
+    // Set when a file's dates could be read either way (no row anywhere in the
+    // file has a number >12), so we can ask the user what they mean.
+    let dateFormatPromptShown = false;
+    let dateFormatPromptTimer = null;
+    let lastAmbiguousSample = null;
 
     // Scans a column of date strings in a dataset and figures out whether
     // the slash-separated values are Day/Month/Year or Month/Day/Year, using
@@ -1672,14 +1699,18 @@
     // hint is left as-is).
     function detectDateFormatForRows(data, timeCol) {
         if(!data || !timeCol) return null;
+        // A manual choice always wins over auto-detection.
+        if(dateFormatOverride !== 'auto') return dateFormatOverride;
         let dmyEvidence = 0, mdyEvidence = 0;
         const firstVals = new Set(), secondVals = new Set();
+        let sample = null;
         for(let i=0; i<data.length; i++){
             const val = data[i][timeCol];
             if(!val) continue;
             const str = val.toString().trim();
             const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
             if(!m) continue;
+            if(!sample) sample = m[0];
             const a = parseInt(m[1]), b = parseInt(m[2]);
             if(a > 12 && b <= 12) dmyEvidence++;
             else if(b > 12 && a <= 12) mdyEvidence++;
@@ -1694,10 +1725,104 @@
         // spanning more than a single day, the day-of-month slot changes
         // row to row while the month slot stays put. Whichever slot varies
         // LESS is most likely the month.
+        let guess = null;
         if(firstVals.size && secondVals.size && firstVals.size !== secondVals.size){
-            return firstVals.size < secondVals.size ? 'MDY' : 'DMY';
+            guess = firstVals.size < secondVals.size ? 'MDY' : 'DMY';
         }
-        return null;
+        // Genuinely ambiguous (e.g. "09/08/2026" could be 9 Aug or 8 Sept) —
+        // ask the user which one this file means instead of guessing silently.
+        if(sample) queueDateFormatPrompt(sample, guess);
+        return guess;
+    }
+
+    // ── Ambiguous-date confirmation prompt ─────────────────────────────────
+    function readSlashDate(sample, mode){
+        const m = sample.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if(!m) return null;
+        const a = parseInt(m[1]), b = parseInt(m[2]);
+        let yr = parseInt(m[3]); if(m[3].length === 2) yr = yr < 30 ? 2000+yr : 1900+yr;
+        const day = mode === 'MDY' ? b : a, month = mode === 'MDY' ? a : b;
+        const d = new Date(yr, month-1, day);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    function longDate(d){
+        if(!d) return '—';
+        return d.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    }
+    function queueDateFormatPrompt(sample, guess){
+        if(dateFormatPromptShown || dateFormatOverride !== 'auto') return;
+        lastAmbiguousSample = sample;
+        clearTimeout(dateFormatPromptTimer);
+        dateFormatPromptTimer = setTimeout(()=>showDateFormatPrompt(sample, guess), 500);
+    }
+    function showDateFormatPrompt(sample, guess){
+        if(dateFormatPromptShown || dateFormatOverride !== 'auto') return;
+        const dmy = readSlashDate(sample,'DMY'), mdy = readSlashDate(sample,'MDY');
+        if(!dmy || !mdy || dmy.getTime() === mdy.getTime()) return;
+        dateFormatPromptShown = true;
+        // Recommend whichever reading is closest to today without being in the future.
+        const now = Date.now();
+        const score = d => (d.getTime() > now ? Infinity : now - d.getTime());
+        const recommended = score(mdy) < score(dmy) ? 'MDY' : 'DMY';
+        const old = document.getElementById('dateFormatPromptOverlay');
+        if(old) old.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'dateFormatPromptOverlay';
+        wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+        const btn = (mode,label,dateTxt)=>`<button onclick="confirmDateFormat('${mode}')" style="flex:1;min-width:200px;text-align:left;padding:14px;border:2px solid ${mode===recommended?'#2563eb':'#e2e8f0'};background:${mode===recommended?'#eff6ff':'#fff'};border-radius:10px;cursor:pointer;">
+            <div style="font-weight:700;color:#0f172a;">${label}</div>
+            <div style="font-size:0.85rem;color:#2563eb;font-weight:600;margin-top:4px;">${dateTxt}</div>
+            ${mode===recommended?'<div style="font-size:0.72rem;color:#16a34a;font-weight:700;margin-top:4px;">RECOMMENDED</div>':''}
+        </button>`;
+        wrap.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.25);">
+            <h3 style="font-size:1.05rem;font-weight:700;color:#0f172a;margin-bottom:6px;">📅 Confirm the date format in this file</h3>
+            <p style="font-size:0.87rem;color:#475569;margin-bottom:14px;">The dates in the file you just uploaded look like <strong>${sample}</strong>, which can be read two ways. Which one is correct?</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                ${btn('DMY','Day first (DD/MM/YYYY)', longDate(dmy))}
+                ${btn('MDY','Month first (MM/DD/YYYY)', longDate(mdy))}
+            </div>
+            <p style="font-size:0.75rem;color:#94a3b8;margin-top:12px;">Your choice is remembered and can be changed any time under "Date format in files" in the Date Selection panel.</p>
+        </div>`;
+        document.body.appendChild(wrap);
+    }
+    function confirmDateFormat(mode){
+        const el = document.getElementById('dateFormatPromptOverlay');
+        if(el) el.remove();
+        setDateFormatOverride(mode, true);
+    }
+    // Applies a manual date-format choice, remembers it, and refreshes the report.
+    function setDateFormatOverride(mode, fromPrompt){
+        dateFormatOverride = mode;
+        try { localStorage.setItem('dateFormatOverride', mode); } catch(e){}
+        if(mode !== 'auto'){ dateFormatHint = mode; dateFormatPromptShown = true; }
+        else { dateFormatPromptShown = false; }
+        const sel = document.getElementById('dateFormatSelect');
+        if(sel && sel.value !== mode) sel.value = mode;
+        updateDateFormatNote();
+        if(typeof showStatus === 'function'){
+            showStatus(mode === 'auto' ? 'Date format set to auto-detect' :
+                `Dates will be read as ${mode === 'DMY' ? 'day first (DD/MM/YYYY)' : 'month first (MM/DD/YYYY)'}`, 'success');
+        }
+        // Re-run the report so figures update straight away.
+        try {
+            if(typeof generateReport === 'function' && document.getElementById('startDate') &&
+               document.getElementById('startDate').value && Object.values(uploadedData||{}).some(d=>d)){
+                generateReport();
+            }
+        } catch(e){ console.error(e); }
+    }
+    function updateDateFormatNote(){
+        const note = document.getElementById('dateFormatNote');
+        if(!note) return;
+        const sample = lastAmbiguousSample;
+        const mode = dateFormatOverride === 'auto' ? dateFormatHint : dateFormatOverride;
+        if(sample){
+            note.textContent = `Example from your file: "${sample}" is read as ${longDate(readSlashDate(sample, mode))}.`;
+        } else {
+            note.textContent = dateFormatOverride === 'auto'
+                ? 'Auto-detect: the format is worked out from each file, and you are asked if it is unclear.'
+                : `All uploaded files are read as ${mode === 'DMY' ? 'day first (DD/MM/YYYY)' : 'month first (MM/DD/YYYY)'}.`;
+        }
     }
 
     // Admin feeder overrides: username -> feeder name
