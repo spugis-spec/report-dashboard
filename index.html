@@ -244,6 +244,7 @@
         .status-present { background-color: #dcfce7; color: #166534; }
         .status-absent { background-color: #fee2e2; color: #991b1b; }
         .status-sick { background-color: #fef3c7; color: #92400e; }
+        .status-supervision { background-color: #ede9fe; color: #5b21b6; }
         .status-excused { background-color: #e0e7ff; color: #3730a3; }
 
         /* ── Badges ── */
@@ -555,6 +556,7 @@
                         <option value="absent">🚫 Absent</option>
                         <option value="excused">📝 Excused</option>
                         <option value="sick">🤒 Sick</option>
+                        <option value="supervision">🕵️ ON SUPERVISION</option>
                     </select>
                 </div>
                 <div id="bulkExcuseReasonDiv">
@@ -3550,7 +3552,7 @@
     function renderResultsTable(group) {
         const {results,totals,provisionalResults}=reportResults[group];
         const tbody=document.getElementById(`${group}Body`), tfoot=document.getElementById(`${group}Foot`);
-        tbody.innerHTML=results.map((r,i)=>`<tr class="${i%2===0?'bg-white':'bg-gray-50'}"><td class="px-3 py-1 border text-sm">${i+1}</td><td class="px-3 py-1 border font-mono text-xs">${escapeHtml(r.username)}</td><td class="px-3 py-1 border text-sm">${escapeHtml(r.fullname)}</td><td class="px-3 py-1 border text-center text-sm">${r.dss||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.ht||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td><td class="px-3 py-1 border text-center"><select class="status-select status-${r.status}" onchange="updateStatus('${group}',${i},this.value)"><option value="present" ${r.status==='present'?'selected':''}>✓ Present</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select></td></tr>`).join('');
+        tbody.innerHTML=results.map((r,i)=>`<tr class="${i%2===0?'bg-white':'bg-gray-50'}"><td class="px-3 py-1 border text-sm">${i+1}</td><td class="px-3 py-1 border font-mono text-xs">${escapeHtml(r.username)}</td><td class="px-3 py-1 border text-sm">${escapeHtml(r.fullname)}</td><td class="px-3 py-1 border text-center text-sm">${r.dss||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.ht||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td><td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td><td class="px-3 py-1 border text-center"><select class="status-select status-${r.status}" onchange="updateStatus('${group}',${i},this.value)"><option value="present" ${r.status==='present'?'selected':''}>✓ Present</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option><option value="supervision" ${r.status==='supervision'?'selected':''}>🕵️ ON SUPERVISION</option></select></td></tr>`).join('');
 
         // Append clearly-flagged rows for new/not-yet-onboarded enumerators.
         // These are NOT included in the totals footer below.
@@ -3564,7 +3566,7 @@
                 <td class="px-3 py-1 border text-center text-sm">${r.cust||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.lt||'-'}</td>
                 <td class="px-3 py-1 border text-center text-sm">${r.issues||'-'}</td>
-                <td class="px-3 py-1 border text-center"><select class="status-select status-${r.status}" onchange="updateProvisionalStatus('${group}','${r.id}',this.value)"><option value="present" ${r.status==='present'?'selected':''}>✓ Present</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select></td>
+                <td class="px-3 py-1 border text-center"><select class="status-select status-${r.status}" onchange="updateProvisionalStatus('${group}','${r.id}',this.value)"><option value="present" ${r.status==='present'?'selected':''}>✓ Present</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option><option value="supervision" ${r.status==='supervision'?'selected':''}>🕵️ ON SUPERVISION</option></select></td>
             </tr>`).join('');
         }
 
@@ -4068,7 +4070,7 @@
         const tbody=document.getElementById(`dashboard${capGroup}Body`), tfoot=document.getElementById(`dashboard${capGroup}Foot`);
         const isDateRange=reportResults.isDateRange||false;
         const colors={aedc:{bg:'#eff6ff',border:'#bfdbfe'},bss:{bg:'#f0fdf4',border:'#bbf7d0'},nysc:{bg:'#fff7ed',border:'#fed7aa'}};
-        const statusColors={present:{bg:'#dcfce7',color:'#166534'},absent:{bg:'#fee2e2',color:'#991b1b'},sick:{bg:'#fef3c7',color:'#92400e'},excused:{bg:'#e0e7ff',color:'#3730a3'}};
+        const statusColors={present:{bg:'#dcfce7',color:'#166534'},absent:{bg:'#fee2e2',color:'#991b1b'},sick:{bg:'#fef3c7',color:'#92400e'},excused:{bg:'#e0e7ff',color:'#3730a3'},supervision:{bg:'#ede9fe',color:'#5b21b6'}};
 
         tbody.innerHTML=(results||[]).map((r,i)=>{
             let statusDisplay='';
@@ -4085,7 +4087,7 @@
                 const sc=statusColors[r.status]||statusColors.present;
                 const label=r.status==='present'?`${r.total} ✓`:r.status.charAt(0).toUpperCase()+r.status.slice(1);
                 if(isAdminMode&&!isDateRange){
-                    statusDisplay=`<select class="status-select" style="background:${sc.bg};color:${sc.color};padding:2px 6px;border-radius:4px;font-size:10px;" onchange="updateDashboardStatus('${group}',${i},this.value)"><option value="present" ${r.status==='present'?'selected':''}>${r.total} ✓</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select>`;
+                    statusDisplay=`<select class="status-select" style="background:${sc.bg};color:${sc.color};padding:2px 6px;border-radius:4px;font-size:10px;" onchange="updateDashboardStatus('${group}',${i},this.value)"><option value="present" ${r.status==='present'?'selected':''}>${r.total} ✓</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option><option value="supervision" ${r.status==='supervision'?'selected':''}>🕵️ ON SUPERVISION</option></select>`;
                 } else {
                     statusDisplay=`<span style="background:${sc.bg};color:${sc.color};padding:2px 6px;border-radius:4px;font-size:10px;">${label}</span>`;
                 }
@@ -4122,7 +4124,7 @@
                 const psc=statusColors[r.status]||statusColors.present;
                 const pLabel=r.status==='present'?`${r.total||0} ✓`:r.status.charAt(0).toUpperCase()+r.status.slice(1);
                 const provStatusDisplay = isAdminMode
-                    ? `<select class="status-select" style="background:${psc.bg};color:${psc.color};padding:2px 6px;border-radius:4px;font-size:10px;" onchange="updateProvisionalStatus('${group}','${r.id}',this.value)"><option value="present" ${r.status==='present'?'selected':''}>${r.total||0} ✓</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option></select>`
+                    ? `<select class="status-select" style="background:${psc.bg};color:${psc.color};padding:2px 6px;border-radius:4px;font-size:10px;" onchange="updateProvisionalStatus('${group}','${r.id}',this.value)"><option value="present" ${r.status==='present'?'selected':''}>${r.total||0} ✓</option><option value="absent" ${r.status==='absent'?'selected':''}>Absent</option><option value="sick" ${r.status==='sick'?'selected':''}>Sick</option><option value="excused" ${r.status==='excused'?'selected':''}>Excused</option><option value="supervision" ${r.status==='supervision'?'selected':''}>🕵️ ON SUPERVISION</option></select>`
                     : `<span style="background:${psc.bg};color:${psc.color};padding:2px 6px;border-radius:4px;font-size:10px;">${pLabel}</span>`;
                 const provRemarkCell = r.status==='excused'
                     ? (r.excuseRemark ? `<span style="font-size:9px;color:#4f46e5;">${escapeHtml(r.excuseRemark.substring(0,35))}${r.excuseRemark.length>35?'...':''}</span>` : `<span style="font-size:9px;color:#9ca3af;">—</span>`)
@@ -4387,7 +4389,7 @@
         const capType=type==='aedcNysc'?'AedcNysc':'BssNysc';
         const tbody=document.getElementById(`paired${capType}Body`), tfoot=document.getElementById(`paired${capType}Foot`);
         const borderColor=type==='aedcNysc'?'#bfdbfe':'#bbf7d0', bgColor1=type==='aedcNysc'?'#eff6ff':'#f0fdf4';
-        const statusColors={present:{bg:'#dcfce7',color:'#166534'},absent:{bg:'#fee2e2',color:'#991b1b'},sick:{bg:'#fef3c7',color:'#92400e'},excused:{bg:'#e0e7ff',color:'#3730a3'}};
+        const statusColors={present:{bg:'#dcfce7',color:'#166534'},absent:{bg:'#fee2e2',color:'#991b1b'},sick:{bg:'#fef3c7',color:'#92400e'},excused:{bg:'#e0e7ff',color:'#3730a3'},supervision:{bg:'#ede9fe',color:'#5b21b6'}};
         let totals={dss:0,ht:0,cust:0,lt:0,issues:0,total:0}, html='';
 
         teams.forEach((team,ti)=>{
@@ -4609,9 +4611,9 @@
         // Convert status dropdowns → plain styled badge (public view)
         clone.querySelectorAll('select.status-select').forEach(sel => {
             const val = sel.value || 'present';
-            const labels = { present: 'Present', absent: 'Absent', sick: 'Sick', excused: 'Excused' };
-            const bgs    = { present: '#dcfce7', absent: '#fee2e2', sick: '#fef3c7', excused: '#e0e7ff' };
-            const colors = { present: '#166534', absent: '#991b1b', sick: '#92400e', excused: '#3730a3' };
+            const labels = { present: 'Present', absent: 'Absent', sick: 'Sick', excused: 'Excused', supervision: 'ON SUPERVISION' };
+            const bgs    = { present: '#dcfce7', absent: '#fee2e2', sick: '#fef3c7', excused: '#e0e7ff', supervision: '#ede9fe' };
+            const colors = { present: '#166534', absent: '#991b1b', sick: '#92400e', excused: '#3730a3', supervision: '#5b21b6' };
             // Find total from closest td sibling that has a bold number
             const totalEl = sel.closest('tr')?.querySelector('td[style*="font-weight"]');
             const total = totalEl ? totalEl.textContent.trim() : '';
@@ -4785,7 +4787,8 @@
 
         const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
         const file = new File([blob], filename, { type: 'text/html' });
-        const shareText = pageTitleDisplay || 'GIS Enumeration & Asset Mapping Performance Dashboard';
+        let shareText = pageTitleDisplay || 'GIS Enumeration & Asset Mapping Performance Dashboard';
+        try { if (typeof buildWhatsAppNoteText === 'function') shareText += '\n\n' + buildWhatsAppNoteText(); } catch(e){ console.error(e); }
 
         // Preferred path: native share sheet with the file attached — on phones
         // the user picks WhatsApp and the file goes straight into the chat.
@@ -8432,6 +8435,399 @@ if (typeof updateDashboard === 'function') {
         return out;
     };
 }
+</script>
+
+<script>
+/* =====================================================================
+   CALL-BACK FORM AUDIT  ·  ON SUPERVISION  ·  ISSUE LOG REMINDER
+   ===================================================================== */
+
+let cbfConfig      = { start: 1, end: 4000 };
+let cbfRegistry    = {};
+let cbfDismissed   = [];
+let cbfScanAllDates = false;
+let supervisionList = [];
+
+function cbfLocalLoad() {
+    try {
+        const c = JSON.parse(localStorage.getItem('cbfConfig') || 'null');   if (c) cbfConfig = c;
+        const r = JSON.parse(localStorage.getItem('cbfRegistry') || 'null'); if (r) cbfRegistry = r;
+        const s = JSON.parse(localStorage.getItem('supervisionList') || 'null'); if (Array.isArray(s)) supervisionList = s;
+    } catch (e) { console.error(e); }
+}
+function cbfLocalSave() {
+    try {
+        localStorage.setItem('cbfConfig', JSON.stringify(cbfConfig));
+        localStorage.setItem('cbfRegistry', JSON.stringify(cbfRegistry));
+        localStorage.setItem('supervisionList', JSON.stringify(supervisionList));
+    } catch (e) { console.error(e); }
+}
+async function cbfCloudLoad() {
+    if (typeof firebaseInitialized === 'undefined' || !firebaseInitialized) return;
+    try {
+        const [cs, rs, ss] = await Promise.all([
+            database.ref('callbackFormConfig').once('value'),
+            database.ref('callbackFormRegistry').once('value'),
+            database.ref('supervisionList').once('value')
+        ]);
+        if (cs.val()) cbfConfig = { start: Number(cs.val().start) || 1, end: Number(cs.val().end) || 4000 };
+        if (rs.val()) cbfRegistry = rs.val() || {};
+        const sv = ss.val();
+        if (sv) supervisionList = Array.isArray(sv) ? sv.filter(Boolean) : Object.values(sv);
+        cbfLocalSave();
+        buildCallbackFormPanel();
+    } catch (e) { console.error('cbf cloud load', e); }
+}
+function cbfCloudSave(what) {
+    if (typeof firebaseInitialized === 'undefined' || !firebaseInitialized) return;
+    try {
+        if (!what || what === 'config')      database.ref('callbackFormConfig').set(cbfConfig);
+        if (!what || what === 'registry')    database.ref('callbackFormRegistry').set(cbfRegistry);
+        if (!what || what === 'supervision') database.ref('supervisionList').set(supervisionList);
+    } catch (e) { console.error(e); }
+}
+
+function cbfNorm(c) { return (c || '').toString().toLowerCase().replace(/[\s\-]+/g, '_').replace(/_+/g, '_').trim(); }
+function cbfFindCol(cols, test) { return cols.find(c => test(cbfNorm(c))); }
+function cbfSheetCols(sheet) { return Object.keys((sheet && sheet[0]) || {}); }
+function cbfSourceSheets() {
+    const out = [];
+    if (typeof uploadedData === 'object' && uploadedData) {
+        ['cust', 'dss', 'ht', 'lt', 'issues'].forEach(k => { if (Array.isArray(uploadedData[k]) && uploadedData[k].length) out.push(uploadedData[k]); });
+    }
+    return out;
+}
+
+function cbfScan() {
+    const result = { rows: [], noAccessTotal: 0, ok: 0, hasSource: false, allSeen: {} };
+    const dateKey = (typeof reportResults !== 'undefined' && reportResults.dateKey) || '';
+    let startD = null, endD = null;
+    if (dateKey) {
+        if (dateKey.includes('_to_')) { startD = dateKey.split('_to_')[0]; endD = dateKey.split('_to_')[1]; }
+        else { startD = dateKey; endD = dateKey; }
+    }
+
+    const nameMap = {};
+    ['aedc', 'bss', 'nysc'].forEach(g => {
+        ((typeof reportResults !== 'undefined' && reportResults[g] && reportResults[g].results) || []).forEach(r => {
+            if (r.username) nameMap[r.username.toLowerCase()] = r.fullname || r.username;
+        });
+    });
+
+    const seen = {};
+    const candidates = [];
+
+    cbfSourceSheets().forEach(sheet => {
+        const cols = cbfSheetCols(sheet);
+        const cbCol = cbfFindCol(cols, c => c.includes('call') && c.includes('back') && (c.includes('form') || c.includes('no')));
+        if (!cbCol) return;
+        result.hasSource = true;
+        const billCol = cbfFindCol(cols, c => c.includes('billing') && c.includes('status'));
+        const custCol = cbfFindCol(cols, c => (c.includes('customer') && (c.includes('no') || c.includes('number') || c.includes('id'))) || c === 'account_number' || c === 'account_no');
+        const bldgCol = cbfFindCol(cols, c => c.includes('building') && (c.includes('code') || c.includes('no'))) || cbfFindCol(cols, c => c.includes('building'));
+        const userCol = cbfFindCol(cols, c => c === 'username' || c === 'user' || c === 'user_name' || c.includes('username') || c === 'enumerator');
+        const timeCol = cbfFindCol(cols, c => c.includes('time') || c.includes('date') || c === 'today' || c === 'created_at');
+
+        sheet.forEach(row => {
+            const billing = (row[billCol] || '').toString().trim();
+            const isNoAccess = billing.toLowerCase().replace(/[\s_\-]+/g, ' ').includes('no access');
+            const rawForm = (row[cbCol] === 0 ? '0' : (row[cbCol] || '')).toString().trim();
+            let rowDate = '';
+            if (timeCol && row[timeCol]) { try { rowDate = toLocalDateKey(row[timeCol]) || ''; } catch (e) { rowDate = ''; } }
+            const username = (row[userCol] || '').toString().trim().toLowerCase();
+            const custNo = (row[custCol] || '').toString().trim();
+            const bldg = (row[bldgCol] || '').toString().trim();
+
+            const numeric = rawForm.replace(/[^0-9]/g, '');
+            if (numeric) {
+                if (!seen[numeric]) seen[numeric] = [];
+                seen[numeric].push({ date: rowDate, username: username, cust: custNo });
+            }
+
+            if (!isNoAccess) return;
+            const inRange = cbfScanAllDates || !startD || !rowDate || (rowDate >= startD && rowDate <= endD);
+            if (!inRange) return;
+            result.noAccessTotal++;
+            candidates.push({ rowDate: rowDate, username: username, fullname: nameMap[username] || username || '—', custNo: custNo, bldg: bldg, rawForm: rawForm, numeric: numeric });
+        });
+    });
+
+    result.allSeen = seen;
+
+    candidates.forEach(c => {
+        const reasons = [];
+        const upper = c.rawForm.toUpperCase();
+        if (!c.rawForm) reasons.push('BLANK — no call-back form number entered');
+        else if (!/[0-9]/.test(c.rawForm) || ['NA', 'N/A', 'NIL', 'NONE', 'NO', '-', '--'].indexOf(upper) !== -1) reasons.push('NOT A VALID NUMBER ("' + c.rawForm + '")');
+        else {
+            const n = Number(c.numeric);
+            if (n < Number(cbfConfig.start)) reasons.push('BELOW ISSUED RANGE (' + n + ' < ' + cbfConfig.start + ')');
+            if (n > Number(cbfConfig.end)) reasons.push('ABOVE ISSUED RANGE (' + n + ' > ' + cbfConfig.end + ')');
+            const occ = seen[c.numeric] || [];
+            const distinct = new Set(occ.map(o => (o.date || '') + '|' + (o.cust || '')));
+            const reg = cbfRegistry[c.numeric];
+            if (distinct.size > 1) reasons.push('DUPLICATE — form no ' + c.numeric + ' used ' + occ.length + ' times');
+            else if (reg && reg.split('|')[2] && c.custNo && reg.split('|')[2] !== c.custNo) reasons.push('DUPLICATE — form no ' + c.numeric + ' already recorded on ' + (reg.split('|')[0] || 'an earlier date'));
+        }
+        if (!reasons.length) { result.ok++; return; }
+        const key = [c.rowDate, c.username, c.custNo, c.rawForm].join('||');
+        if (cbfDismissed.indexOf(key) !== -1) return;
+        result.rows.push({ rowDate: c.rowDate, username: c.username, fullname: c.fullname, custNo: c.custNo, bldg: c.bldg, rawForm: c.rawForm, reasons: reasons, key: key });
+    });
+
+    result.rows.sort((a, b) => (a.rowDate || '').localeCompare(b.rowDate || '') || a.fullname.localeCompare(b.fullname));
+    return result;
+}
+
+function cbfPanelHTML() {
+    return `
+    <div id="callbackFormPanel" style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:4px solid #b45309;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <h3 style="font-size:0.9rem;font-weight:700;margin:0;display:flex;align-items:center;gap:6px;color:#b45309;"><span>📄</span> Call-Back Form Audit — No Access Captures</h3>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <span class="admin-only no-print" style="font-size:10px;color:#92400e;font-weight:600;">Issued range</span>
+                <input type="number" id="cbfStart" class="admin-only no-print" style="width:78px;padding:3px 6px;border:1.5px solid #fcd34d;border-radius:5px;font-size:11px;">
+                <span class="admin-only no-print" style="font-size:11px;color:#92400e;">to</span>
+                <input type="number" id="cbfEnd" class="admin-only no-print" style="width:78px;padding:3px 6px;border:1.5px solid #fcd34d;border-radius:5px;font-size:11px;">
+                <button class="admin-only no-print" onclick="cbfSaveRange()" style="font-size:10px;padding:3px 10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;cursor:pointer;font-weight:600;">💾 Save Range</button>
+                <label class="admin-only no-print" style="font-size:10px;color:#92400e;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="cbfAllDates" onchange="cbfToggleAllDates(this.checked)"> Scan all dates in file</label>
+                <button class="admin-only no-print" onclick="cbfRegisterSeen()" style="font-size:10px;padding:3px 10px;background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:5px;cursor:pointer;font-weight:600;" title="Save every call-back number found in the uploaded data so duplicates from earlier dates are caught">🗃️ Register Numbers</button>
+                <button class="no-print" onclick="cbfCopyAlert()" style="font-size:10px;padding:3px 10px;background:#fff7ed;color:#b45309;border:1px solid #fed7aa;border-radius:5px;cursor:pointer;font-weight:600;">📋 Copy Alert</button>
+            </div>
+        </div>
+        <div id="cbfSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>
+        <div id="cbfAlertText" style="white-space:pre-wrap;font-size:0.78rem;line-height:1.6;color:#7c2d12;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:9px;margin-bottom:8px;"></div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:10.5px;">
+                <thead style="background:#fef3c7;">
+                    <tr>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">#</th>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">Date</th>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">Enumerator</th>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">Customer No</th>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">Building Code</th>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">call_back_form_no</th>
+                        <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #fcd34d;">Flag</th>
+                        <th class="admin-only no-print" style="padding:6px 8px;border-bottom:2px solid #fcd34d;"></th>
+                    </tr>
+                </thead>
+                <tbody id="cbfTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="supervisionPanel" style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:4px solid #7c3aed;">
+        <h3 style="font-size:0.9rem;font-weight:700;margin:0 0 6px 0;color:#6d28d9;display:flex;align-items:center;gap:6px;"><span>🕵️</span> Staff ON SUPERVISION</h3>
+        <div class="no-print" style="font-size:0.7rem;color:#6b7280;margin-bottom:6px;">Set a person's status to <strong>ON SUPERVISION</strong> in any table to keep them here permanently. Pick any other status to take them off.</div>
+        <div id="supervisionListBox" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+
+    <div id="issueLogReminderPanel" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:12px;border-left:4px solid #16a34a;">
+        <h3 style="font-size:0.9rem;font-weight:700;margin:0 0 6px 0;color:#15803d;display:flex;align-items:center;gap:6px;"><span>📣</span> Issue Log Reminder</h3>
+        <div id="issueLogReminderText" style="white-space:pre-wrap;font-size:0.8rem;line-height:1.7;color:#14532d;"></div>
+    </div>`;
+}
+
+function cbfInjectPanels() {
+    if (document.getElementById('callbackFormPanel')) return;
+    const anchor = document.getElementById('sectionFeederRemark');
+    if (!anchor) return;
+    anchor.insertAdjacentHTML('afterend', cbfPanelHTML());
+    const s = document.getElementById('cbfStart'), e = document.getElementById('cbfEnd');
+    if (s) s.value = cbfConfig.start;
+    if (e) e.value = cbfConfig.end;
+}
+
+function cbfChip(label, value, color, bg) {
+    return `<div style="background:${bg};border-radius:6px;padding:4px 10px;font-size:10px;color:${color};font-weight:700;">${label}: ${value}</div>`;
+}
+
+function buildCallbackFormPanel() {
+    cbfInjectPanels();
+    const body = document.getElementById('cbfTableBody');
+    if (!body) return;
+    const s = document.getElementById('cbfStart'), e = document.getElementById('cbfEnd'), a = document.getElementById('cbfAllDates');
+    if (s && document.activeElement !== s) s.value = cbfConfig.start;
+    if (e && document.activeElement !== e) e.value = cbfConfig.end;
+    if (a) a.checked = cbfScanAllDates;
+
+    const res = cbfScan();
+
+    document.getElementById('cbfSummary').innerHTML =
+        cbfChip('Issued range', cbfConfig.start + ' – ' + cbfConfig.end, '#3730a3', '#e0e7ff') +
+        cbfChip('No Access captures', res.noAccessTotal, '#1e40af', '#dbeafe') +
+        cbfChip('Correctly pasted', res.ok, '#166534', '#dcfce7') +
+        cbfChip('⚠ Flagged', res.rows.length, '#991b1b', '#fee2e2');
+
+    const alertEl = document.getElementById('cbfAlertText');
+    if (!res.hasSource) {
+        alertEl.textContent = 'No call_back_form_no column found in the uploaded data. Upload the customer enumeration file to run this audit.';
+    } else if (!res.rows.length) {
+        alertEl.textContent = '✅ All "No Access" captures carry a valid call-back form number within the issued range (' + cbfConfig.start + '–' + cbfConfig.end + '). Well done.';
+    } else {
+        const names = Array.from(new Set(res.rows.map(r => r.fullname)));
+        alertEl.textContent =
+            '⚠️ ATTENTION: ' + (names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]) + '.\n\n' +
+            res.rows.length + ' "No Access" capture(s) have a missing, invalid, duplicated or out-of-range call_back_form_no (issued range ' + cbfConfig.start + '–' + cbfConfig.end + ').\n\n' +
+            'Every "No Access" premises MUST have a call-back notice pasted and its form number correctly captured — that notice is how the customer reaches AEDC through the official communication channels. Kindly use the customer number and building code listed below to trace and fix each entry today.';
+    }
+
+    body.innerHTML = res.rows.length ? res.rows.map((r, i) => `
+        <tr style="background:${i % 2 === 0 ? '#fffbeb' : '#ffffff'};">
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;">${i + 1}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;">${escapeHtml(r.rowDate || '—')}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;font-weight:600;">${escapeHtml(r.fullname)}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;font-family:monospace;">${escapeHtml(r.custNo || '—')}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;font-family:monospace;">${escapeHtml(r.bldg || '—')}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;font-weight:700;color:#b91c1c;">${escapeHtml(r.rawForm || '(blank)')}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #fde68a;color:#991b1b;">${r.reasons.map(x => escapeHtml(x)).join('<br>')}</td>
+            <td class="admin-only no-print" style="padding:5px 8px;border-bottom:1px solid #fde68a;text-align:center;"><button onclick="cbfDismiss('${encodeURIComponent(r.key)}')" title="Dismiss corrected row" style="background:#fee2e2;color:#991b1b;border:none;border-radius:5px;width:20px;height:20px;cursor:pointer;font-weight:700;">✕</button></td>
+        </tr>`).join('')
+        : `<tr><td colspan="8" style="padding:8px;text-align:center;color:#9ca3af;font-style:italic;">No flagged call-back form numbers.</td></tr>`;
+
+    renderSupervisionPanel();
+    renderIssueLogReminder();
+}
+
+function cbfSaveRange() {
+    const s = Number(document.getElementById('cbfStart').value);
+    const e = Number(document.getElementById('cbfEnd').value);
+    if (!s || !e || e < s) { showStatus('Enter a valid call-back form range', 'error'); return; }
+    cbfConfig = { start: s, end: e };
+    cbfLocalSave(); cbfCloudSave('config');
+    buildCallbackFormPanel();
+    showStatus('Call-back form range set to ' + s + ' – ' + e, 'success');
+}
+function cbfToggleAllDates(v) { cbfScanAllDates = !!v; buildCallbackFormPanel(); }
+function cbfDismiss(encKey) { const k = decodeURIComponent(encKey); if (cbfDismissed.indexOf(k) === -1) cbfDismissed.push(k); buildCallbackFormPanel(); }
+function cbfRegisterSeen() {
+    const res = cbfScan();
+    let added = 0;
+    Object.keys(res.allSeen).forEach(num => {
+        const o = res.allSeen[num][0];
+        if (!cbfRegistry[num]) { cbfRegistry[num] = [o.date || '', o.username || '', o.cust || ''].join('|'); added++; }
+    });
+    cbfLocalSave(); cbfCloudSave('registry');
+    buildCallbackFormPanel();
+    showStatus('Registered ' + added + ' new call-back form number(s) — total ' + Object.keys(cbfRegistry).length, 'success');
+}
+function cbfCopyAlert() {
+    const el = document.getElementById('cbfAlertText');
+    const txt = ((el && el.textContent) || '') + '\n\n' + buildIssueLogReminderText();
+    navigator.clipboard.writeText(txt).then(
+        () => showStatus('Call-back form alert copied — paste on WhatsApp', 'success'),
+        () => showStatus('Copy failed — select the text manually', 'error'));
+}
+
+function supervisionFullname(username) {
+    let n = username;
+    ['aedc', 'bss', 'nysc'].forEach(g => {
+        ((typeof reportResults !== 'undefined' && reportResults[g] && reportResults[g].results) || []).forEach(r => {
+            if ((r.username || '').toLowerCase() === username) n = r.fullname || username;
+        });
+    });
+    return n;
+}
+function setSupervision(username, on) {
+    if (!username) return;
+    const u = username.toLowerCase();
+    if (on) { if (supervisionList.indexOf(u) === -1) supervisionList.push(u); }
+    else { supervisionList = supervisionList.filter(x => x !== u); }
+    cbfLocalSave(); cbfCloudSave('supervision');
+    renderSupervisionPanel();
+}
+function removeSupervision(encUser) {
+    setSupervision(decodeURIComponent(encUser), false);
+    if (typeof renderCurrentDashboardView === 'function') renderCurrentDashboardView();
+}
+function applySupervisionStatuses() {
+    if (!supervisionList.length || typeof reportResults === 'undefined') return;
+    ['aedc', 'bss', 'nysc'].forEach(g => {
+        ((reportResults[g] && reportResults[g].results) || []).forEach(r => {
+            if (supervisionList.indexOf((r.username || '').toLowerCase()) !== -1) r.status = 'supervision';
+        });
+    });
+}
+function renderSupervisionPanel() {
+    const el = document.getElementById('supervisionListBox');
+    if (!el) return;
+    el.innerHTML = supervisionList.length
+        ? supervisionList.map(u => `<span style="background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">🕵️ ${escapeHtml(supervisionFullname(u))}<button class="admin-only no-print" onclick="removeSupervision('${encodeURIComponent(u)}')" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-weight:700;">✕</button></span>`).join('')
+        : '<span style="color:#9ca3af;font-style:italic;font-size:11px;">No staff currently on supervision.</span>';
+}
+
+function currentIssueLogCount() {
+    let n = 0;
+    ['aedc', 'bss', 'nysc'].forEach(g => {
+        ((typeof reportResults !== 'undefined' && reportResults[g] && reportResults[g].results) || []).forEach(r => { n += Number(r.issues) || 0; });
+    });
+    return n;
+}
+function buildIssueLogReminderText() {
+    const n = currentIssueLogCount();
+    const head = n === 0
+        ? '🔴 NO ISSUE LOG WAS RAISED TODAY.'
+        : '🟢 ' + n + ' ISSUE LOG' + (n === 1 ? ' WAS' : 'S WERE') + ' RAISED TODAY.';
+    return head + '\n' +
+        'Let us remember to be proactive in identifying and reporting issues (e.g. infractions, whistleblows, customer complaints, overgrown vegetation, faulty lines, transformers or safety concerns, meter relocation, wrong tariff band, etc.).\n' +
+        'Management deems it important that issues are submitted every day enumeration is carried out.';
+}
+function buildWhatsAppNoteText() {
+    let txt = buildIssueLogReminderText();
+    try {
+        const cbf = cbfScan();
+        if (cbf.rows.length) {
+            txt += '\n\n⚠️ ' + cbf.rows.length + ' "No Access" capture(s) have a missing, invalid, duplicated or out-of-range call_back_form_no (issued range ' + cbfConfig.start + '–' + cbfConfig.end + '). Call-back notices must be pasted and the form number captured correctly so customers can reach AEDC through the official communication channels. See the dashboard for the customer numbers and building codes affected.';
+        }
+    } catch (e) { console.error(e); }
+    return txt;
+}
+function renderIssueLogReminder() {
+    const el = document.getElementById('issueLogReminderText');
+    if (el) el.textContent = buildIssueLogReminderText();
+}
+
+/* ---------------- hooks ---------------- */
+['updateStatus', 'updateDashboardStatus'].forEach(fn => {
+    if (typeof window[fn] === 'function') {
+        const orig = window[fn];
+        window[fn] = function (group, index, status) {
+            const list = (typeof reportResults !== 'undefined' && reportResults[group] && reportResults[group].results) || [];
+            const row = list[index];
+            const uname = row && row.username;
+            if (status === 'supervision') {
+                if (row) row.status = 'supervision';
+                setSupervision(uname, true);
+                if (typeof renderCurrentDashboardView === 'function') renderCurrentDashboardView();
+                return;
+            }
+            if (uname && supervisionList.indexOf(uname.toLowerCase()) !== -1) setSupervision(uname, false);
+            return orig.apply(this, arguments);
+        };
+    }
+});
+
+if (typeof updateDashboard === 'function') {
+    const _cbfOrigUpdateDashboard = updateDashboard;
+    updateDashboard = function () {
+        try { applySupervisionStatuses(); } catch (e) { console.error(e); }
+        const out = _cbfOrigUpdateDashboard.apply(this, arguments);
+        try { buildCallbackFormPanel(); } catch (e) { console.error('callback form panel', e); }
+        return out;
+    };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    cbfLocalLoad();
+    setTimeout(() => { cbfInjectPanels(); buildCallbackFormPanel(); }, 400);
+    setTimeout(() => cbfCloudLoad(), 1800);
+    // Retry the cloud read once an admin signs in (rules block anonymous reads)
+    let cbfLoaded = false;
+    setInterval(() => {
+        if (cbfLoaded) return;
+        if (typeof currentUser !== 'undefined' && currentUser) { cbfLoaded = true; cbfCloudLoad(); }
+    }, 4000);
+});
 </script>
 
 </body>
