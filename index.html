@@ -1670,6 +1670,12 @@
     // Feeder data per user from uploaded files: username -> { feederName: count, ... }
     let userFeederData = {};
 
+    // Same shape as userFeederData, but built ONLY from HT Pole + DT/Substation
+    // uploads. Unauthorized Mapping detection uses this narrower map so that
+    // LT Pole, Customer Enumeration and Issue Log captures never trigger a
+    // mapping violation — that exercise only concerns HT/DSS.
+    let htDssFeederData = {};
+
     // Last FID per asset type
     let lastFidData = { dss: null, ht: null, lt: null, cust: null, issues: null };
     // True once a report has been generated at least once (controls the "Last FID" placeholder message)
@@ -2198,6 +2204,11 @@
                 // feeder counts from a previously uploaded file to linger after a new
                 // file was chosen for the same slot.)
                 rebuildUserFeederData();
+                // Spool the call-back form numbers into the cloud registry the moment the
+                // Customer Enumeration file lands, so duplicate-detection doesn't depend on
+                // someone remembering to click "Register Numbers" later on the dashboard —
+                // and doesn't depend on this file still being in memory at that point.
+                if (type === 'cust' && typeof cbfRegisterSeen === 'function') cbfRegisterSeen({ silent: true });
                 // Reset the input's value so choosing the same file again later (e.g. after
                 // re-saving it) reliably fires the change event and reloads it.
                 input.value='';
@@ -2231,9 +2242,12 @@
     // don't leave stale residue behind.
     function rebuildUserFeederData() {
         userFeederData={};
+        htDssFeederData={};
         ['dss','ht','lt','cust','issues'].forEach(t=>{
             const json=uploadedData[t];
-            if(json) extractFeederData(json,t);
+            if(!json) return;
+            extractFeederData(json,t,userFeederData);
+            if(t==='dss'||t==='ht') extractFeederData(json,t,htDssFeederData);
         });
     }
 
@@ -2361,7 +2375,8 @@
         el.innerHTML=entries.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #f3f4f6;"><span style="color:${colors[k]};font-weight:600;font-size:11px;">${labels[k]}</span><span style="background:${colors[k]}20;color:${colors[k]};font-weight:700;padding:1px 7px;border-radius:10px;font-size:12px;">FID: ${v}</span></div>`).join('');
     }
 
-    function extractFeederData(json, type) {
+    function extractFeederData(json, type, targetMap) {
+        targetMap = targetMap || userFeederData;
         if(!json||!json.length)return;
         const cols=Object.keys(json[0]||{});
 
@@ -2415,10 +2430,10 @@
                 const translated = feederLookup[feederVal];
                 if(translated) feederVal = translated;
 
-                // Store: userFeederData[username][dateKey][feederName] = count
-                if(!userFeederData[username]) userFeederData[username] = {};
-                if(!userFeederData[username][dateKey]) userFeederData[username][dateKey] = {};
-                userFeederData[username][dateKey][feederVal] = (userFeederData[username][dateKey][feederVal]||0)+1;
+                // Store: targetMap[username][dateKey][feederName] = count
+                if(!targetMap[username]) targetMap[username] = {};
+                if(!targetMap[username][dateKey]) targetMap[username][dateKey] = {};
+                targetMap[username][dateKey][feederVal] = (targetMap[username][dateKey][feederVal]||0)+1;
             });
         });
     }
@@ -3547,6 +3562,11 @@
         buildFeederValidationPanel();
         // Auto-detect unauthorized mapping
         buildUnauthorizedMappingPanel();
+        // Re-run the call-back number registration now that the report's date(s) are
+        // known, so the dashboard panel can show exactly what was captured for this
+        // generated date/range (also covers cases where cust data was already loaded
+        // before Generate Report was clicked).
+        if (typeof cbfRegisterSeen === 'function') cbfRegisterSeen({ silent: true });
     }
 
     function renderResultsTable(group) {
@@ -6188,12 +6208,14 @@
             (reportResults[group]?.results || []).forEach(r => {
                 if ((r.total || 0) === 0 || r.status !== 'present') return;
                 const assignedFeeder = fvSessionOverrides[r.username] || r.savedFeeder || getTopFeeder(r.username, startDateStr, endDateStr);
-                const allFeeders = getAllFeeders(r.username, startDateStr, endDateStr);
+                // Unauthorized Mapping only concerns HT Pole / DT-Substation captures —
+                // LT Pole, Customer Enumeration and Issue Log uploads never feed into this.
+                const merged = mergeFeederCounts(htDssFeederData[r.username] || {}, startDateStr, endDateStr);
+                const allFeeders = Object.entries(merged).sort((a,b)=>b[1]-a[1]).map(([f])=>f);
                 allFeeders.forEach(f => {
                     if (f === assignedFeeder) return;
                     const key = r.username + '||' + f;
                     if (unauthDismissed.includes(key)) return;
-                    const merged = mergeFeederCounts(userFeederData[r.username] || {}, startDateStr, endDateStr);
                     const count = merged[f] || 0;
                     const structures = (structureMap[r.username] || {})[f] || [];
                     violations.push({ username: r.username, fullname: r.fullname, group, assignedFeeder: assignedFeeder || '—', unauthorizedFeeder: f, count, structures, key, isManual: false });
@@ -8491,9 +8513,11 @@ function cbfNorm(c) { return (c || '').toString().toLowerCase().replace(/[\s\-]+
 function cbfFindCol(cols, test) { return cols.find(c => test(cbfNorm(c))); }
 function cbfSheetCols(sheet) { return Object.keys((sheet && sheet[0]) || {}); }
 function cbfSourceSheets() {
+    // Call-back form audit only concerns the Customer Enumeration category —
+    // DSS/HT/LT and Issue Log uploads are never scanned for call-back numbers.
     const out = [];
-    if (typeof uploadedData === 'object' && uploadedData) {
-        ['cust', 'dss', 'ht', 'lt', 'issues'].forEach(k => { if (Array.isArray(uploadedData[k]) && uploadedData[k].length) out.push(uploadedData[k]); });
+    if (typeof uploadedData === 'object' && uploadedData && Array.isArray(uploadedData.cust) && uploadedData.cust.length) {
+        out.push(uploadedData.cust);
     }
     return out;
 }
@@ -8504,7 +8528,13 @@ function cbfScan() {
     let startD = null, endD = null;
     if (dateKey) {
         if (dateKey.includes('_to_')) { startD = dateKey.split('_to_')[0]; endD = dateKey.split('_to_')[1]; }
-        else { startD = dateKey; endD = dateKey; }
+        else {
+            startD = dateKey;
+            // A freshly-generated (not yet saved/reloaded) date-range report keeps
+            // its range as dateKey + endDateKey rather than a single "a_to_b" key —
+            // fall back to that so multi-day reports aren't narrowed to day one.
+            endD = (typeof reportResults !== 'undefined' && reportResults.endDateKey) || dateKey;
+        }
     }
 
     const nameMap = {};
@@ -8591,11 +8621,12 @@ function cbfPanelHTML() {
                 <input type="number" id="cbfEnd" class="admin-only no-print" style="width:78px;padding:3px 6px;border:1.5px solid #fcd34d;border-radius:5px;font-size:11px;">
                 <button class="admin-only no-print" onclick="cbfSaveRange()" style="font-size:10px;padding:3px 10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;cursor:pointer;font-weight:600;">💾 Save Range</button>
                 <label class="admin-only no-print" style="font-size:10px;color:#92400e;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="cbfAllDates" onchange="cbfToggleAllDates(this.checked)"> Scan all dates in file</label>
-                <button class="admin-only no-print" onclick="cbfRegisterSeen()" style="font-size:10px;padding:3px 10px;background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:5px;cursor:pointer;font-weight:600;" title="Save every call-back number found in the uploaded data so duplicates from earlier dates are caught">🗃️ Register Numbers</button>
+                <button class="admin-only no-print" onclick="cbfRegisterSeen()" style="font-size:10px;padding:3px 10px;background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:5px;cursor:pointer;font-weight:600;" title="Numbers register automatically on upload and on Generate Report. Click to force a manual re-scan of the currently loaded Customer Enumeration file.">🗃️ Register Numbers</button>
                 <button class="no-print" onclick="cbfCopyAlert()" style="font-size:10px;padding:3px 10px;background:#fff7ed;color:#b45309;border:1px solid #fed7aa;border-radius:5px;cursor:pointer;font-weight:600;">📋 Copy Alert</button>
             </div>
         </div>
         <div id="cbfSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>
+        <div id="cbfRegisterNote" class="no-print" style="font-size:10.5px;color:#3730a3;margin-bottom:8px;"></div>
         <div id="cbfAlertText" style="white-space:pre-wrap;font-size:0.78rem;line-height:1.6;color:#7c2d12;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:9px;margin-bottom:8px;"></div>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:10.5px;">
@@ -8657,7 +8688,15 @@ function buildCallbackFormPanel() {
         cbfChip('Issued range', cbfConfig.start + ' – ' + cbfConfig.end, '#3730a3', '#e0e7ff') +
         cbfChip('No Access captures', res.noAccessTotal, '#1e40af', '#dbeafe') +
         cbfChip('Correctly pasted', res.ok, '#166534', '#dcfce7') +
-        cbfChip('⚠ Flagged', res.rows.length, '#991b1b', '#fee2e2');
+        cbfChip('⚠ Flagged', res.rows.length, '#991b1b', '#fee2e2') +
+        cbfChip('🗃️ Registered (all-time)', Object.keys(cbfRegistry).length, '#3730a3', '#e0e7ff');
+
+    const regNoteEl = document.getElementById('cbfRegisterNote');
+    if (regNoteEl) {
+        regNoteEl.textContent = cbfLastRegisterInfo
+            ? '🗃️ ' + cbfLastRegisterInfo.added + ' new call-back number(s) registered ' + cbfLastRegisterInfo.dateLabel + ' — ' + cbfLastRegisterInfo.total + ' total on file.'
+            : 'Numbers register automatically when Customer Enumeration data is uploaded and when a report is generated.';
+    }
 
     const alertEl = document.getElementById('cbfAlertText');
     if (!res.hasSource) {
@@ -8700,7 +8739,11 @@ function cbfSaveRange() {
 }
 function cbfToggleAllDates(v) { cbfScanAllDates = !!v; buildCallbackFormPanel(); }
 function cbfDismiss(encKey) { const k = decodeURIComponent(encKey); if (cbfDismissed.indexOf(k) === -1) cbfDismissed.push(k); buildCallbackFormPanel(); }
-function cbfRegisterSeen() {
+// info about the most recent register run, shown in the panel itself so it's
+// visible even when the run happened silently (auto-triggered on upload / generate)
+let cbfLastRegisterInfo = null; // { added, total, dateLabel }
+function cbfRegisterSeen(opts) {
+    opts = opts || {};
     const res = cbfScan();
     let added = 0;
     Object.keys(res.allSeen).forEach(num => {
@@ -8708,8 +8751,12 @@ function cbfRegisterSeen() {
         if (!cbfRegistry[num]) { cbfRegistry[num] = [o.date || '', o.username || '', o.cust || ''].join('|'); added++; }
     });
     cbfLocalSave(); cbfCloudSave('registry');
+    cbfLastRegisterInfo = { added: added, total: Object.keys(cbfRegistry).length, dateLabel: cbfReportDateLabel() };
     buildCallbackFormPanel();
-    showStatus('Registered ' + added + ' new call-back form number(s) — total ' + Object.keys(cbfRegistry).length, 'success');
+    if (!opts.silent) {
+        showStatus('Registered ' + added + ' new call-back form number(s) — total ' + Object.keys(cbfRegistry).length, 'success');
+    }
+    return cbfLastRegisterInfo;
 }
 function cbfCopyAlert() {
     const el = document.getElementById('cbfAlertText');
@@ -8763,11 +8810,22 @@ function currentIssueLogCount() {
     });
     return n;
 }
+function cbfReportDateLabel() {
+    const dateKey = (typeof reportResults !== 'undefined' && reportResults.dateKey) || '';
+    if (!dateKey) return 'TODAY';
+    try {
+        let sd = dateKey, ed = dateKey;
+        if (dateKey.includes('_to_')) { [sd, ed] = dateKey.split('_to_'); }
+        else if (typeof reportResults !== 'undefined' && reportResults.endDateKey) { ed = reportResults.endDateKey; }
+        return sd === ed ? ('ON ' + formatDateFull(sd)) : ('ON ' + formatDateFull(sd) + ' TO ' + formatDateFull(ed));
+    } catch (e) { return 'TODAY'; }
+}
 function buildIssueLogReminderText() {
     const n = currentIssueLogCount();
+    const dateLabel = cbfReportDateLabel();
     const head = n === 0
-        ? '🔴 NO ISSUE LOG WAS RAISED TODAY.'
-        : '🟢 ' + n + ' ISSUE LOG' + (n === 1 ? ' WAS' : 'S WERE') + ' RAISED TODAY.';
+        ? '🔴 NO ISSUE LOG WAS RAISED ' + dateLabel + '.'
+        : '🟢 ' + n + ' ISSUE LOG' + (n === 1 ? ' WAS' : 'S WERE') + ' RAISED ' + dateLabel + '.';
     return head + '\n' +
         'Let us remember to be proactive in identifying and reporting issues (e.g. infractions, whistleblows, customer complaints, overgrown vegetation, faulty lines, transformers or safety concerns, meter relocation, wrong tariff band, etc.).\n' +
         'Management deems it important that issues are submitted every day enumeration is carried out.';
