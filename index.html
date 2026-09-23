@@ -2196,7 +2196,7 @@
             try {
                 const data=new Uint8Array(e.target.result);
                 const wb=XLSX.read(data,{type:'array',cellDates:true});
-                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:true});
+                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:true,defval:''});
                 uploadedData[type]=json; zone.classList.add('has-file');
                 status.innerHTML=`<span class="text-green-600">✓ ${file.name}</span><br><span class="text-xs">${json.length} rows</span>`;
                 // Rebuild feeder data from scratch across all currently uploaded files.
@@ -2261,7 +2261,7 @@
             try {
                 const data=new Uint8Array(e.target.result);
                 const wb=XLSX.read(data,{type:'array'});
-                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
                 feederLookup={};
                 json.forEach(row=>{
                     const cols=Object.keys(row);
@@ -7328,7 +7328,7 @@
                     if(isNaN(d.getTime())) { skippedSheets.push(sheetName); continue; }
                     const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
                     const ws = wb.Sheets[sheetName];
-                    const rows = XLSX.utils.sheet_to_json(ws);
+                    const rows = XLSX.utils.sheet_to_json(ws,{defval:''});
                     if(!rows.length) continue;
 
                     // Validate required columns exist
