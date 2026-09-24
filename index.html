@@ -1213,11 +1213,11 @@
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-                                        <button onclick="toggleUnauthorizedPanel()" id="unauthToggleBtn" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:5px 12px;border-radius:8px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔼 Collapse</button>
+                                        <button onclick="toggleUnauthorizedPanel()" id="unauthToggleBtn" data-export-toggle data-toggle-target="unauthBody" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:5px 12px;border-radius:8px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔽 Expand</button>
                                         <button onclick="copyUnauthorizedAlert()" style="background:#fff;color:#dc2626;border:none;padding:5px 12px;border-radius:8px;font-weight:600;font-size:0.78rem;cursor:pointer;">📋 Copy Alert</button>
                                     </div>
                                 </div>
-                                <div id="unauthBody" style="padding:14px 18px;">
+                                <div id="unauthBody" style="padding:14px 18px;display:none;">
                                     <!-- WhatsApp-style alert text only (no bullet writeup) -->
                                     <div id="unauthAlertText" style="background:#fff;border:1.5px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.82rem;line-height:1.75;color:#1f2937;white-space:pre-wrap;font-family:'DM Sans',sans-serif;"></div>
                                     <!-- Unauthorized Mapping Table -->
@@ -1248,13 +1248,16 @@
                         <div id="sectionFeederRemark" style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-left:4px solid #dc2626;">
                             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
                                 <h3 style="font-size:0.9rem;font-weight:600;margin:0;display:flex;align-items:center;gap:6px;color:#dc2626;"><span>⚠️</span> Unauthorized Mapping Remark</h3>
-                                <div class="admin-only" style="display:flex;gap:6px;flex-wrap:wrap;">
-                                    <button onclick="saveFeederRemark()" style="font-size:10px;padding:3px 10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;cursor:pointer;font-weight:600;">💾 Save</button>
-                                    <button onclick="clearFeederRemark()" style="font-size:10px;padding:3px 10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;font-weight:600;">🗑️ Clear</button>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button class="no-print" onclick="toggleFeederRemarkPanel()" id="feederRemarkToggleBtn" data-export-toggle data-toggle-target="feederRemarkBody" style="font-size:10px;padding:3px 10px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:5px;cursor:pointer;font-weight:600;">🔽 Expand</button>
+                                    <button class="admin-only" onclick="saveFeederRemark()" style="font-size:10px;padding:3px 10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;cursor:pointer;font-weight:600;">💾 Save</button>
+                                    <button class="admin-only" onclick="clearFeederRemark()" style="font-size:10px;padding:3px 10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;font-weight:600;">🗑️ Clear</button>
                                 </div>
                             </div>
-                            <div id="feederRemarkDisplay" style="display:none;white-space:pre-wrap;font-size:0.82rem;line-height:1.7;color:#1f2937;background:#fff1f2;border:1px solid #fca5a5;border-radius:6px;padding:10px;"></div>
-                            <textarea id="feederRemarkInput" class="admin-only" placeholder="Type or paste unauthorized mapping alert here (e.g. generated from the Feeder Validation panel above). This text will appear on the dashboard and can be copied for WhatsApp..." style="width:100%;min-height:80px;padding:8px;border:1.5px dashed #fca5a5;border-radius:6px;font-size:0.8rem;font-family:'DM Sans',sans-serif;resize:vertical;color:#1f2937;background:#fff1f2;" oninput="updateFeederRemarkDisplay()"></textarea>
+                            <div id="feederRemarkBody" style="display:none;">
+                                <div id="feederRemarkDisplay" style="display:none;white-space:pre-wrap;font-size:0.82rem;line-height:1.7;color:#1f2937;background:#fff1f2;border:1px solid #fca5a5;border-radius:6px;padding:10px;"></div>
+                                <textarea id="feederRemarkInput" class="admin-only" placeholder="Type or paste unauthorized mapping alert here (e.g. generated from the Feeder Validation panel above). This text will appear on the dashboard and can be copied for WhatsApp..." style="width:100%;min-height:80px;padding:8px;border:1.5px dashed #fca5a5;border-radius:6px;font-size:0.8rem;font-family:'DM Sans',sans-serif;resize:vertical;color:#1f2937;background:#fff1f2;" oninput="updateFeederRemarkDisplay()"></textarea>
+                            </div>
                         </div>
                         <!-- Absent/Sick/Excused Legacy -->
                         <div id="sectionAbsentSick" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
@@ -4671,8 +4674,18 @@
             if (wrapper) wrapper.replaceWith(span); else inp.replaceWith(span);
         });
 
-        // Remove any remaining buttons inside the cloned content
-        clone.querySelectorAll('button').forEach(b => b.remove());
+        // Remove any remaining buttons inside the cloned content — except the
+        // collapse/expand toggles, which stay clickable in the shared HTML so
+        // the reader can open those sections while they start minimized.
+        clone.querySelectorAll('button').forEach(b => {
+            if (b.hasAttribute('data-export-toggle')) {
+                b.removeAttribute('onclick');
+                b.classList.remove('no-print', 'admin-only');
+                b.classList.add('export-toggle');
+                return;
+            }
+            b.remove();
+        });
 
         // ── 4. Build the full self-contained HTML document ─────────────────
         const dateKey = reportResults.dateKey || '';
@@ -4752,6 +4765,10 @@
             .gis-hero-sub:empty { display: none; }
             /* Interactive hero controls never appear in the export */
             .gis-hero-actions, .hero-datebar, .hero-pill, .hero-select, .hero-arrow { display: none !important; }
+            /* Collapse/expand toggles stay usable in the shared HTML */
+            button.export-toggle { display:inline-block !important; cursor:pointer;
+                font-size:10px; padding:3px 10px; border-radius:5px; font-weight:600;
+                background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; }
             /* Responsive */
             @media(max-width:768px){ body{ padding:10px; } table{ font-size:10px; } }
         `;
@@ -4773,6 +4790,17 @@
         📊 GIS Enumeration &amp; Asset Mapping Performance Dashboard &nbsp;·&nbsp; Exported ${new Date().toLocaleString()}
       </div>
     </div>
+  <script>
+    document.querySelectorAll('button[data-toggle-target]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var body = document.getElementById(btn.getAttribute('data-toggle-target'));
+        if (!body) return;
+        var open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        btn.textContent = open ? '\u{1F53D} Expand' : '\u{1F53C} Collapse';
+      });
+    });
+  <\/script>
 </body>
 </html>`;
 
@@ -6246,6 +6274,20 @@
         // Always show so admin can add manual entries
         panel.style.display = (violations.length > 0 || isAdminMode) ? 'block' : 'none';
 
+        // Auto-minimise: when nothing unauthorized was captured the panel stays
+        // collapsed (admin/public alike) so the daily report shares clean. It
+        // only auto-expands when there are real violations, and any manual
+        // toggle by the viewer is respected from then on.
+        (function autoCollapseUnauth() {
+            const body = document.getElementById('unauthBody');
+            const btn = document.getElementById('unauthToggleBtn');
+            if (!body || !btn) return;
+            if (window._unauthUserToggled) return;
+            const shouldOpen = violations.length > 0;
+            body.style.display = shouldOpen ? '' : 'none';
+            btn.textContent = shouldOpen ? '🔼 Collapse' : '🔽 Expand';
+        })();
+
         const uniqueNames = [...new Set(violations.map(v => v.fullname))];
         let alertText = '';
         if (uniqueNames.length > 0) {
@@ -6507,6 +6549,29 @@
         const isOpen = body.style.display !== 'none';
         body.style.display = isOpen ? 'none' : '';
         btn.textContent = isOpen ? '🔽 Expand' : '🔼 Collapse';
+        window._unauthUserToggled = true;
+    }
+
+    // ── Unauthorized Mapping Remark: collapsible, minimized when empty ──
+    function toggleFeederRemarkPanel() {
+        const body = document.getElementById('feederRemarkBody');
+        const btn = document.getElementById('feederRemarkToggleBtn');
+        if (!body || !btn) return;
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : '';
+        btn.textContent = isOpen ? '🔽 Expand' : '🔼 Collapse';
+        window._feederRemarkUserToggled = true;
+    }
+
+    function autoCollapseFeederRemark() {
+        const body = document.getElementById('feederRemarkBody');
+        const btn = document.getElementById('feederRemarkToggleBtn');
+        if (!body || !btn) return;
+        if (window._feederRemarkUserToggled) return;
+        const val = (document.getElementById('feederRemarkInput')?.value || '').trim();
+        const shouldOpen = !!val;
+        body.style.display = shouldOpen ? '' : 'none';
+        btn.textContent = shouldOpen ? '🔼 Collapse' : '🔽 Expand';
     }
 
     function copyUnauthorizedAlert() {
@@ -6531,6 +6596,7 @@
         const val = input.value.trim();
         display.textContent = val;
         display.style.display = val ? 'block' : 'none';
+        autoCollapseFeederRemark();
     }
 
     function saveFeederRemark() {
@@ -8623,8 +8689,12 @@ function cbfPanelHTML() {
                 <label class="admin-only no-print" style="font-size:10px;color:#92400e;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="cbfAllDates" onchange="cbfToggleAllDates(this.checked)"> Scan all dates in file</label>
                 <button class="admin-only no-print" onclick="cbfRegisterSeen()" style="font-size:10px;padding:3px 10px;background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:5px;cursor:pointer;font-weight:600;" title="Numbers register automatically on upload and on Generate Report. Click to force a manual re-scan of the currently loaded Customer Enumeration file.">🗃️ Register Numbers</button>
                 <button class="no-print" onclick="cbfCopyAlert()" style="font-size:10px;padding:3px 10px;background:#fff7ed;color:#b45309;border:1px solid #fed7aa;border-radius:5px;cursor:pointer;font-weight:600;">📋 Copy Alert</button>
+                <button class="no-print" onclick="cbfExportHTML()" style="font-size:10px;padding:3px 10px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;cursor:pointer;font-weight:600;">🌐 Export HTML</button>
+                <button class="no-print" onclick="cbfShareHTMLToWhatsApp()" style="font-size:10px;padding:3px 10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;cursor:pointer;font-weight:600;">📲 Share HTML</button>
+                <button class="no-print" id="cbfToggleBtn" onclick="cbfTogglePanel()" data-export-toggle data-toggle-target="cbfPanelBody" style="font-size:10px;padding:3px 10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:5px;cursor:pointer;font-weight:600;">🔽 Expand</button>
             </div>
         </div>
+        <div id="cbfPanelBody" style="display:none;">
         <div id="cbfSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>
         <div id="cbfRegisterNote" class="no-print" style="font-size:10.5px;color:#3730a3;margin-bottom:8px;"></div>
         <div id="cbfAlertText" style="white-space:pre-wrap;font-size:0.78rem;line-height:1.6;color:#7c2d12;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:9px;margin-bottom:8px;"></div>
@@ -8644,6 +8714,7 @@ function cbfPanelHTML() {
                 </thead>
                 <tbody id="cbfTableBody"></tbody>
             </table>
+        </div>
         </div>
     </div>
 
@@ -8693,9 +8764,24 @@ function buildCallbackFormPanel() {
 
     const regNoteEl = document.getElementById('cbfRegisterNote');
     if (regNoteEl) {
-        regNoteEl.textContent = cbfLastRegisterInfo
-            ? '🗃️ ' + cbfLastRegisterInfo.added + ' new call-back number(s) registered ' + cbfLastRegisterInfo.dateLabel + ' — ' + cbfLastRegisterInfo.total + ' total on file.'
-            : 'Numbers register automatically when Customer Enumeration data is uploaded and when a report is generated.';
+        // The old note only reported how many numbers this particular run ADDED,
+        // which read as "0 new ... ON <date>" even when the table clearly shows
+        // numbers captured on that date (they were already on file from an
+        // earlier run). Report both figures separately so the note matches the
+        // table: how many belong to the report date(s), and how many were new.
+        const forReport = cbfRegisteredInReport();
+        const total = Object.keys(cbfRegistry).length;
+        const label = cbfReportDateLabel();
+        if (cbfLastRegisterInfo) {
+            regNoteEl.textContent =
+                '🗃️ ' + forReport + ' call-back number(s) on file ' + label +
+                ' · ' + cbfLastRegisterInfo.added + ' newly added in the last scan' +
+                ' · ' + total + ' total on file.';
+        } else {
+            regNoteEl.textContent =
+                '🗃️ ' + forReport + ' call-back number(s) on file ' + label +
+                ' · ' + total + ' total on file. Numbers register automatically when Customer Enumeration data is uploaded and when a report is generated.';
+        }
     }
 
     const alertEl = document.getElementById('cbfAlertText');
@@ -8724,8 +8810,152 @@ function buildCallbackFormPanel() {
         </tr>`).join('')
         : `<tr><td colspan="8" style="padding:8px;text-align:center;color:#9ca3af;font-style:italic;">No flagged call-back form numbers.</td></tr>`;
 
+    cbfAutoCollapse(res.rows.length);
     renderSupervisionPanel();
     renderIssueLogReminder();
+}
+
+// Report date window (same logic the audit scan uses)
+function cbfReportRange() {
+    const dateKey = (typeof reportResults !== 'undefined' && reportResults.dateKey) || '';
+    if (!dateKey) return null;
+    if (dateKey.includes('_to_')) {
+        const p = dateKey.split('_to_');
+        return { start: p[0], end: p[1] };
+    }
+    return { start: dateKey, end: (typeof reportResults !== 'undefined' && reportResults.endDateKey) || dateKey };
+}
+
+// How many registered call-back numbers were first seen within the report date(s)
+function cbfRegisteredInReport() {
+    const range = cbfReportRange();
+    const keys = Object.keys(cbfRegistry);
+    if (!range) return keys.length;
+    let n = 0;
+    keys.forEach(num => {
+        const d = (cbfRegistry[num] || '').split('|')[0] || '';
+        if (d && d >= range.start && d <= range.end) n++;
+    });
+    return n;
+}
+
+// Panel stays minimized unless something is actually flagged; a manual toggle wins
+function cbfAutoCollapse(flaggedCount) {
+    const body = document.getElementById('cbfPanelBody');
+    const btn = document.getElementById('cbfToggleBtn');
+    if (!body || !btn) return;
+    if (window._cbfUserToggled) return;
+    const shouldOpen = flaggedCount > 0;
+    body.style.display = shouldOpen ? '' : 'none';
+    btn.textContent = shouldOpen ? '🔼 Collapse' : '🔽 Expand';
+}
+
+function cbfTogglePanel() {
+    const body = document.getElementById('cbfPanelBody');
+    const btn = document.getElementById('cbfToggleBtn');
+    if (!body || !btn) return;
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    btn.textContent = isOpen ? '🔽 Expand' : '🔼 Collapse';
+    window._cbfUserToggled = true;
+}
+
+// ── Call-Back Form Audit: standalone HTML export + WhatsApp share ──
+function cbfBuildExportHTML() {
+    const panel = document.getElementById('callbackFormPanel');
+    if (!panel) { showStatus('Call-back form audit is not ready yet', 'warning'); return null; }
+    const clone = panel.cloneNode(true);
+    clone.querySelectorAll('.no-print, .admin-only').forEach(el => el.remove());
+    const b = clone.querySelector('#cbfPanelBody');
+    if (b) b.style.display = '';
+    const label = cbfReportDateLabel().replace(/^ON /, '');
+    const comment = cbfCommentText();
+    const filename = 'Call-Back-Form-Audit_' + label.replace(/[^A-Za-z0-9]+/g, '-') + '.html';
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call-Back Form Audit — ${escapeHtml(label)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#f3f4f6;color:#111827;padding:18px}
+  table{border-collapse:collapse;width:100%}
+  .wrap{max-width:1000px;margin:0 auto}
+  .hdr{background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border-radius:12px;padding:18px 20px;margin-bottom:14px}
+  .hdr h1{font-size:1.1rem;margin:0}
+  .hdr p{font-size:0.78rem;opacity:0.92;margin-top:4px}
+  .note{white-space:pre-wrap;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px;font-size:0.8rem;line-height:1.65;color:#7c2d12;margin-top:14px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr">
+      <h1>📄 Call-Back Form Audit — No Access Captures</h1>
+      <p>${escapeHtml(label)}</p>
+    </div>
+    ${clone.outerHTML}
+    <div class="note">${escapeHtml(comment)}</div>
+    <div style="margin-top:18px;text-align:center;font-size:11px;color:#9ca3af;">
+      📊 GIS Enumeration &amp; Asset Mapping Performance Dashboard · Exported ${new Date().toLocaleString()}
+    </div>
+  </div>
+</body>
+</html>`;
+    return { html, filename, comment, label };
+}
+
+// The comment that travels with the export (same text shared on WhatsApp)
+function cbfCommentText() {
+    const el = document.getElementById('cbfAlertText');
+    let txt = (el && el.textContent) || '';
+    try { txt += '\n\n' + buildIssueLogReminderText(); } catch (e) { console.error(e); }
+    return txt.trim();
+}
+
+function cbfExportHTML() {
+    const built = cbfBuildExportHTML();
+    if (!built) return;
+    const blob = new Blob([built.html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = built.filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus('✅ Call-back form audit exported as ' + built.filename, 'success');
+}
+
+async function cbfShareHTMLToWhatsApp() {
+    const built = cbfBuildExportHTML();
+    if (!built) return;
+    const blob = new Blob([built.html], { type: 'text/html;charset=utf-8' });
+    const file = new File([blob], built.filename, { type: 'text/html' });
+    const shareText = '📄 Call-Back Form Audit — No Access Captures (' + built.label + ')\n\n' + built.comment;
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({ files: [file], title: built.filename, text: shareText });
+            showStatus('✅ Shared ' + built.filename, 'success');
+            return;
+        } catch (err) {
+            if (err && err.name === 'AbortError') return;
+            console.error('Web Share failed:', err);
+        }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = built.filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const noteText = shareText + '\n\nFile "' + built.filename + '" was just downloaded — please attach it here from your Downloads folder.';
+    const params = new URLSearchParams({ text: noteText });
+    const waUrl = isMobile ? 'https://wa.me/?' + params.toString() : 'https://web.whatsapp.com/send?' + params.toString();
+    window.open(waUrl, '_blank', 'noopener');
+    showStatus('📥 Downloaded ' + built.filename + ' — attach it to WhatsApp manually', 'info');
 }
 
 function cbfSaveRange() {
@@ -8877,7 +9107,11 @@ if (typeof updateDashboard === 'function') {
 
 document.addEventListener('DOMContentLoaded', () => {
     cbfLocalLoad();
-    setTimeout(() => { cbfInjectPanels(); buildCallbackFormPanel(); }, 400);
+    setTimeout(() => {
+        cbfInjectPanels();
+        buildCallbackFormPanel();
+        try { autoCollapseFeederRemark(); } catch (e) { console.error(e); }
+    }, 400);
     setTimeout(() => cbfCloudLoad(), 1800);
     // Retry the cloud read once an admin signs in (rules block anonymous reads)
     let cbfLoaded = false;
