@@ -5140,6 +5140,13 @@
                 unauthViolations: currentViolations.length ? currentViolations : unauthSavedViolations,
                 unauthDismissed: unauthDismissed,
                 unauthManualEntries: unauthManualEntries};
+            // Keep the call-back notice table with the date it belongs to, so it
+            // still shows in full when this dashboard is re-opened later.
+            try {
+                const cbfSnap = cbfBuildSnapshot();
+                dashData.cbfSnapshot = cbfSnap || (reportResults.cbfSnapshot || null);
+                dashData.cbfDismissed = cbfDismissed.slice();
+            } catch(e){ console.error('cbf snapshot', e); }
             if(isPairedMode(reportResults.dateKey)){collectPairings();dashData.pairings={aedcNysc:teamPairings.aedcNysc,bssNysc:teamPairings.bssNysc};dashData.isPairedMode=true;}
             await database.ref(`dashboards/${reportResults.dateKey}`).set(dashData);
             await appendStaffHistoryForCurrentSave();
@@ -5273,6 +5280,9 @@
             unauthSavedViolations = toArray(reportResults.unauthViolations || []);
             unauthDismissed = toArray(reportResults.unauthDismissed || []);
             unauthManualEntries = toArray(reportResults.unauthManualEntries || []);
+            // Restore the saved call-back notice table for this date
+            cbfDismissed = toArray(raw.cbfDismissed || []);
+            try { setTimeout(()=>buildCallbackFormPanel(), 250); } catch(e){ console.error(e); }
             if (reportResults.pairings) {
                 teamPairings.aedcNysc = toArray(reportResults.pairings.aedcNysc);
                 teamPairings.bssNysc  = toArray(reportResults.pairings.bssNysc);
@@ -5333,6 +5343,13 @@
                     if(!dayRaw) continue;
                     loaded++;
                     if(dayRaw.pairings)latestPairings=dayRaw.pairings;
+                    // merge each day's saved call-back notice rows into the range view
+                    if(dayRaw.cbfSnapshot){
+                        if(!aggregated.cbfSnapshot)aggregated.cbfSnapshot={rows:[],noAccessTotal:0,ok:0};
+                        aggregated.cbfSnapshot.rows=aggregated.cbfSnapshot.rows.concat(toArray(dayRaw.cbfSnapshot.rows||[]));
+                        aggregated.cbfSnapshot.noAccessTotal+=dayRaw.cbfSnapshot.noAccessTotal||0;
+                        aggregated.cbfSnapshot.ok+=dayRaw.cbfSnapshot.ok||0;
+                    }
                     ['aedc','bss','nysc'].forEach(g=>{
                         const saved=dayRaw[g];
                         if(saved?.totals)Object.keys(aggregated[g].totals).forEach(k=>aggregated[g].totals[k]+=saved.totals[k]||0);
@@ -5382,7 +5399,7 @@
                 aggregated[g].provisionalResults.sort((a,b)=>b.total-a.total);
             });
             if(latestPairings)aggregated.pairings=latestPairings;
-            if(loaded>0){reportResults=aggregated;currentViewMode='legacy';updateDashboard();setTimeout(()=>initCharts(),100);showStatus(`Loaded ${loaded} of ${totalDays} days`,'success');}
+            if(loaded>0){reportResults=aggregated;currentViewMode='legacy';updateDashboard();setTimeout(()=>initCharts(),100);setTimeout(()=>{try{buildCallbackFormPanel();}catch(e){console.error(e);}},250);showStatus(`Loaded ${loaded} of ${totalDays} days`,'success');}
             else showStatus('No saved dashboards in range','warning');
         } else {
             await loadDashboardByDate(startDate);
@@ -8588,6 +8605,51 @@ function cbfSourceSheets() {
     return out;
 }
 
+/* ---------------------------------------------------------------
+   PERSISTED CALL-BACK NOTICE SNAPSHOT
+   The audit table is computed from the freshly uploaded spreadsheet.
+   When a saved dashboard is re-opened later there is no spreadsheet in
+   memory, so the table used to come back empty. We therefore store the
+   scan result inside dashboards/{date} on save and replay it on load.
+   --------------------------------------------------------------- */
+function cbfBuildSnapshot() {
+    const res = cbfScan();
+    if (!res.hasSource) return null;
+    const clean = v => (v === undefined || v === null) ? '' : v;
+    return {
+        savedAt: Date.now(),
+        rangeStart: cbfConfig.start,
+        rangeEnd: cbfConfig.end,
+        noAccessTotal: res.noAccessTotal || 0,
+        ok: res.ok || 0,
+        rows: (res.rows || []).map(r => ({
+            key: clean(r.key), rowDate: clean(r.rowDate), fullname: clean(r.fullname),
+            custNo: clean(r.custNo), bldg: clean(r.bldg), rawForm: clean(r.rawForm),
+            reasons: (r.reasons || []).map(clean)
+        }))
+    };
+}
+
+// Scan result used for rendering: live spreadsheet when present, otherwise the
+// snapshot that was saved with this date's dashboard.
+function cbfResolveScan() {
+    const res = cbfScan();
+    if (res.hasSource) return res;
+    const snap = (typeof reportResults !== 'undefined' && reportResults.cbfSnapshot) || null;
+    if (!snap) return res;
+    const rows = (typeof toArray === 'function' ? toArray(snap.rows || []) : (snap.rows || []))
+        .map(r => ({ ...r, reasons: (typeof toArray === 'function' ? toArray(r.reasons || []) : (r.reasons || [])) }))
+        .filter(r => cbfDismissed.indexOf(r.key) === -1);
+    return {
+        rows: rows,
+        noAccessTotal: snap.noAccessTotal || 0,
+        ok: snap.ok || 0,
+        hasSource: true,
+        fromSnapshot: true,
+        allSeen: {}
+    };
+}
+
 function cbfScan() {
     const result = { rows: [], noAccessTotal: 0, ok: 0, hasSource: false, allSeen: {} };
     const dateKey = (typeof reportResults !== 'undefined' && reportResults.dateKey) || '';
@@ -8753,7 +8815,7 @@ function buildCallbackFormPanel() {
     if (e && document.activeElement !== e) e.value = cbfConfig.end;
     if (a) a.checked = cbfScanAllDates;
 
-    const res = cbfScan();
+    const res = cbfResolveScan();
 
     document.getElementById('cbfSummary').innerHTML =
         cbfChip('Issued range', cbfConfig.start + ' – ' + cbfConfig.end, '#3730a3', '#e0e7ff') +
@@ -8786,7 +8848,7 @@ function buildCallbackFormPanel() {
 
     const alertEl = document.getElementById('cbfAlertText');
     if (!res.hasSource) {
-        alertEl.textContent = 'No call_back_form_no column found in the uploaded data. Upload the customer enumeration file to run this audit.';
+        alertEl.textContent = 'No call-back form details are on file for this date, and no customer enumeration file is currently loaded. Upload the customer enumeration file (or re-save this date) to run this audit.';
     } else if (!res.rows.length) {
         alertEl.textContent = '✅ All "No Access" captures carry a valid call-back form number within the issued range (' + cbfConfig.start + '–' + cbfConfig.end + '). Well done.';
     } else {
